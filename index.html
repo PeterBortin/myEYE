@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VISION_OS v12.0 | PARTIAL_SCAN</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+
+    <style>
+        :root { 
+            --target: #ffff00; --hostile: #ff0000; --motion: #ff9900; 
+            --neon: #00ff41; --bg: #050505; --structure: #00aaff;
+        }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; color: var(--neon); }
+        
+        #container { position: relative; width: 100vw; height: 100vh; display: flex; flex-direction: column; }
+        #viewport { position: relative; flex: 1; overflow: hidden; background: #000; }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.6) contrast(1.4); z-index: 1; }
+        canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 2; pointer-events: none; }
+
+        #ui-layer { position: absolute; top: 10px; right: 10px; z-index: 20; display: flex; flex-direction: column; gap: 5px; }
+        .ui-status { background: rgba(0,0,0,0.8); border: 1px solid var(--neon); color: var(--neon); padding: 5px 12px; font-size: 9px; text-transform: uppercase; }
+
+        #terminal { 
+            height: 140px; background: var(--bg); border-top: 2px solid #1a1a1a; 
+            padding: 12px; box-sizing: border-box; overflow: hidden; font-size: 10px; z-index: 30;
+        }
+        .term-row { margin-bottom: 3px; opacity: 0.9; }
+
+        #overlay { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+        button { background: none; border: 1px solid var(--neon); color: var(--neon); padding: 15px 40px; cursor: pointer; letter-spacing: 3px; font-family: inherit; }
+    </style>
+</head>
+<body>
+
+<div id="overlay">
+    <div id="status-msg" style="margin-bottom:20px; font-size:10px; letter-spacing:4px;">CORE_V12.0: FRAGMENT_LOGIC_READY</div>
+    <button id="start-btn" style="display:none;" onclick="initSystem()">BOOT_SCANNER</button>
+</div>
+
+<div id="container">
+    <div id="ui-layer">
+        <div class="ui-status" id="fps-val">FPS: --</div>
+        <div class="ui-status">MOD: PARTIAL_RECOGNITION</div>
+    </div>
+    <div id="viewport">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas id="canvas"></canvas>
+    </div>
+    <div id="terminal"><div id="term-content"></div></div>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const termContent = document.getElementById('term-content');
+    const statusMsg = document.getElementById('status-msg');
+    
+    let model = null;
+    let lastTime = 0;
+    let prevPredictions = [];
+
+    // Расширенный перечень объектов и фрагментов
+    const COLORS = { 
+        'person': '#ffff00', 
+        'car': '#ff0000', 'truck': '#ff0000', 'bus': '#ff0000',
+        'house': '#00aaff', 'building': '#00aaff', 'window': '#00aaff', // Части зданий
+        'tree': '#00ff41', 'plant': '#00ff41', 'bench': '#ffffff',      // Элементы окружения
+        'pole': '#cccccc', 'traffic light': '#ff9900',                 // Столбы и знаки
+        'default': '#00ff41' 
+    };
+
+    (async () => {
+        try {
+            await tf.ready();
+            model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            statusMsg.innerText = "FRAGMENT_ENGINE_LOADED";
+            document.getElementById('start-btn').style.display = 'block';
+        } catch (e) {
+            statusMsg.innerText = "BOOT_ERR";
+        }
+    })();
+
+    async function initSystem() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment', width: { ideal: 1280 } }
+            });
+            video.srcObject = stream;
+            video.onloadedmetadata = () => {
+                video.play();
+                document.getElementById('overlay').style.display = 'none';
+                writeTerm("V12.0_PARTIAL: INITIALIZED");
+                writeTerm("MOTION_SENSOR: CALIBRATED (50-100M)");
+                render();
+            };
+        } catch (err) { writeTerm("ERR: NO_CAMERA"); }
+    }
+
+    function writeTerm(text) {
+        const line = document.createElement('div');
+        line.className = 'term-row';
+        line.innerText = `> ${text}`;
+        termContent.prepend(line);
+        if (termContent.childNodes.length > 7) termContent.lastChild.remove();
+    }
+
+    async function render(now) {
+        const dt = now - lastTime;
+        lastTime = now;
+        if (now % 10 < 1) document.getElementById('fps-val').innerText = `FPS: ${Math.round(1000/dt)}`;
+
+        if (video.readyState === 4) {
+            // Снижаем порог до 0.25 для детекции "частей" объектов вдалеке
+            const predictions = await model.detect(video, 30, 0.25);
+            
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            predictions.forEach(p => {
+                const [x, y, w, h] = p.bbox;
+                const label = p.class;
+                const dist = ((5500 * 0.5) / w).toFixed(1);
+                
+                // ЛОГИКА ОПРЕДЕЛЕНИЯ ДВИЖЕНИЯ И ДАЛЬНОСТИ
+                const isSmall = w < 60; // Маленький объект (далекий)
+                const color = COLORS[label] || COLORS['default'];
+
+                ctx.save();
+                
+                if (isSmall && (label === 'car' || label === 'truck' || label === 'person')) {
+                    // Машина в 50-100 метрах: Пунктирный квадрат
+                    ctx.setLineDash([8, 4]);
+                    ctx.strokeStyle = '#ff9900'; // Оранжевый для дальних целей
+                    writeTerm(`MOTION_DETECT: ${label.toUpperCase()} AT ${dist}m`);
+                } else {
+                    ctx.setLineDash([]);
+                    ctx.strokeStyle = color;
+                }
+
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x, y, w, h);
+
+                // Отрисовка данных
+                ctx.setLineDash([]);
+                ctx.fillStyle = ctx.strokeStyle;
+                ctx.font = "bold 13px monospace";
+                
+                // Если это часть чего-то (по размеру/типу)
+                const prefix = (w < canvas.width * 0.2) ? "PARTIAL_" : "";
+                ctx.fillText(`${prefix}${label.toUpperCase()}`, x, y - 25);
+                ctx.font = "10px monospace";
+                ctx.fillText(`DIST: ${dist}m | ZONE: ${Math.round(x)}:${Math.round(y)}`, x, y - 10);
+
+                // Углы захвата
+                drawCorners(x, y, w, h, ctx.strokeStyle);
+                
+                ctx.restore();
+            });
+            prevPredictions = predictions;
+        }
+        requestAnimationFrame(render);
+    }
+
+    function drawCorners(x, y, w, h, color) {
+        const s = 15;
+        ctx.beginPath();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 3;
+        ctx.moveTo(x, y+s); ctx.lineTo(x,y); ctx.lineTo(x+s,y);
+        ctx.moveTo(x+w-s, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+s);
+        ctx.moveTo(x, y+h-s); ctx.lineTo(x, y+h); ctx.lineTo(x+s, y+h);
+        ctx.moveTo(x+w-s, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+h-s);
+        ctx.stroke();
+    }
+</script>
+</body>
+</html>
