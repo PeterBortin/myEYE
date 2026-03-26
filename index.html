@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE</title>
+<title>myEYE | Neural Interface</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
@@ -97,9 +97,10 @@ transition:transform .28s cubic-bezier(.22,1,.36,1);pointer-events:none;}
 #info-close{position:absolute;top:10px;right:14px;background:none;
 border:1px solid var(--g2);color:var(--g2);font-family:'Share Tech Mono',monospace;
 font-size:9px;padding:3px 10px;cursor:pointer;letter-spacing:.1em;}
-#info-close:hover,#info-close:active{border-color:var(--r);color:var(--r);}
 #info-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--g);margin-bottom:8px;}
+letter-spacing:.2em;color:var(--g);margin-bottom:8px;display:inline-block;
+cursor:pointer;border-bottom:1px dashed transparent;transition:.2s;}
+#info-title:hover{border-bottom-color:var(--g);text-shadow:0 0 10px var(--g);}
 #info-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:9px;}
 .ik{color:var(--g2);}.iv{color:var(--g);}
 #info-desc{margin-top:8px;font-size:9px;color:var(--g2);line-height:1.6;
@@ -127,7 +128,7 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">create by bortin</div>
+  <div id="boot-sub">created by bortin | learning_mode enabled</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
   <button id="btn-start" onclick="initCamera()">[ open ]</button>
@@ -152,13 +153,6 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
       </div>
     </div>
 
-    <div id="rpanel">
-      <div class="rs">HUMANS<span id="cp">0</span></div>
-      <div class="rs">VEHICLES<span id="cv">0</span></div>
-      <div class="rs">ANIMALS<span id="ca">0</span></div>
-      <div class="rs">OBJECTS<span id="co">0</span></div>
-    </div>
-
     <div id="statbar">
       <div class="sc">FARTHEST<span id="s-dist">---</span></div>
       <div class="sc">THREATS<span id="s-thr">0</span></div>
@@ -168,7 +162,7 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 
     <div id="info-panel">
       <button id="info-close" onclick="closeInfo()">✕ CLOSE</button>
-      <div id="info-title">---</div>
+      <div id="info-title" onclick="renameObject()">---</div>
       <div id="info-grid"></div>
       <div id="info-desc"></div>
     </div>
@@ -181,6 +175,9 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 </div>
 
 <script>
+// ЛОКАЛЬНАЯ ПАМЯТЬ
+let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
+
 const CFG={
   FOCAL:900,
   CONF:0.18,
@@ -217,6 +214,10 @@ const DESC={
   backpack:'Носимый груз / рюкзак.',
   _d:'Объект идентифицирован нейросетью COCO-SSD.'
 };
+
+function getAlias(cls) {
+  return USER_MEM[cls] || cls.toUpperCase();
+}
 
 function getCol(c){return COL[c]||COL._d;}
 function getDesc(c){return DESC[c]||DESC._d;}
@@ -278,7 +279,7 @@ const tracker=new Tracker();
 async function bootSeq(){
   const bootLog=document.getElementById('boot-log');
   const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"INIT VISION_OS v3.0..."],[300,"TENSORFLOW_JS: LOADING"],[600,"MODEL: COCO-SSD LITE"],[900,"ANTI-FLICKER: ACTIVE"],[1200,"UI: TERMINAL READY"]];
+  const BOOT=[[0,"INIT VISION_OS v3.0..."],[300,"TENSORFLOW_JS: LOADING"],[600,"MODEL: COCO-SSD LITE"],[900,"ANTI-FLICKER: ACTIVE"],[1200,"UI: TERMINAL READY"],[1400,"MEMORY_CACHE: SYNCED"]];
   for(let i=0;i<BOOT.length;i++){
     await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
     const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
@@ -317,7 +318,7 @@ function log(txt,type='ok'){
 function canLog(cls, id){
   const now=Date.now();
   const key=cls+id;
-  if(!logThr[key]||now-logThr[key]>4000){logThr[key]=now;return true;}
+  if(!logThr[key]||now-logThr[key]>5000){logThr[key]=now;return true;}
   return false;
 }
 
@@ -354,15 +355,14 @@ function draw(){
     const col=getCol(p.cls);
     const d=dist(p.sm, p.cls);
     const isSel = p.id === selTid;
+    const name = getAlias(p.cls);
     
-    // Плавная рамка
     ctx.strokeStyle=col;
     ctx.lineWidth=isSel ? 4 : 2;
     ctx.strokeRect(x,y,w,h);
     ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.05);
     ctx.fillRect(x,y,w,h);
 
-    // Углы
     const s=Math.min(20, w*0.3);
     ctx.lineWidth=4;
     ctx.beginPath();
@@ -372,12 +372,11 @@ function draw(){
     ctx.moveTo(x+w-s,y+h);ctx.lineTo(x+w,y+h);ctx.lineTo(x+w,y+h-s);
     ctx.stroke();
 
-    // Ярлык
     ctx.fillStyle='rgba(0,0,0,0.8)';
-    ctx.fillRect(x, y-30, Math.min(w, 140), 30);
+    ctx.fillRect(x, y-30, Math.min(w, 150), 30);
     ctx.fillStyle=col;
     ctx.font="bold 11px 'Share Tech Mono'";
-    ctx.fillText(`${p.cls.toUpperCase()} #${p.id}`, x+5, y-18);
+    ctx.fillText(`${name} #${p.id}`, x+5, y-18);
     ctx.font="9px 'Share Tech Mono'";
     ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+5, y-6);
   });
@@ -390,6 +389,7 @@ function updateHUD(){
   
   lastPred.forEach(p=>{
     const d=dist(p.sm, p.cls);
+    const name=getAlias(p.cls);
     if(d>maxD && d<999) maxD=d;
     if(CAT.HUMAN.includes(p.cls)) P++;
     else if(CAT.VEHICLE.includes(p.cls)) V++;
@@ -398,14 +398,11 @@ function updateHUD(){
     if(THREAT.has(p.cls)) thr++;
     
     if(canLog(p.cls, p.id)){
-      log(`${p.cls.toUpperCase()} #${p.id} — ${d}m`, THREAT.has(p.cls)?'warn':'info');
+      log(`${name} #${p.id} — ${d}m`, THREAT.has(p.cls)?'warn':'info');
     }
   });
 
-  document.getElementById('cp').textContent=P;
-  document.getElementById('cv').textContent=V;
-  document.getElementById('ca').textContent=A;
-  document.getElementById('co').textContent=O;
+  document.getElementById('cp')?.textContent? (document.getElementById('cp').textContent=P) : null;
   document.getElementById('s-thr').textContent=thr;
   document.getElementById('s-dist').textContent=maxD>0 ? Math.round(maxD)+'m' : '---';
   document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
@@ -425,19 +422,36 @@ function handleTap(e){
     selTid=hit.id;
     const d=dist(hit.sm, hit.cls);
     const alive=Math.round((Date.now()-hit.born)/1000);
-    document.getElementById('info-title').textContent=hit.cls.toUpperCase();
-    document.getElementById('info-title').style.color=getCol(hit.cls);
+    const titleEl = document.getElementById('info-title');
+    titleEl.textContent=getAlias(hit.cls);
+    titleEl.dataset.cls = hit.cls; // Сохраняем исходный класс
+    titleEl.style.color=getCol(hit.cls);
+    
     document.getElementById('info-grid').innerHTML=`
       <div class="ik">ID ТРЕКА</div><div class="iv">#${hit.id}</div>
+      <div class="ik">ИСХОДНЫЙ ТИП</div><div class="iv">${hit.cls.toUpperCase()}</div>
       <div class="ik">ДИСТАНЦИЯ</div><div class="iv">${d}m</div>
       <div class="ik">ТОЧНОСТЬ</div><div class="iv">${Math.round(hit.score*100)}%</div>
-      <div class="ik">ВРЕМЯ</div><div class="iv">${alive}s</div>
     `;
     document.getElementById('info-desc').textContent=getDesc(hit.cls);
     document.getElementById('info-panel').classList.add('open');
-    log(`OTЧЕТ ПО ОБЪЕКТУ #${hit.id} СФОРМИРОВАН`, 'tap');
+    log(`OTЧЕТ #${hit.id} — ТАП ПО ИМЕНИ ДЛЯ КОРРЕКЦИИ`, 'tap');
   } else {
     closeInfo();
+  }
+}
+
+function renameObject() {
+  const titleEl = document.getElementById('info-title');
+  const cls = titleEl.dataset.cls;
+  const oldAlias = titleEl.textContent;
+  const newAlias = prompt(`ПЕРЕИМЕНОВАТЬ ОБЪЕКТ "${cls}" В:`, oldAlias);
+  
+  if (newAlias !== null && newAlias.trim() !== "") {
+    USER_MEM[cls] = newAlias.trim().toUpperCase();
+    localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
+    titleEl.textContent = USER_MEM[cls];
+    log(`ПАМЯТЬ ОБНОВЛЕНА: ${cls} -> ${USER_MEM[cls]}`, 'ok');
   }
 }
 
