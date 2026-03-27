@@ -218,6 +218,33 @@ const DESC={
   _d:'Объект идентифицирован. Данные загружены в кэш.'
 };
 
+// ДАННЫЕ СИЛУЭТА ИЗ КАРТИНКИ (ОЧИЩЕННЫЕ ОТ ОТСТУПОВ)
+const HUMAN_ASCII_ART = [
+  "       \\`\\` ",
+  "      .001.^",
+  "      u\\$0N=1",
+  "      z00BA|",
+  "     |..=~.",
+  "    ;s<'''",
+  "   NRX~=-`",
+  "  z0c^<X^",
+  "  ~B0s~^\\",
+  "   @@\\$H~'",
+  "  n\\$0=XN;.`",
+  " iBBB0vU1=~'",
+  " `$@00cRr`vul",
+  " FAHZuqr-`",
+  " ZZUFA@FI.`",
+  ";BRHv n\\$U^-",
+  "`ARN1   ^@si",
+  "'Onv~    01.'",
+  "c0qr     rs.",
+  "aUU`      ul'",
+  "`RO-      :.",
+  "nn~`      -=.`|-`",
+  "=1^`..      \\.,."
+];
+
 function getAlias(cls) {
   return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase();
 }
@@ -334,24 +361,50 @@ function toggleNight(){
   log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
 }
 
-// ЭФФЕКТ ASCII ДЛЯ СИЛУЭТОВ (ШРИФТ УМЕНЬШЕН В 3 РАЗА)
-function drawASCII(x, y, w, h, color) {
-  const chars = "01$#@!^X&%*".split("");
-  const fontSize = 14; 
+// НОВАЯ ФУНКЦИЯ: Отрисовка точного ASCII-силуэта человека
+function drawHumanASCII(x, y, w, h, color) {
+  const art = HUMAN_ASCII_ART;
+  const rows = art.length;
+  const cols = Math.max(...art.map(r => r.length));
+  
+  // Расчет динамического размера шрифта, чтобы вписать силуэт в рамку
+  // Используем Share Tech Mono для сохранения структуры
+  const fontHeight = h / rows;
+  const fontWidth = w / cols;
+  
+  // Выбираем минимальный размер, чтобы сохранить пропорции, но ограничиваем, чтобы текст не был слишком мелким или огромным
+  const fontSize = Math.max(1.5, Math.min(fontHeight, fontWidth * 1.6)); 
+  
   ctx.font = `bold ${fontSize}px 'Share Tech Mono'`;
   ctx.fillStyle = color;
-  
-  // Рисуем сетку символов внутри силуэта
-  for (let _y = y + fontSize; _y < y + h; _y += fontSize * 0.9) {
-    for (let _x = x; _x < x + w; _x += fontSize * 0.6) {
-      if (Math.random() > 0.15) {
-        const char = chars[Math.floor(Math.random() * chars.length)];
-        ctx.globalAlpha = 0.3 + Math.random() * 0.4;
-        ctx.fillText(char, _x, _y);
-      }
-    }
+  ctx.textAlign = 'left';
+  ctx.textBaseline = 'top';
+
+  // Вычисляем отступы для центрирования арта внутри bbox
+  const actualArtWidth = cols * (fontSize * 0.6); // Примерная ширина моноширинного символа
+  const offsetX = x + (w - actualArtWidth) / 2;
+  const offsetY = y + (h - rows * fontSize) / 2;
+
+  // Рисуем построчно
+  for (let i = 0; i < rows; i++) {
+    const line = art[i];
+    // Эффект мерцания: рандомная прозрачность для каждого символа или строки
+    ctx.globalAlpha = 0.5 + Math.random() * 0.4; 
+    ctx.fillText(line, offsetX, offsetY + (i * fontSize));
   }
+  
+  // Сброс прозрачности
   ctx.globalAlpha = 1.0;
+}
+
+// УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ASCII (теперь вызывает специфичную для человека)
+function drawASCII(x, y, w, h, color, cls) {
+  if (cls === 'person') {
+    drawHumanASCII(x, y, w, h, color);
+  } else {
+    // Для остальных объектов оставляем старый "шум", если нужно, или ничего
+    // В данном случае, чтобы не загромождать, рисуем силуэт только для людей.
+  }
 }
 
 // ОТРИСОВКА ОКРУЖЕНИЯ (ТОЛЬКО СКАНИРУЮЩАЯ ЛИНИЯ)
@@ -401,7 +454,8 @@ function draw(){
     const name = getAlias(p.cls);
     
     if(nightMode) {
-      drawASCII(x, y, w, h, col);
+      // Вызываем обновленную функцию ASCII
+      drawASCII(x, y, w, h, col, p.cls);
     }
 
     // Соединение объекта с точкой горизонта (пунктиры к углам рамки от ЦЕНТРА ЭКРАНА)
@@ -423,7 +477,8 @@ function draw(){
     ctx.strokeStyle=col;
     ctx.lineWidth=isSel ? 4 : 1.5;
     ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.03);
+    // Прозрачность фона рамки чуть больше в ночном режиме для видимости арта
+    ctx.fillStyle=hexA(col, (isSel ? 0.3 : (nightMode ? 0.08 : 0.03)));
     ctx.fillRect(x,y,w,h);
 
     const s=Math.min(15, w*0.2);
