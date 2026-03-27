@@ -337,11 +337,10 @@ function toggleNight(){
 // ЭФФЕКТ ASCII ДЛЯ СИЛУЭТОВ (КРУПНЫЕ СИМВОЛЫ)
 function drawASCII(x, y, w, h, color) {
   const chars = "01$#@!^X&%*".split("");
-  const fontSize = 42; // Увеличено в 4.6 раза
+  const fontSize = 42; 
   ctx.font = `bold ${fontSize}px 'Share Tech Mono'`;
   ctx.fillStyle = color;
   
-  // Рисуем сетку крупных символов
   for (let _y = y + fontSize; _y < y + h; _y += fontSize) {
     for (let _x = x; _x < x + w; _x += fontSize * 0.7) {
       if (Math.random() > 0.3) {
@@ -352,6 +351,50 @@ function drawASCII(x, y, w, h, color) {
     }
   }
   ctx.globalAlpha = 1.0;
+}
+
+// ОТРИСОВКА ОКРУЖЕНИЯ (СЕТКА, КОНТУРЫ, ГЕОМЕТРИЯ)
+function drawEnvironment() {
+  const w = canvas.width;
+  const h = canvas.height;
+  const horizon = h * 0.55; 
+  const color = nightMode ? '#00ccff' : 'rgba(0, 255, 65, 0.2)';
+  
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 1;
+  
+  // Рисуем сетку земли (дорога/пол)
+  ctx.beginPath();
+  for(let i=0; i<=10; i++) {
+    const xPos = (w/10) * i;
+    ctx.moveTo(xPos, h);
+    ctx.lineTo(w/2 + (xPos - w/2)*0.1, horizon);
+  }
+  for(let i=0; i<6; i++) {
+    const yPos = horizon + (h - horizon) * Math.pow(i/5, 2);
+    ctx.moveTo(0, yPos);
+    ctx.lineTo(w, yPos);
+  }
+  ctx.stroke();
+
+  // Рисуем контуры предполагаемых зданий по краям
+  ctx.fillStyle = hexA(color, 0.05);
+  // Левая сторона
+  ctx.beginPath();
+  ctx.moveTo(0, h); ctx.lineTo(0, h*0.2); ctx.lineTo(w*0.15, horizon); ctx.lineTo(w*0.15, h);
+  ctx.fill(); ctx.stroke();
+  // Правая сторона
+  ctx.beginPath();
+  ctx.moveTo(w, h); ctx.lineTo(w, h*0.2); ctx.lineTo(w*0.85, horizon); ctx.lineTo(w*0.85, h);
+  ctx.fill(); ctx.stroke();
+
+  // "Сканирующая" линия горизонта
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = hexA(color, 0.5);
+  ctx.beginPath();
+  const scanY = horizon + Math.sin(Date.now()*0.002) * 20;
+  ctx.moveTo(w*0.15, scanY); ctx.lineTo(w*0.85, scanY);
+  ctx.stroke();
 }
 
 async function renderLoop(now){
@@ -369,13 +412,14 @@ async function renderLoop(now){
     lastPred=tracker.update(raw);
   }
   
-  draw();
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawEnvironment(); // Отрисовка мира
+  draw(); // Отрисовка объектов
   updateHUD();
   requestAnimationFrame(renderLoop);
 }
 
 function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
   lastPred.forEach(p=>{
     const [x,y,w,h]=p.sm;
     const col=getCol(p.cls);
@@ -383,10 +427,18 @@ function draw(){
     const isSel = p.id === selTid;
     const name = getAlias(p.cls);
     
-    // Ночной режим: ASCII силуэт (крупный)
     if(nightMode) {
       drawASCII(x, y, w, h, col);
     }
+
+    // Соединение объекта с сеткой окружения (линия "привязки" к земле)
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = hexA(col, 0.4);
+    ctx.beginPath();
+    ctx.moveTo(x + w/2, y + h);
+    ctx.lineTo(canvas.width/2, canvas.height * 0.55);
+    ctx.stroke();
+    ctx.setLineDash([]);
 
     ctx.strokeStyle=col;
     ctx.lineWidth=isSel ? 4 : 1.5;
