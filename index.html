@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE</title>
+<title>myEYE | ADVANCED HUMAN DETECTION</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
@@ -128,10 +128,10 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">created by bortin</div>
+  <div id="boot-sub">advanced biological tracking</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="initCamera()">open</button>
+  <button id="btn-start" onclick="initCamera()">INITIALIZE SYSTEM</button>
 </div>
 
 <div id="app" style="display:none;">
@@ -144,20 +144,20 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
     <button id="night-btn" onclick="toggleNight()">☾ NIGHT</button>
 
     <div id="topbar">
-      <div id="sys-id">myEYE</div>
+      <div id="sys-id">myEYE // BIO-SCAN</div>
       <div id="badges">
         <div class="badge hi" id="b-fps">-- FPS</div>
         <div class="badge hi" id="b-obj">0 OBJ</div>
-        <div class="badge" id="b-mode">SCAN</div>
-        <div class="badge" id="b-rng">STD</div>
+        <div class="badge" id="b-mode">X-RAY ADAPT</div>
+        <div class="badge" id="b-rng">ULTRA</div>
       </div>
     </div>
 
     <div id="statbar">
-      <div class="sc">FARTHEST<span id="s-dist">---</span></div>
-      <div class="sc">THREATS<span id="s-thr">0</span></div>
-      <div class="sc">CONF AVG<span id="s-conf">---%</span></div>
-      <div class="sc">TRACKED<span id="s-trk">0</span></div>
+      <div class="sc">MAX_RANGE<span id="s-dist">---</span></div>
+      <div class="sc">BIOMASS<span id="s-thr">0</span></div>
+      <div class="sc">ACCURACY<span id="s-conf">---%</span></div>
+      <div class="sc">SESSIONS<span id="s-trk">0</span></div>
     </div>
 
     <div id="info-panel">
@@ -169,68 +169,43 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
   </div>
 
   <div id="terminal">
-    <div id="term-hdr"><span>NEURAL_FEED // TAP BOX → OBJECT REPORT</span></div>
+    <div id="term-hdr"><span>NEURAL_FEED // BIOMETRIC_DATA_STREAM</span></div>
     <div id="term-lines"></div>
   </div>
 </div>
 
 <script>
-// ЛОКАЛЬНАЯ ПАМЯТЬ + РАСШИРЕННАЯ БАЗА
 const DEFAULT_ALIASES = {
-  person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
+  person: 'СУБЪЕКТ', car: 'ОБЪЕКТ_V1', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
   motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', 'fire hydrant': 'ГИДРАНТ',
-  'stop sign': 'СТОП-СИГНАЛ', 'traffic light': 'СВЕТОФОР', dog: 'ПЕС', cat: 'КОТ',
-  'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК', chair: 'КРЕСЛО',
-  tv: 'ЭКРАН', laptop: 'ЛЕПТОП', mouse: 'МАНИПУЛЯТОР', keyboard: 'КЛАВИАТУРА',
-  bench: 'СКАМЬЯ', 'potted plant': 'РАСТЕНИЕ', bird: 'ПТИЦА'
+  'stop sign': 'СТОП', 'traffic light': 'СВЕТОФОР', dog: 'BIO_CANINE', cat: 'BIO_FELINE',
+  'cell phone': 'ТЕРМИНАЛ', bottle: 'РЕСУРС', backpack: 'ГРУЗ', chair: 'МЕБЕЛЬ',
+  tv: 'ЭКРАН', laptop: 'ЛЕПТОП', mouse: 'МАНИПУЛЯТОР', keyboard: 'ВВОД'
 };
 
 let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
 
 const CFG={
-  FOCAL:950, // Слегка увеличен для точности дали
-  CONF:0.12,  // Порог снижен для захвата мелких/далеких объектов
-  MAX_DET:60,
+  FOCAL:1000, 
+  CONF:0.20,  
+  MAX_DET:40,
   SKIP:1, 
-  SMOOTH:0.2, 
-  TTL:35,    // Увеличено время жизни трека для стабильности
-  IOU:0.20
+  SMOOTH:0.18, 
+  TTL:45,    
+  IOU:0.3
 };
 
 const OBJ_H={
-  person:1.75, car:1.55, truck:2.9, bus:3.3, motorcycle:1.15, bicycle:1.05,
-  'fire hydrant':0.65, 'stop sign':0.8, 'traffic light':0.45, dog:0.5, cat:0.3,
-  'cell phone':0.15, bottle:0.28, backpack:0.55, chair:0.9, tv:0.6, default:1.0
+  person:1.75, car:1.5, truck:3.0, dog:0.5, cat:0.3, 'cell phone':0.15, default:1.0
 };
 
-const CAT={
-  HUMAN:['person'],
-  VEHICLE:['car','truck','bus','motorcycle','bicycle'],
-  ANIMAL:['bird','cat','dog','horse','sheep','cow','elephant']
-};
-const THREAT=new Set(['person','car','truck','bus','motorcycle']);
-
+const THREAT=new Set(['person','car','truck']);
 const COL={
-  person:'#ffff00', car:'#ff2244', truck:'#ff2244', bus:'#ff4466', motorcycle:'#ff6600',
-  'cell phone':'#88aaff', bottle:'#88ff88', backpack:'#00ffff', _d:'#00ff41'
+  person:'#ff3300', car:'#ffcc00', _d:'#00ff41'
 };
 
-const DESC={
-  person:'Биологический объект. Оценка траектории активна.',
-  car:'Транспортное средство. Классификация: Гражданское.',
-  truck:'Тяжелая техника. Зона повышенной опасности.',
-  'cell phone':'Мобильное устройство связи. Анализ данных...',
-  backpack:'Внешний модуль хранения / Груз.',
-  _d:'Объект идентифицирован. Данные загружены в кэш.'
-};
-
-function getAlias(cls) {
-  return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase();
-}
-
+function getAlias(cls) { return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase(); }
 function getCol(c){return COL[c]||COL._d;}
-function getDesc(c){return DESC[c]||DESC._d;}
-
 function dist(bbox,cls){
   const rh=OBJ_H[cls]||OBJ_H.default;
   const px=Math.max(bbox[2],bbox[3]);
@@ -272,7 +247,7 @@ class Tracker{
         p._tid=best.id;
       }else{
         const id=this.nid++;
-        this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,seen:true,born:Date.now()};
+        this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,seen:true};
         p._tid=id;
       }
     }
@@ -291,7 +266,7 @@ const tracker=new Tracker();
 async function bootSeq(){
   const bootLog=document.getElementById('boot-log');
   const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"INIT VISION_OS v3.1..."],[300,"MEMORY_SYNC: LOCAL_ALIASES"],[600,"MODEL: COCO-SSD LITE"],[900,"ZOOM_CORRECTION: ACTIVE"],[1200,"UI: TERMINAL READY"]];
+  const BOOT=[[0,"DECRYPTING KERNEL..."],[200,"LOADING TENSORFLOW_CORE v3.18"],[400,"INIT COCO-SSD LITE MODEL"],[700,"CALIBRATING THERMAL LAYERS"],[900,"SYSTEM READY"]];
   for(let i=0;i<BOOT.length;i++){
     await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
     const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
@@ -303,17 +278,17 @@ async function bootSeq(){
 
 async function initCamera(){
   try {
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}});
+    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}}});
     video.srcObject=s;
     video.onloadedmetadata=()=>{
       video.play();
       document.getElementById('boot').style.display='none';
       document.getElementById('app').style.display='flex';
       running=true;
-      log("VISION_OS v3.1 ONLINE",'ok');
+      log("INTERFACE_BOOT: SUCCESS",'ok');
       requestAnimationFrame(renderLoop);
     };
-  } catch(e) { log("ERR: CAMERA ACCESS DENIED",'alert'); }
+  } catch(e) { log("ERR: NO_CAM",'alert'); }
 }
 
 function log(txt,type='ok'){
@@ -327,19 +302,6 @@ function log(txt,type='ok'){
   });
 }
 
-function canLog(cls, id){
-  const now=Date.now();
-  const key=cls+id;
-  if(!logThr[key]||now-logThr[key]>8000){logThr[key]=now;return true;}
-  return false;
-}
-
-function toggleNight(){
-  nightMode=!nightMode;
-  video.style.filter=nightMode?'brightness(.4) contrast(1.7) saturate(0) sepia(.9) hue-rotate(80deg)':'brightness(.55) contrast(1.38) saturate(.88)';
-  log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
-}
-
 async function renderLoop(now){
   if(!running) return requestAnimationFrame(renderLoop);
   fpsCnt++;
@@ -347,128 +309,102 @@ async function renderLoop(now){
     document.getElementById('b-fps').textContent=fpsCnt+' FPS';
     fpsCnt=0;lastFpsT=now;
   }
-
   if(video.readyState === 4){
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
     const raw=await model.detect(video,CFG.MAX_DET,CFG.CONF);
     lastPred=tracker.update(raw);
   }
-  
-  draw();
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+  draw(now);
   updateHUD();
   requestAnimationFrame(renderLoop);
 }
 
-function draw(){
+function draw(time){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   lastPred.forEach(p=>{
     const [x,y,w,h]=p.sm;
     const col=getCol(p.cls);
-    const d=dist(p.sm, p.cls);
     const isSel = p.id === selTid;
-    const name = getAlias(p.cls);
     
+    // ОСНОВНАЯ РАМКА
     ctx.strokeStyle=col;
-    ctx.lineWidth=isSel ? 4 : 1.5;
+    ctx.lineWidth=isSel ? 3 : 1;
     ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.03);
-    ctx.fillRect(x,y,w,h);
+    
+    // ЭФФЕКТ ДЛЯ ЧЕЛОВЕКА (ТОЧКИ)
+    if(p.cls === 'person'){
+      ctx.fillStyle = "#ff4400";
+      // Псевдослучайные точки внутри силуэта
+      const seed = p.id * 100;
+      for(let i=0; i<15; i++){
+          const px = x + (Math.sin(seed + i + time*0.002) * 0.5 + 0.5) * w;
+          const py = y + (Math.cos(seed * i - time*0.001) * 0.5 + 0.5) * h;
+          ctx.beginPath();
+          ctx.arc(px, py, 1.5, 0, Math.PI*2);
+          ctx.fill();
+      }
+      // "ГОЛОВА" - верхний квадрат
+      const hw = w * 0.25;
+      ctx.strokeRect(x + w/2 - hw/2, y + h*0.05, hw, hw);
+      ctx.beginPath();
+      ctx.moveTo(x + w/2, y + h*0.05 + hw/2);
+      ctx.lineTo(x + w + 40, y - 20); // "Лазерная" линия связи
+      ctx.strokeStyle = hexA(col, 0.4);
+      ctx.stroke();
+    }
 
-    const s=Math.min(15, w*0.2);
-    ctx.lineWidth=3;
-    ctx.beginPath();
-    ctx.moveTo(x,y+s);ctx.lineTo(x,y);ctx.lineTo(x+s,y);
-    ctx.moveTo(x+w-s,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+s);
-    ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
-    ctx.stroke();
-
-    ctx.fillStyle='rgba(0,0,0,0.85)';
-    ctx.fillRect(x, y-28, Math.max(80, w*0.6), 28);
+    // ТЕКСТ
     ctx.fillStyle=col;
-    ctx.font="bold 10px 'Share Tech Mono'";
-    ctx.fillText(`${name} #${p.id}`, x+5, y-16);
-    ctx.font="8px 'Share Tech Mono'";
-    ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+5, y-6);
+    ctx.font="10px 'Orbitron'";
+    ctx.fillText(`${getAlias(p.cls)} #${p.id}`, x, y-10);
   });
 }
 
 function updateHUD(){
-  const total=lastPred.length;
-  document.getElementById('b-obj').textContent=total+' OBJ';
-  let thr=0,maxD=0,sumConf=0;
-  
-  lastPred.forEach(p=>{
-    const d=dist(p.sm, p.cls);
-    sumConf += p.score;
-    if(d>maxD && d<999) maxD=d;
-    if(THREAT.has(p.cls)) thr++;
-    
-    if(canLog(p.cls, p.id)){
-      log(`${getAlias(p.cls)} #${p.id} -- ${d}m`, THREAT.has(p.cls)?'warn':'info');
-    }
-  });
-
+  document.getElementById('b-obj').textContent=lastPred.length+' OBJ';
+  let thr=0;
+  lastPred.forEach(p=>{ if(p.cls === 'person') thr++; });
   document.getElementById('s-thr').textContent=thr;
-  document.getElementById('s-conf').textContent=total>0 ? Math.round((sumConf/total)*100)+'%' : '---';
-  document.getElementById('s-dist').textContent=maxD>0 ? Math.round(maxD)+'m' : '---';
   document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
+}
+
+function toggleNight(){
+  nightMode=!nightMode;
+  video.style.filter=nightMode?'brightness(.4) contrast(2) saturate(0) sepia(1) hue-rotate(90deg)':'brightness(.55) contrast(1.38) saturate(.88)';
 }
 
 function handleTap(e){
   const rect=canvas.getBoundingClientRect();
   const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
   const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
-  
   const hit=lastPred.find(p=>{
     const [x,y,w,h]=p.sm;
     return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h;
   });
-
   if(hit){
     selTid=hit.id;
-    const d=dist(hit.sm, hit.cls);
-    const titleEl = document.getElementById('info-title');
-    titleEl.textContent=getAlias(hit.cls);
-    titleEl.dataset.cls = hit.cls; 
-    titleEl.style.color=getCol(hit.cls);
-    
-    document.getElementById('info-grid').innerHTML=`
-      <div class="ik">ID ТРЕКА</div><div class="iv">#${hit.id}</div>
-      <div class="ik">СИСТЕМА</div><div class="iv">${hit.cls.toUpperCase()}</div>
-      <div class="ik">ДИСТАНЦИЯ</div><div class="iv">${d}m</div>
-      <div class="ik">СИГНАЛ</div><div class="iv">${Math.round(hit.score*100)}%</div>
-    `;
-    document.getElementById('info-desc').textContent=getDesc(hit.cls);
+    document.getElementById('info-title').textContent=getAlias(hit.cls);
+    document.getElementById('info-title').dataset.cls=hit.cls;
     document.getElementById('info-panel').classList.add('open');
-    log(`OTЧЕТ #${hit.id} -- ТАП ПО ИМЕНИ ДЛЯ КОРРЕКЦИИ`, 'tap');
   } else {
-    closeInfo();
+    selTid=null;
+    document.getElementById('info-panel').classList.remove('open');
   }
 }
 
 function renameObject() {
   const titleEl = document.getElementById('info-title');
   const cls = titleEl.dataset.cls;
-  const oldAlias = titleEl.textContent;
-  const newAlias = prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" В:`, oldAlias);
-  
-  if (newAlias !== null && newAlias.trim() !== "") {
-    USER_MEM[cls] = newAlias.trim().toUpperCase();
+  const n = prompt(`ИЗМЕНИТЬ ИМЯ КЛАССА ${cls}:`, titleEl.textContent);
+  if (n) {
+    USER_MEM[cls] = n.toUpperCase();
     localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
-    
-    // МГНОВЕННАЯ ПЕРЕЗАГРУЗКА ДЛЯ ПРИМЕНЕНИЯ КЭША
-    log(`СОХРАНЕНИЕ В КЭШ... ПЕРЕЗАПУСК`, 'warn');
-    setTimeout(() => location.reload(), 800);
+    location.reload();
   }
 }
 
 canvas.addEventListener('click',handleTap);
-function closeInfo(){
-  selTid=null;
-  document.getElementById('info-panel').classList.remove('open');
-}
-
 bootSeq();
 </script>
 </body>
