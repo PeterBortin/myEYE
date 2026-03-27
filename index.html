@@ -2,70 +2,87 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<title>myEYE // VISION OS v5.2</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>myEYE // VISION OS v3.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 <style>
-:root {
-  --g: #00ff41; --g-low: rgba(0,255,65,0.15); --g-mid: rgba(0,255,65,0.4);
-  --y: #ffe600; --o: #ff9900; --r: #ff2244; --b: #00c8ff;
-  --bg: #010603; --panel: rgba(1,8,4,0.92);
-  --glow: 0 0 15px rgba(0,255,65,0.4);
+:root{
+  --g:#00ff41;--g2:#00cc33;--g3:#003a12;
+  --y:#ffff00;--o:#ff9900;--r:#ff2244;--b:#00aaff;
+  --bg:#020804;--panel:rgba(2,8,4,.94);--border:rgba(0,255,65,.22);
 }
-* { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
-body, html { width: 100%; height: 100%; background: #000; overflow: hidden;
-  font-family: 'Share Tech Mono', monospace; color: var(--g);
-  user-select: none; -webkit-tap-highlight-color: transparent; }
+*{margin:0;padding:0;box-sizing:border-box;}
+body,html{width:100%;height:100%;background:#000;overflow:hidden;
+  font-family:'Share Tech Mono',monospace;color:var(--g);
+  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
 
-/* --- BOOT SCREEN --- */
-#boot { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-#boot-logo { font-family: 'Orbitron', sans-serif; font-size: 54px; font-weight: 900; letter-spacing: 0.2em; text-shadow: var(--glow); margin-bottom: 20px; }
-#boot-log { width: 320px; font-size: 10px; color: var(--g-mid); height: 120px; overflow: hidden; line-height: 1.6; }
-.boot-line { animation: fadeIn 0.1s forwards; }
-.progress-bar { width: 320px; height: 2px; background: #002208; margin-top: 15px; position: relative; }
-#progress-fill { height: 100%; width: 0%; background: var(--g); box-shadow: 0 0 10px var(--g); transition: width 0.1s; }
+/* BOOT */
+#boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;
+flex-direction:column;justify-content:center;align-items:center;}
+#boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;
+font-size:clamp(30px,8vw,54px);letter-spacing:.18em;color:var(--g);
+text-shadow:0 0 30px var(--g);animation:gpulse 2s ease-in-out infinite;}
+#boot-log{width:min(360px,86vw);font-size:9.5px;color:var(--g2);min-height:115px;line-height:1.9;}
+#pb-wrap{width:min(360px,86vw);height:2px;background:#0a1a0a;margin-top:18px;}
+#pb{height:100%;width:0;background:var(--g);box-shadow:0 0 8px var(--g);transition:width .3s;}
+#btn-start{margin-top:28px;display:none;background:none;border:1px solid var(--g);
+color:var(--g);font-family:'Orbitron',sans-serif;font-size:11px;padding:13px 42px;cursor:pointer;}
 
-/* --- APP LAYOUT --- */
-#app { position: fixed; inset: 0; display: flex; flex-direction: column; opacity: 0; transition: opacity 1s; }
-#viewport { position: relative; flex: 1; background: #000; overflow: hidden; }
-video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.6) contrast(1.2); }
-canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+/* APP */
+#app{position:fixed;inset:0;display:flex;flex-direction:column;}
+#vp{position:relative;flex:1 1 auto;overflow:hidden;background:#000;}
+video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
+filter:brightness(.55) contrast(1.38) saturate(.88);}
+canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
 
-/* --- HUD OVERLAYS --- */
-.scanline { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 50%, rgba(0,255,65,0.02) 50%); background-size: 100% 4px; pointer-events: none; z-index: 5; }
-#vignette { position: absolute; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.8) 140%); z-index: 6; pointer-events: none; }
+#vp::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
+background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,255,65,.015) 3px,rgba(0,255,65,.015) 4px);
+animation:scanroll 10s linear infinite;}
 
-/* Top Bar */
-#top-hud { position: absolute; top: 0; left: 0; right: 0; padding: 20px; display: flex; justify-content: space-between; z-index: 20; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); }
-.sys-info { font-family: 'Orbitron'; font-size: 14px; letter-spacing: 2px; }
-.sys-stats { display: flex; gap: 15px; }
-.stat-box { border: 1px solid var(--g-low); background: var(--panel); padding: 4px 10px; font-size: 10px; display: flex; align-items: center; gap: 6px; }
-.dot { width: 4px; height: 4px; background: var(--g); border-radius: 50%; animation: blink 1s infinite; }
+/* HUD ELEMENTS */
+.hc{position:absolute;width:52px;height:52px;z-index:10;pointer-events:none;}
+.hc::before,.hc::after{content:'';position:absolute;background:var(--g);box-shadow:0 0 5px var(--g);}
+.hc::before{width:2px;height:20px;}.hc::after{width:20px;height:2px;}
+#hc-tl{top:0;left:0;}#hc-tr{top:0;right:0;}#hc-tr::before{right:0;}#hc-tr::after{right:0;}
+#hc-bl{bottom:0;left:0;}#hc-bl::before{bottom:0;}#hc-bl::after{bottom:0;}
+#hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;}#hc-br::after{bottom:0;right:0;}
 
-/* Terminal */
-#terminal { height: 140px; background: var(--bg); border-top: 1px solid var(--g-low); padding: 10px 15px; overflow-y: auto; font-size: 11px; display: flex; flex-direction: column-reverse; scroll-behavior: smooth; }
-.t-row { display: flex; gap: 10px; margin-bottom: 4px; opacity: 0.8; animation: t-in 0.2s ease-out forwards; }
-.t-ts { color: var(--g-mid); min-width: 60px; }
-.t-msg { word-break: break-all; }
-.t-warn { color: var(--o); } .t-crit { color: var(--r); text-shadow: 0 0 5px var(--r); }
+#xhair{position:absolute;top:50%;left:50%;z-index:8;width:30px;height:30px;margin:-15px;pointer-events:none;}
+#xhair::before,#xhair::after{content:'';position:absolute;background:rgba(0,255,65,.4);}
+#xhair::before{top:14px;left:0;width:30px;height:2px;}
+#xhair::after{left:14px;top:0;width:2px;height:30px;}
 
-/* Info Panel */
-#info-side { position: absolute; right: -300px; top: 80px; width: 260px; background: var(--panel); border: 1px solid var(--g-low); padding: 15px; transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 100; pointer-events: all; }
-#info-side.active { right: 20px; }
-.info-h { font-family: 'Orbitron'; font-size: 18px; margin-bottom: 10px; border-bottom: 1px solid var(--g-mid); padding-bottom: 5px; }
-.info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 6px 0; }
-.info-val { color: #fff; text-shadow: 0 0 5px var(--g); }
+#radar{position:absolute;top:50%;left:50%;z-index:7;width:100px;height:100px;margin:-50px;
+border:1px solid rgba(0,255,65,.1);border-radius:50%;pointer-events:none;animation:rpulse 4s linear infinite;}
 
-/* Buttons */
-.btn-core { background: transparent; border: 1px solid var(--g); color: var(--g); padding: 10px 20px; font-family: 'Orbitron'; cursor: pointer; transition: 0.3s; }
-.btn-core:hover { background: var(--g); color: #000; box-shadow: var(--glow); }
+#topbar{position:absolute;top:0;left:0;right:0;z-index:15;display:flex;justify-content:space-between;padding:12px;}
+#sys-id{font-family:'Orbitron',sans-serif;font-size:14px;letter-spacing:.2em;text-shadow:0 0 10px var(--g);}
+#badges{display:flex;gap:6px;}
+.badge{font-size:8px;padding:3px 8px;border:1px solid var(--border);background:var(--panel);}
 
-@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-@keyframes t-in { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
-@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+#night-btn{position:absolute;top:50px;left:12px;z-index:20;background:none;border:1px solid var(--border);
+color:var(--g2);font-size:9px;padding:5px 12px;cursor:pointer;}
+
+#statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;display:flex;gap:1px;pointer-events:none;}
+.sc{flex:1;padding:8px;background:var(--panel);border-top:1px solid var(--border);font-size:8px;text-align:center;}
+.sc span{display:block;color:var(--g);font-size:11px;font-weight:bold;}
+
+#info-panel{position:absolute;bottom:0;left:0;right:0;z-index:25;background:var(--panel);
+border-top:2px solid var(--g);padding:15px;transform:translateY(100%);transition:.3s cubic-bezier(.22,1,.36,1);pointer-events:none;}
+#info-panel.open{transform:translateY(0);pointer-events:all;}
+#info-title{font-family:'Orbitron',sans-serif;font-size:16px;color:var(--g);cursor:pointer;margin-bottom:10px;}
+
+#terminal{flex:0 0 auto;height:120px;background:var(--bg);border-top:1px solid var(--border);padding:10px;overflow:hidden;}
+#term-lines{font-size:10px;line-height:1.6;}
+.tl{opacity:0;animation:si .2s forwards;border-left:2px solid var(--g3);padding-left:8px;margin-bottom:2px;}
+
+@keyframes gpulse{0%,100%{opacity:.8;}50%{opacity:1;}}
+@keyframes si{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:none;}}
+@keyframes scanroll{from{background-position:0 0;}to{background-position:0 100px;}}
+@keyframes rpulse{0%{transform:scale(0.5);opacity:1;}100%{transform:scale(2.5);opacity:0;}}
 </style>
 </head>
 <body>
@@ -73,185 +90,179 @@ canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; p
 <div id="boot">
   <div id="boot-logo">myEYE</div>
   <div id="boot-log"></div>
-  <div class="progress-bar"><div id="progress-fill"></div></div>
-  <button id="start-btn" class="btn-core" style="display:none; margin-top:30px;" onclick="startSystem()">INITIALIZE LINK</button>
+  <div id="pb-wrap"><div id="pb"></div></div>
+  <button id="btn-start" onclick="initCamera()">INITIALIZE LINK</button>
 </div>
 
-<div id="app">
-  <div id="viewport">
-    <video id="video" playsinline muted></video>
+<div id="app" style="display:none;">
+  <div id="vp">
+    <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
-    <div class="scanline"></div>
-    <div id="vignette"></div>
-    
-    <div id="top-hud">
-      <div class="sys-info">VISION OS // V5.2<br><span style="font-size:9px; opacity:0.5;">ENCRYPTED NEURAL LINK</span></div>
-      <div class="sys-stats">
-        <div class="stat-box"><div class="dot"></div> <span id="fps-val">00</span> FPS</div>
-        <div class="stat-box" style="border-color:var(--r); color:var(--r);"><div class="dot" style="background:var(--r);"></div> <span id="obj-count">0</span> DETECTED</div>
+    <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
+    <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
+    <div id="xhair"></div><div id="radar"></div>
+    <button id="night-btn" onclick="toggleNight()">☾ NIGHT_VIS</button>
+
+    <div id="topbar">
+      <div id="sys-id">myEYE // V3.2</div>
+      <div id="badges">
+        <div class="badge" id="b-fps">00 FPS</div>
+        <div class="badge" id="b-obj">0 OBJ</div>
       </div>
     </div>
 
-    <div id="info-side">
-      <div class="info-h" id="info-name">TARGET</div>
-      <div class="info-row"><span>PROBABILITY</span><span class="info-val" id="info-conf">0%</span></div>
-      <div class="info-row"><span>EST. DISTANCE</span><span class="info-val" id="info-dist">0.0m</span></div>
-      <div class="info-row"><span>SECTOR</span><span class="info-val" id="info-sect">A-1</span></div>
-      <div style="margin-top:15px; font-size:10px; color:var(--g-mid); line-height:1.4;" id="info-desc">
-        Awaiting data packet from neural core...
-      </div>
-      <button class="btn-core" style="width:100%; margin-top:15px; font-size:10px;" onclick="closeInfo()">RELEASE LOCK</button>
+    <div id="statbar">
+      <div class="sc">THREATS<span id="s-thr">0</span></div>
+      <div class="sc">DIST MAX<span id="s-dist">---</span></div>
+      <div class="sc">CONFIDENCE<span id="s-conf">0%</span></div>
+    </div>
+
+    <div id="info-panel">
+      <button style="float:right" onclick="closeInfo()">✕</button>
+      <div id="info-title" onclick="renameObject()">---</div>
+      <div id="info-grid" style="display:grid;grid-template-columns:1fr 1fr;font-size:11px;gap:5px;"></div>
+      <div id="info-desc" style="margin-top:10px;font-size:10px;opacity:.7;border-top:1px solid var(--border);padding-top:5px;"></div>
     </div>
   </div>
-
-  <div id="terminal"></div>
+  <div id="terminal"><div id="term-lines"></div></div>
 </div>
 
 <script>
-let model, tracker = {}, selectedId = null;
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const term = document.getElementById('terminal');
+const ALIASES = { person: 'СУБЪЕКТ', car: 'АВТО', truck: 'ГРУЗОВИК', cell_phone: 'ТЕРМИНАЛ' };
+let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
+const THREATS = new Set(['person', 'car', 'truck', 'bus', 'motorcycle']);
 
-const CONFIG = {
-  threshold: 0.45,
-  colors: { person: '#ffe600', car: '#00c8ff', default: '#00ff41' },
-  labels: { person: 'HUMAN', car: 'VEHICLE', chair: 'OBJECT' }
+// ASCII Poses for "person"
+const POSES = {
+  stand: ["  O  ", " /|\\ ", " / \\ "],
+  walk:  ["  O  ", " /|\\ ", " / > "],
+  alert: [" \\O/ ", "  |  ", " / \\ "]
 };
 
-// --- LOGGING ---
-function log(msg, type = '') {
-  const row = document.createElement('div');
-  row.className = `t-row ${type}`;
-  const ts = new Date().toLocaleTimeString('en-GB', { hour12: false });
-  row.innerHTML = `<span class="t-ts">[${ts}]</span><span class="t-msg">${msg}</span>`;
-  term.prepend(row);
-  if (term.childNodes.length > 50) term.lastChild.remove();
-}
+let model, running=false, nightMode=false, selTid=null, lastPred=[];
+const canvas=document.getElementById('canvas'), ctx=canvas.getContext('2d'), video=document.getElementById('video');
 
-// --- BOOT SEQUENCE ---
-async function boot() {
-  const logEl = document.getElementById('boot-log');
-  const fill = document.getElementById('progress-fill');
-  const steps = [
-    "Initializing Neural Kernel...",
-    "Calibrating Vision Matrix...",
-    "Loading COCO-SSD Weights...",
-    "Establishing Camera Handshake...",
-    "System Ready."
-  ];
-
-  for (let i = 0; i < steps.length; i++) {
-    const p = document.createElement('div');
-    p.className = 'boot-line';
-    p.textContent = `> ${steps[i]}`;
-    logEl.appendChild(p);
-    fill.style.width = `${(i + 1) * 20}%`;
-    await new Promise(r => setTimeout(r, 600));
+async function bootSeq(){
+  const logBox = document.getElementById('boot-log');
+  const pb = document.getElementById('pb');
+  const steps = ["BOOTING KERNEL...", "SYNCING NEURAL FEED...", "LOADING COCO_SSD...", "VISION READY."];
+  for(let i=0; i<steps.length; i++){
+    await new Promise(r=>setTimeout(r, 400));
+    const d=document.createElement('div'); d.textContent='> '+steps[i]; logBox.appendChild(d);
+    pb.style.width = ((i+1)/steps.length*100)+'%';
   }
-  
-  model = await cocoSsd.load();
-  document.getElementById('start-btn').style.display = 'block';
+  model = await cocoSsd.load({base: 'lite_mobilenet_v2'});
+  document.getElementById('btn-start').style.display='block';
 }
 
-async function startSystem() {
-  const stream = await navigator.mediaDevices.getUserMedia({ 
-    video: { facingMode: 'environment', width: 1280 }, 
-    audio: false 
+async function initCamera(){
+  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+  video.srcObject=s;
+  video.onloadedmetadata=()=>{
+    video.play();
+    document.getElementById('boot').style.display='none';
+    document.getElementById('app').style.display='flex';
+    running=true;
+    requestAnimationFrame(loop);
+  };
+}
+
+function log(msg, type='ok'){
+  const lines = document.getElementById('term-lines');
+  const d = document.createElement('div');
+  d.className = 'tl';
+  d.innerHTML = `<span style="opacity:.3">[${new Date().toLocaleTimeString()}]</span> > ${msg}`;
+  lines.prepend(d);
+  if(lines.childNodes.length > 6) lines.lastChild.remove();
+}
+
+function drawSkel(x, y, w, h, cls, isSel){
+  if(cls !== 'person') return;
+  const pose = POSES[Math.random() > 0.1 ? (Math.random() > 0.5 ? 'walk' : 'stand') : 'alert'];
+  ctx.font = "bold 14px 'Share Tech Mono'";
+  ctx.fillStyle = isSel ? '#fff' : '#00ff41';
+  ctx.globalAlpha = 0.4;
+  const step = h / 4;
+  pose.forEach((line, i) => {
+    ctx.fillText(line, x + w/2 - 15, y + step * (i+1));
   });
-  video.srcObject = stream;
-  video.play();
-  
-  document.getElementById('boot').style.opacity = '0';
-  setTimeout(() => {
-    document.getElementById('boot').style.display = 'none';
-    document.getElementById('app').style.opacity = '1';
-    log("NEURAL LINK ESTABLISHED", "t-warn");
-    requestAnimationFrame(render);
-  }, 1000);
+  ctx.globalAlpha = 1;
 }
 
-// --- RENDER LOOP ---
-let lastTime = 0;
-async function render(now) {
-  const fps = Math.round(1000 / (now - lastTime));
-  lastTime = now;
-  document.getElementById('fps-val').textContent = fps;
-
-  canvas.width = video.videoWidth;
-  canvas.height = video.videoHeight;
-  
-  const predictions = await model.detect(video);
-  processDetections(predictions);
-  
-  drawHUD(predictions);
-  requestAnimationFrame(render);
-}
-
-function processDetections(preds) {
-  document.getElementById('obj-count').textContent = preds.length;
-  preds.forEach(p => {
-    const key = p.class + Math.round(p.bbox[0]);
-    if (!tracker[key]) {
-      log(`NEW TARGET: ${p.class.toUpperCase()} IN SECTOR ${Math.random() > 0.5 ? 'B-3' : 'A-1'}`);
-      tracker[key] = true;
-    }
-  });
-}
-
-function drawHUD(preds) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  
-  preds.forEach(p => {
-    const [x, y, w, h] = p.bbox;
-    const col = CONFIG.colors[p.class] || CONFIG.colors.default;
-    const isSelected = selectedId === p.class + x;
-
-    // Corner Accents
-    ctx.strokeStyle = col;
-    ctx.lineWidth = isSelected ? 4 : 2;
-    const len = 20;
+function loop(){
+  if(!running) return;
+  canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+  model.detect(video, 20, 0.2).then(preds => {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
     
-    // Draw corners
-    ctx.beginPath();
-    ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
-    ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
-    ctx.moveTo(x + w, y + h - len); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - len, y + h);
-    ctx.moveTo(x + len, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - len);
-    ctx.stroke();
+    // Draw Horizon
+    ctx.strokeStyle = 'rgba(0,255,65,0.2)';
+    ctx.beginPath(); ctx.moveTo(0, canvas.height/2); ctx.lineTo(canvas.width, canvas.height/2); ctx.stroke();
 
-    // Fill & Noise
-    ctx.fillStyle = isSelected ? `rgba(${parseInt(col.slice(1,3),16)},200,65,0.15)` : 'rgba(0,255,65,0.03)';
-    ctx.fillRect(x, y, w, h);
+    preds.forEach(p => {
+      const [x,y,w,h] = p.bbox;
+      const isSel = selTid === p.class + x;
+      const col = THREATS.has(p.class) ? '#ff2244' : '#00ff41';
+      
+      // Box
+      ctx.strokeStyle = col;
+      ctx.lineWidth = isSel ? 4 : 1;
+      ctx.strokeRect(x,y,w,h);
+      ctx.fillStyle = col + '11';
+      ctx.fillRect(x,y,w,h);
 
-    // Dynamic Label
-    ctx.fillStyle = col;
-    ctx.font = "bold 12px 'Orbitron'";
-    ctx.fillText(`${p.class.toUpperCase()} // ${Math.round(p.score * 100)}%`, x, y - 10);
-    
-    // Scan bar inside box
-    const scanY = y + (Math.sin(Date.now() / 200) * 0.5 + 0.5) * h;
-    ctx.globalAlpha = 0.3;
-    ctx.fillRect(x, scanY, w, 1);
-    ctx.globalAlpha = 1.0;
+      // ASCII & Labels
+      drawSkel(x,y,w,h,p.class, isSel);
+      ctx.fillStyle = col;
+      ctx.font = "10px Orbitron";
+      ctx.fillText(`${(USER_MEM[p.class]||ALIASES[p.class]||p.class).toUpperCase()}`, x, y-5);
+    });
+    lastPred = preds;
+    updateStats(preds);
+    requestAnimationFrame(loop);
   });
 }
 
-// --- INTERACTION ---
-window.addEventListener('mousedown', e => {
-  // Простая симуляция выбора объекта кликом
-  const side = document.getElementById('info-side');
-  side.classList.add('active');
-  log("TARGET LOCKED: MANUAL OVERRIDE", "t-crit");
+function updateStats(preds){
+  document.getElementById('b-obj').textContent = preds.length + ' OBJ';
+  let thr = preds.filter(p => THREATS.has(p.class)).length;
+  document.getElementById('s-thr').textContent = thr;
+}
+
+canvas.addEventListener('click', e => {
+  const rect = canvas.getBoundingClientRect();
+  const x = (e.clientX - rect.left) * (canvas.width/rect.width);
+  const y = (e.clientY - rect.top) * (canvas.height/rect.height);
+  const hit = lastPred.find(p => x > p.bbox[0] && x < p.bbox[0]+p.bbox[2] && y > p.bbox[1] && y < p.bbox[1]+p.bbox[3]);
+  if(hit){
+    selTid = hit.class + hit.bbox[0];
+    document.getElementById('info-title').textContent = (USER_MEM[hit.class]||ALIASES[hit.class]||hit.class).toUpperCase();
+    document.getElementById('info-panel').classList.add('open');
+    log(`LOCKED ON: ${hit.class.toUpperCase()}`);
+  } else closeInfo();
 });
 
-function closeInfo() {
-  document.getElementById('info-side').classList.remove('active');
-  log("TARGET RELEASED");
+function toggleNight(){
+  nightMode = !nightMode;
+  video.style.filter = nightMode ? 'brightness(0.5) contrast(2) sepia(1) hue-rotate(100deg)' : 'brightness(.55) contrast(1.38)';
+  log(`NIGHT_MODE: ${nightMode?'ACTIVE':'OFF'}`);
 }
 
-boot();
+function closeInfo(){ selTid=null; document.getElementById('info-panel').classList.remove('open'); }
+
+function renameObject() {
+  const current = document.getElementById('info-title').textContent;
+  const hit = lastPred.find(p => (selTid === p.class + p.bbox[0]));
+  if(!hit) return;
+  const n = prompt("RENAME CLASS:", current);
+  if(n) {
+    USER_MEM[hit.class] = n.toUpperCase();
+    localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
+    location.reload();
+  }
+}
+
+bootSeq();
 </script>
 </body>
 </html>
