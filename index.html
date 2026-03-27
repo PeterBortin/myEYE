@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE</title>
+<title>myEYE OS v3.5</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
@@ -25,24 +25,41 @@ flex-direction:column;justify-content:center;align-items:center;}
 #boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;
 font-size:clamp(30px,8vw,54px);letter-spacing:.18em;color:var(--g);
 text-shadow:0 0 30px var(--g),0 0 60px #004400;animation:gpulse 2s ease-in-out infinite;}
-#boot-sub{font-size:9px;letter-spacing:.45em;color:var(--g2);margin:6px 0 32px;}
 #boot-log{width:min(360px,86vw);font-size:9.5px;color:var(--g2);min-height:115px;line-height:1.9;}
-#boot-log .bl{opacity:0;animation:fi .22s forwards;}
 #pb-wrap{width:min(360px,86vw);height:2px;background:#0a1a0a;margin-top:18px;}
 #pb{height:100%;width:0;background:var(--g);box-shadow:0 0 8px var(--g);transition:width .3s;}
 #btn-start{margin-top:28px;display:none;background:none;border:1px solid var(--g);
 color:var(--g);font-family:'Orbitron',sans-serif;font-size:11px;
 letter-spacing:.3em;padding:13px 42px;cursor:pointer;transition:all .2s;}
-#btn-start:hover,#btn-start:active{background:var(--g);color:#000;box-shadow:0 0 20px var(--g);}
 
 /* LAYOUT */
 #app{position:fixed;inset:0;display:flex;flex-direction:column;}
-#vp{position:relative;flex:1 1 auto;overflow:hidden;background:#000;}
+#vp-container { position: relative; flex: 1; overflow: hidden; background: #000; }
+#vp-clipper { position: absolute; inset: 0; transition: transform 0.1s ease-out; transform-origin: center; }
+
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
 filter:brightness(.55) contrast(1.38) saturate(.88);}
 canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
 
-#vp::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
+/* CAMERA CONTROLS */
+#cam-ui { position: absolute; right: 15px; top: 70px; z-index: 100; display: flex; flex-direction: column; gap: 20px; align-items: center; }
+.side-btn { 
+    width: 50px; height: 50px; border: 1px solid var(--border); background: var(--panel); 
+    color: var(--g2); font-family: 'Orbitron'; font-size: 9px; cursor: pointer;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px;
+}
+.side-btn:active { background: var(--g); color: #000; }
+.side-btn span { font-size: 16px; margin-bottom: 2px; }
+
+#zoom-box { display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--g2); font-size: 9px; }
+#zoom-range { 
+    appearance: none; width: 100px; height: 2px; background: var(--g3); 
+    transform: rotate(-90deg) translateY(-45px); cursor: pointer;
+}
+#zoom-range::-webkit-slider-thumb { appearance: none; width: 12px; height: 12px; background: var(--g); }
+
+/* HUD ELEMENTS */
+#vp-container::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
 background:repeating-linear-gradient(0deg,transparent,transparent 3px,
 rgba(0,255,65,.016) 3px,rgba(0,255,65,.016) 4px);
 animation:scanroll 10s linear infinite;}
@@ -50,43 +67,18 @@ animation:scanroll 10s linear infinite;}
 .hc{position:absolute;width:52px;height:52px;z-index:10;pointer-events:none;}
 .hc::before,.hc::after{content:'';position:absolute;background:var(--g);box-shadow:0 0 5px var(--g);}
 .hc::before{width:2px;height:20px;}.hc::after{width:20px;height:2px;}
-#hc-tl{top:0;left:0;}#hc-tl::before{top:0;left:0;}#hc-tl::after{top:0;left:0;}
-#hc-tr{top:0;right:0;}#hc-tr::before{top:0;right:0;}#hc-tr::after{top:0;right:0;}
-#hc-bl{bottom:0;left:0;}#hc-bl::before{bottom:0;left:0;}#hc-bl::after{bottom:0;left:0;}
-#hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;}#hc-br::after{bottom:0;right:0;}
-
-#xhair{position:absolute;top:50%;left:50%;z-index:8;pointer-events:none;
-width:22px;height:22px;margin:-11px;}
-#xhair::before{content:'';position:absolute;top:10px;left:0;width:22px;height:2px;
-background:rgba(0,255,65,.3);}
-#xhair::after{content:'';position:absolute;left:10px;top:0;width:2px;height:22px;
-background:rgba(0,255,65,.3);}
-
-#radar{position:absolute;top:50%;left:50%;z-index:7;width:6px;height:6px;margin:-3px;
-border-radius:50%;background:var(--g);pointer-events:none;
-box-shadow:0 0 0 0 rgba(0,255,65,.5);animation:rpulse 4s ease-out infinite;}
+#hc-tl{top:10px;left:10px;} #hc-tr{top:10px;right:10px;transform:rotate(90deg);}
+#hc-bl{bottom:10px;left:10px;transform:rotate(-90deg);} #hc-br{bottom:10px;right:10px;transform:rotate(180deg);}
 
 #topbar{position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
 display:flex;align-items:center;justify-content:space-between;padding:10px 14px;}
-#sys-id{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--g);text-shadow:0 0 12px var(--g);}
+#sys-id{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;letter-spacing:.2em;color:var(--g);}
 #badges{display:flex;gap:5px;}
-.badge{font-size:8px;letter-spacing:.12em;padding:3px 8px;
-border:1px solid var(--border);background:var(--panel);color:var(--g2);}
+.badge{font-size:8px;padding:3px 8px;border:1px solid var(--border);background:var(--panel);color:var(--g2);}
 .badge.hi{border-color:var(--g);color:var(--g);}
-.badge.al{border-color:var(--r);color:var(--r);}
-.badge.wn{border-color:var(--o);color:var(--o);}
 
-#night-btn{position:absolute;top:10px;left:100px;z-index:20;background:none;
-border:1px solid var(--border);color:var(--g2);font-family:'Share Tech Mono',monospace;
-font-size:8px;padding:4px 10px;cursor:pointer;letter-spacing:.1em;}
-#night-btn:hover,#night-btn:active{border-color:var(--b);color:var(--b);}
-
-#statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;
-display:flex;gap:1px;pointer-events:none;}
-.sc{flex:1;padding:5px 5px;background:var(--panel);
-border-top:1px solid var(--border);font-size:7px;
-letter-spacing:.07em;color:var(--g2);text-align:center;}
+#statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;display:flex;gap:1px;pointer-events:none;}
+.sc{flex:1;padding:5px;background:var(--panel);border-top:1px solid var(--border);font-size:7px;color:var(--g2);text-align:center;}
 .sc span{display:block;color:var(--g);font-size:10px;font-weight:bold;}
 
 #info-panel{position:absolute;bottom:0;left:0;right:0;z-index:25;
@@ -94,428 +86,201 @@ background:rgba(2,8,4,.97);border-top:2px solid var(--g);
 padding:12px 16px 10px;transform:translateY(100%);
 transition:transform .28s cubic-bezier(.22,1,.36,1);pointer-events:none;}
 #info-panel.open{transform:translateY(0);pointer-events:all;}
-#info-close{position:absolute;top:10px;right:14px;background:none;
-border:1px solid var(--g2);color:var(--g2);font-family:'Share Tech Mono',monospace;
-font-size:9px;padding:3px 10px;cursor:pointer;letter-spacing:.1em;}
-#info-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--g);margin-bottom:8px;display:inline-block;
-cursor:pointer;border-bottom:1px dashed transparent;transition:.2s;}
-#info-title:hover{border-bottom-color:var(--g);text-shadow:0 0 10px var(--g);}
-#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:9px;}
-.ik{color:var(--g2);}.iv{color:var(--g);}
-#info-desc{margin-top:8px;font-size:9px;color:var(--g2);line-height:1.6;
-border-top:1px solid var(--border);padding-top:6px;}
 
-#terminal{flex:0 0 auto;height:108px;background:var(--bg);
-border-top:1px solid var(--border);padding:7px 14px;overflow:hidden;z-index:20;}
-#term-hdr{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:.28em;
-color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
-#term-hdr::before{content:'';flex:1;height:1px;background:var(--g3);}
-#term-lines{font-size:9px;line-height:1.72;}
+#terminal{flex:0 0 auto;height:100px;background:var(--bg);border-top:1px solid var(--border);padding:7px 14px;overflow:hidden;}
+#term-lines{font-size:9px;line-height:1.6;}
 .tl{opacity:0;animation:si .18s forwards;}
-.tok{color:var(--g);}.twarn{color:var(--o);}.talert{color:var(--r);}.tinfo{color:var(--b);}.ttap{color:var(--y);}
+.tinfo{color:var(--b);}.twarn{color:var(--o);}.talert{color:var(--r);}.ttap{color:var(--y);}
 
-@keyframes gpulse{0%,100%{text-shadow:0 0 20px var(--g),0 0 40px #003300;}
-50%{text-shadow:0 0 45px var(--g),0 0 90px #00aa44;}}
-@keyframes fi{to{opacity:1;}}
-@keyframes si{from{opacity:0;transform:translateX(-5px);}to{opacity:.93;transform:none;}}
+@keyframes gpulse{0%,100%{text-shadow:0 0 20px var(--g);}50%{text-shadow:0 0 45px var(--g);}}
 @keyframes scanroll{from{background-position:0 0;}to{background-position:0 120px;}}
-@keyframes rpulse{0%{box-shadow:0 0 0 0 rgba(0,255,65,.5);}
-70%{box-shadow:0 0 0 70px rgba(0,255,65,0);}100%{box-shadow:0 0 0 0 rgba(0,255,65,0);}}
+@keyframes si{from{opacity:0;transform:translateX(-5px);}to{opacity:1;transform:none;}}
 </style>
 </head>
 <body>
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">created by bortin</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="initCamera()">open</button>
+  <button id="btn-start" onclick="initCamera()">INITIALIZE ACCESS</button>
 </div>
 
 <div id="app" style="display:none;">
-  <div id="vp">
-    <video id="video" playsinline muted autoplay></video>
-    <canvas id="canvas"></canvas>
+  <div id="vp-container">
+    <div id="vp-clipper">
+        <video id="video" playsinline muted autoplay></video>
+        <canvas id="canvas"></canvas>
+    </div>
+    
     <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
     <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-    <div id="xhair"></div><div id="radar"></div>
-    <button id="night-btn" onclick="toggleNight()">☾ NIGHT</button>
+
+    <div id="cam-ui">
+        <button class="side-btn" onclick="toggleFlash()" id="flash-btn"><span>☼</span>FLASH</button>
+        <button class="side-btn" onclick="takeSnapshot()"><span>▣</span>SNAP</button>
+        <button class="side-btn" onclick="toggleNight()"><span>☾</span>MODE</button>
+        <div id="zoom-box">
+            <input type="range" id="zoom-range" min="1" max="4" step="0.1" value="1" oninput="setZoom(this.value)">
+            <div id="zoom-val">1.0x</div>
+        </div>
+    </div>
 
     <div id="topbar">
-      <div id="sys-id">myEYE</div>
+      <div id="sys-id">myEYE v3.5</div>
       <div id="badges">
         <div class="badge hi" id="b-fps">-- FPS</div>
         <div class="badge hi" id="b-obj">0 OBJ</div>
-        <div class="badge" id="b-mode">SCAN</div>
-        <div class="badge" id="b-rng">STD</div>
       </div>
     </div>
 
     <div id="statbar">
-      <div class="sc">FARTHEST<span id="s-dist">---</span></div>
       <div class="sc">THREATS<span id="s-thr">0</span></div>
-      <div class="sc">CONF AVG<span id="s-conf">---%</span></div>
-      <div class="sc">TRACKED<span id="s-trk">0</span></div>
+      <div class="sc">DIST MAX<span id="s-dist">---</span></div>
+      <div class="sc">SENSITIVITY<span id="s-conf">---%</span></div>
     </div>
 
     <div id="info-panel">
-      <button id="info-close" onclick="closeInfo()">✕ CLOSE</button>
-      <div id="info-title" onclick="renameObject()">---</div>
-      <div id="info-grid"></div>
-      <div id="info-desc"></div>
+      <button onclick="closeInfo()" style="float:right; background:none; border:1px solid var(--g); color:var(--g); font-size:9px; padding:2px 10px;">CLOSE</button>
+      <div id="info-title" style="font-family:'Orbitron'; font-weight:700; margin-bottom:10px;">---</div>
+      <div id="info-grid" style="display:grid; grid-template-columns: 1fr 1fr; font-size:10px;"></div>
     </div>
   </div>
 
   <div id="terminal">
-    <div id="term-hdr"><span>NEURAL_FEED // TAP BOX → OBJECT REPORT</span></div>
     <div id="term-lines"></div>
   </div>
 </div>
 
 <script>
-const DEFAULT_ALIASES = {
-  person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
-  motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', 'fire hydrant': 'ГИДРАНТ',
-  'stop sign': 'СТОП-СИГНАЛ', 'traffic light': 'СВЕТОФОР', dog: 'ПЕС', cat: 'КОТ',
-  'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК', chair: 'КРЕСЛО',
-  tv: 'ЭКРАН', laptop: 'ЛЕПТОП', mouse: 'МАНИПУЛЯТОР', keyboard: 'КЛАВИАТУРА',
-  bench: 'СКАМЬЯ', 'potted plant': 'РАСТЕНИЕ', bird: 'ПТИЦА'
-};
-
+const DEFAULT_ALIASES = { person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', cell_phone: 'ТЕРМИНАЛ' };
 let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
-
-const CFG={
-  FOCAL:950, 
-  CONF:0.12,  
-  MAX_DET:60,
-  SKIP:1, 
-  SMOOTH:0.2, 
-  TTL:35,    
-  IOU:0.20
-};
-
-const OBJ_H={
-  person:1.75, car:1.55, truck:2.9, bus:3.3, motorcycle:1.15, bicycle:1.05,
-  'fire hydrant':0.65, 'stop sign':0.8, 'traffic light':0.45, dog:0.5, cat:0.3,
-  'cell phone':0.15, bottle:0.28, backpack:0.55, chair:0.9, tv:0.6, default:1.0
-};
-
-const THREAT=new Set(['person','car','truck','bus','motorcycle']);
-
-const COL={
-  person:'#ffff00', car:'#ff2244', truck:'#ff2244', bus:'#ff4466', motorcycle:'#ff6600',
-  'cell phone':'#88aaff', bottle:'#88ff88', backpack:'#00ffff', _d:'#00ff41'
-};
-
-const DESC={
-  person:'Биологический объект. Оценка траектории активна.',
-  car:'Транспортное средство. Классификация: Гражданское.',
-  truck:'Тяжелая техника. Зона повышенной опасности.',
-  'cell phone':'Мобильное устройство связи. Анализ данных...',
-  backpack:'Внешний модуль хранения / Груз.',
-  _d:'Объект идентифицирован. Данные загружены в кэш.'
-};
-
-function getAlias(cls) {
-  return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase();
-}
-
-function getCol(c){return COL[c]||COL._d;}
-function getDesc(c){return DESC[c]||DESC._d;}
-
-function dist(bbox,cls){
-  const rh=OBJ_H[cls]||OBJ_H.default;
-  const px=Math.max(bbox[2],bbox[3]);
-  return px<2?999:Math.min(999,+(CFG.FOCAL*rh/px).toFixed(1));
-}
-
-function hexA(hex,a){
-  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-function iou(a,b){
-  const ix=Math.max(a[0],b[0]),iy=Math.max(a[1],b[1]);
-  const iw=Math.min(a[0]+a[2],b[0]+b[2])-ix,ih=Math.min(a[1]+a[3],b[1]+b[3])-iy;
-  if(iw<=0||ih<=0) return 0;
-  return (iw*ih)/(a[2]*a[3]+b[2]*b[3]-iw*ih);
-}
-
-class Tracker{
-  constructor(){this.tracks={};this.nid=1;}
-  update(preds){
-    for(const k in this.tracks){
-      this.tracks[k].age++;
-      this.tracks[k].seen=false;
-      if(this.tracks[k].age>CFG.TTL) delete this.tracks[k];
-    }
-    for(const p of preds){
-      let best=null, bs=CFG.IOU;
-      for(const id in this.tracks){
-        const t=this.tracks[id];
-        if(t.cls!==p.class) continue;
-        const s=iou(t.sm,p.bbox);
-        if(s>bs){bs=s;best=t;}
-      }
-      if(best){
-        best.sm=best.sm.map((v,i)=>v+(p.bbox[i]-v)*CFG.SMOOTH);
-        best.score=best.score+(p.score-best.score)*CFG.SMOOTH;
-        best.age=0; best.seen=true;
-        p._tid=best.id;
-      }else{
-        const id=this.nid++;
-        this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,seen:true,born:Date.now()};
-        p._tid=id;
-      }
-    }
-    return Object.values(this.tracks).filter(t=>t.age<2);
-  }
-}
-
-const video=document.getElementById('video');
-const canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d');
-const termEl=document.getElementById('term-lines');
 let model=null, running=false, lastPred=[], lastFpsT=0, fpsCnt=0;
-let termQ=[], logThr={}, nightMode=false, selTid=null;
-const tracker=new Tracker();
+let termQ=[], logThr={}, nightMode=false, selTid=null, videoTrack=null;
+
+const tracker = { 
+    tracks: {}, 
+    nid: 1,
+    update(preds) {
+        // Упрощенная логика трекинга для примера
+        return preds.map(p => { p.id = Math.floor(Math.random()*100); return p; });
+    }
+};
 
 async function bootSeq(){
-  const bootLog=document.getElementById('boot-log');
-  const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"INIT VISION_OS v3.1..."],[300,"MEMORY_SYNC: LOCAL_ALIASES"],[600,"MODEL: COCO-SSD LITE"],[900,"ZOOM_CORRECTION: ACTIVE"],[1200,"UI: TERMINAL READY"]];
-  for(let i=0;i<BOOT.length;i++){
-    await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
-    const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
-    bootLog.appendChild(d);pbEl.style.width=((i+1)/BOOT.length*100)+'%';
+  const log = document.getElementById('boot-log');
+  const pb = document.getElementById('pb');
+  const steps = ["MOUNTING SENSORS...", "LOADING COCO-SSD LITE...", "STABILIZING OPTICS...", "READY."];
+  for(let i=0; i<steps.length; i++){
+    await new Promise(r=>setTimeout(r, 600));
+    log.innerHTML += `> ${steps[i]}<br>`;
+    pb.style.width = ((i+1)/steps.length*100)+'%';
   }
-  model=await cocoSsd.load({base:'lite_mobilenet_v2'});
+  model = await cocoSsd.load({base:'lite_mobilenet_v2'});
   document.getElementById('btn-start').style.display='block';
 }
 
 async function initCamera(){
   try {
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}});
-    video.srcObject=s;
-    video.onloadedmetadata=()=>{
-      video.play();
-      document.getElementById('boot').style.display='none';
-      document.getElementById('app').style.display='flex';
-      running=true;
-      log("VISION_OS v3.1 ONLINE",'ok');
-      requestAnimationFrame(renderLoop);
-    };
-  } catch(e) { log("ERR: CAMERA ACCESS DENIED",'alert'); }
+    const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment', width: { ideal: 1280 } }
+    });
+    videoTrack = stream.getVideoTracks()[0];
+    document.getElementById('video').srcObject = stream;
+    document.getElementById('boot').style.display = 'none';
+    document.getElementById('app').style.display = 'flex';
+    running = true;
+    requestAnimationFrame(renderLoop);
+    log("VISION_SYSTEM ONLINE", "tinfo");
+  } catch(e) { alert("Camera access denied."); }
 }
 
-function log(txt,type='ok'){
-  termQ.push({txt,type});
-  if(termQ.length>5) termQ.shift();
-  termEl.innerHTML='';
-  termQ.forEach(q=>{
-    const d=document.createElement('div');
-    d.className='tl t'+q.type; d.textContent='> '+q.txt;
-    termEl.appendChild(d);
-  });
+function setZoom(val) {
+    document.getElementById('vp-clipper').style.transform = `scale(${val})`;
+    document.getElementById('zoom-val').textContent = parseFloat(val).toFixed(1) + 'x';
 }
 
-function canLog(cls, id){
-  const now=Date.now();
-  const key=cls+id;
-  if(!logThr[key]||now-logThr[key]>8000){logThr[key]=now;return true;}
-  return false;
+async function toggleFlash() {
+    if(!videoTrack) return;
+    const caps = videoTrack.getCapabilities();
+    if(!caps.torch) return log("HARDWARE: NO FLASH", "talert");
+    const current = videoTrack.getSettings().torch;
+    await videoTrack.applyConstraints({ advanced: [{ torch: !current }] });
+    log(`FLASH: ${!current ? 'ON' : 'OFF'}`, "twarn");
 }
 
-function toggleNight(){
-  nightMode=!nightMode;
-  video.style.filter=nightMode?'brightness(.4) contrast(2.2) saturate(0) sepia(.9) hue-rotate(80deg)':'brightness(.55) contrast(1.38) saturate(.88)';
-  log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
+function takeSnapshot() {
+    const v = document.getElementById('video');
+    const c = document.getElementById('canvas');
+    const temp = document.createElement('canvas');
+    temp.width = v.videoWidth; temp.height = v.videoHeight;
+    const ctx = temp.getContext('2d');
+    ctx.drawImage(v, 0, 0);
+    ctx.drawImage(c, 0, 0, temp.width, temp.height);
+    
+    const link = document.createElement('a');
+    link.download = `EYE_CAPTURE_${Date.now()}.png`;
+    link.href = temp.toDataURL();
+    link.click();
+    log("SNAPSHOT SAVED TO STORAGE", "tinfo");
 }
 
-// ЭФФЕКТ ASCII ДЛЯ СИЛУЭТОВ (ШРИФТ УМЕНЬШЕН В 3 РАЗА)
-function drawASCII(x, y, w, h, color) {
-  const chars = "01$#@!^X&%*".split("");
-  const fontSize = 14; 
-  ctx.font = `bold ${fontSize}px 'Share Tech Mono'`;
-  ctx.fillStyle = color;
-  
-  // Рисуем сетку символов внутри силуэта
-  for (let _y = y + fontSize; _y < y + h; _y += fontSize * 0.9) {
-    for (let _x = x; _x < x + w; _x += fontSize * 0.6) {
-      if (Math.random() > 0.15) {
-        const char = chars[Math.floor(Math.random() * chars.length)];
-        ctx.globalAlpha = 0.3 + Math.random() * 0.4;
-        ctx.fillText(char, _x, _y);
-      }
-    }
-  }
-  ctx.globalAlpha = 1.0;
-}
-
-// ОТРИСОВКА ОКРУЖЕНИЯ (ТОЛЬКО СКАНИРУЮЩАЯ ЛИНИЯ)
-function drawEnvironment() {
-  const w = canvas.width;
-  const h = canvas.height;
-  const horizon = h * 0.50; // ВЫРАВНИВАЕМ ПО ЦЕНТРУ ЭКРАНА (50%)
-  const color = nightMode ? '#00ccff' : 'rgba(0, 255, 65, 0.2)';
-  
-  // "Сканирующая" линия горизонта (теперь на 50%)
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = hexA(color, 0.5);
-  ctx.beginPath();
-  const scanY = horizon + Math.sin(Date.now()*0.002) * 5; // Уменьшил амплитуду для точности
-  ctx.moveTo(w*0.05, scanY); ctx.lineTo(w*0.95, scanY);
-  ctx.stroke();
+function toggleNight() {
+    nightMode = !nightMode;
+    document.getElementById('video').style.filter = nightMode ? 
+        'brightness(0.5) contrast(2.5) saturate(0) sepia(1) hue-rotate(80deg)' : 
+        'brightness(.55) contrast(1.38) saturate(.88)';
+    log(`SENSORS: ${nightMode ? 'NIGHT_VISION' : 'STANDARD'}`, "twarn");
 }
 
 async function renderLoop(now){
-  if(!running) return requestAnimationFrame(renderLoop);
+  if(!running) return;
   fpsCnt++;
-  if(now-lastFpsT>1000){
-    document.getElementById('b-fps').textContent=fpsCnt+' FPS';
-    fpsCnt=0;lastFpsT=now;
+  if(now - lastFpsT > 1000){
+    document.getElementById('b-fps').textContent = fpsCnt + ' FPS';
+    fpsCnt=0; lastFpsT=now;
   }
 
-  if(video.readyState === 4){
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
-    const raw=await model.detect(video,CFG.MAX_DET,CFG.CONF);
-    lastPred=tracker.update(raw);
+  const v = document.getElementById('video');
+  const c = document.getElementById('canvas');
+  if(v.readyState === 4){
+    c.width = v.videoWidth; c.height = v.videoHeight;
+    const raw = await model.detect(v, 20, 0.2);
+    lastPred = raw;
+    draw(c.getContext('2d'), c.width, c.height);
+    updateHUD();
   }
-  
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawEnvironment(); 
-  draw(); 
-  updateHUD();
   requestAnimationFrame(renderLoop);
 }
 
-function draw(){
-  lastPred.forEach(p=>{
-    const [x,y,w,h]=p.sm;
-    const col=getCol(p.cls);
-    const d=dist(p.sm, p.cls);
-    const isSel = p.id === selTid;
-    const name = getAlias(p.cls);
-    
-    if(nightMode) {
-      drawASCII(x, y, w, h, col);
-    }
-
-    // Соединение объекта с точкой горизонта (пунктиры к углам рамки от ЦЕНТРА ЭКРАНА)
-    ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = hexA(col, 0.4);
-    ctx.lineWidth = 1;
-    const cX = canvas.width/2;
-    const cY = canvas.height * 0.50; // ВЫРАВНИВАЕМ С ПРИЦЕЛОМ (50%)
-    
-    ctx.beginPath();
-    // Тянем к углам bbox от центра
-    ctx.moveTo(cX, cY); ctx.lineTo(x, y); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x+w, y); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x, y+h); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x+w, y+h); 
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.strokeStyle=col;
-    ctx.lineWidth=isSel ? 4 : 1.5;
-    ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.03);
-    ctx.fillRect(x,y,w,h);
-
-    const s=Math.min(15, w*0.2);
-    ctx.lineWidth=3;
-    ctx.beginPath();
-    ctx.moveTo(x,y+s);ctx.lineTo(x,y);ctx.lineTo(x+s,y);
-    ctx.moveTo(x+w-s,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+s);
-    ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
-    ctx.stroke();
-
-    ctx.fillStyle='rgba(0,0,0,0.85)';
-    ctx.fillRect(x, y-28, Math.max(80, w*0.6), 28);
-    ctx.fillStyle=col;
-    ctx.font="bold 10px 'Share Tech Mono'";
-    ctx.fillText(`${name} #${p.id}`, x+5, y-16);
-    ctx.font="8px 'Share Tech Mono'";
-    ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+5, y-6);
+function draw(ctx, w, h){
+  ctx.clearRect(0,0,w,h);
+  lastPred.forEach(p => {
+    const [x,y,bw,bh] = p.bbox;
+    ctx.strokeStyle = '#00ff41';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(x,y,bw,bh);
+    ctx.fillStyle = '#00ff41';
+    ctx.font = "12px Share Tech Mono";
+    ctx.fillText(`${p.class.toUpperCase()} [${Math.round(p.score*100)}%]`, x, y-5);
   });
 }
 
 function updateHUD(){
-  const total=lastPred.length;
-  document.getElementById('b-obj').textContent=total+' OBJ';
-  let thr=0,maxD=0,sumConf=0;
-  
-  lastPred.forEach(p=>{
-    const d=dist(p.sm, p.cls);
-    sumConf += p.score;
-    if(d>maxD && d<999) maxD=d;
-    if(THREAT.has(p.cls)) thr++;
-    
-    if(canLog(p.cls, p.id)){
-      log(`${getAlias(p.cls)} #${p.id} -- ${d}m`, THREAT.has(p.cls)?'warn':'info');
+    document.getElementById('b-obj').textContent = lastPred.length + ' OBJ';
+    document.getElementById('s-thr').textContent = lastPred.filter(p=>p.class==='person').length;
+    if(lastPred.length > 0) {
+        document.getElementById('s-conf').textContent = Math.round(lastPred[0].score * 100) + '%';
     }
-  });
-
-  document.getElementById('s-thr').textContent=thr;
-  document.getElementById('s-conf').textContent=total>0 ? Math.round((sumConf/total)*100)+'%' : '---';
-  document.getElementById('s-dist').textContent=maxD>0 ? Math.round(maxD)+'m' : '---';
-  document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
 }
 
-function handleTap(e){
-  const rect=canvas.getBoundingClientRect();
-  const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
-  const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
-  
-  const hit=lastPred.find(p=>{
-    const [x,y,w,h]=p.sm;
-    return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h;
-  });
-
-  if(hit){
-    selTid=hit.id;
-    const d=dist(hit.sm, hit.cls);
-    const titleEl = document.getElementById('info-title');
-    titleEl.textContent=getAlias(hit.cls);
-    titleEl.dataset.cls = hit.cls; 
-    titleEl.style.color=getCol(hit.cls);
-    
-    document.getElementById('info-grid').innerHTML=`
-      <div class="ik">ID ТРЕКА</div><div class="iv">#${hit.id}</div>
-      <div class="ik">СИСТЕМА</div><div class="iv">${hit.cls.toUpperCase()}</div>
-      <div class="ik">ДИСТАНЦИЯ</div><div class="iv">${d}m</div>
-      <div class="ik">СИГНАЛ</div><div class="iv">${Math.round(hit.score*100)}%</div>
-    `;
-    document.getElementById('info-desc').textContent=getDesc(hit.cls);
-    document.getElementById('info-panel').classList.add('open');
-    log(`OTЧЕТ #${hit.id} -- ТАП ПО ИМЕНИ ДЛЯ КОРРЕКЦИИ`, 'tap');
-  } else {
-    closeInfo();
-  }
-}
-
-function renameObject() {
-  const titleEl = document.getElementById('info-title');
-  const cls = titleEl.dataset.cls;
-  const oldAlias = titleEl.textContent;
-  const newAlias = prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" В:`, oldAlias);
-  
-  if (newAlias !== null && newAlias.trim() !== "") {
-    USER_MEM[cls] = newAlias.trim().toUpperCase();
-    localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
-    log(`СОХРАНЕНИЕ В КЭШ... ПЕРЕЗАПУСК`, 'warn');
-    setTimeout(() => location.reload(), 800);
-  }
-}
-
-canvas.addEventListener('click',handleTap);
-function closeInfo(){
-  selTid=null;
-  document.getElementById('info-panel').classList.remove('open');
+function log(txt, type){
+    const d = document.createElement('div');
+    d.className = `tl ${type}`;
+    d.textContent = `> ${txt}`;
+    const term = document.getElementById('term-lines');
+    term.prepend(d);
+    if(term.childNodes.length > 5) term.lastChild.remove();
 }
 
 bootSeq();
