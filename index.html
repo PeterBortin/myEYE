@@ -128,7 +128,7 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">created by bortin'2026</div>
+  <div id="boot-sub">created by bortin</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
   <button id="btn-start" onclick="initCamera()">open</button>
@@ -175,7 +175,6 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 </div>
 
 <script>
-// ЛОКАЛЬНАЯ ПАМЯТЬ + РАСШИРЕННАЯ БАЗА
 const DEFAULT_ALIASES = {
   person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
   motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', 'fire hydrant': 'ГИДРАНТ',
@@ -188,12 +187,12 @@ const DEFAULT_ALIASES = {
 let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
 
 const CFG={
-  FOCAL:950, // Слегка увеличен для точности дали
-  CONF:0.12,  // Порог снижен для захвата мелких/далеких объектов
+  FOCAL:950, 
+  CONF:0.12,  
   MAX_DET:60,
   SKIP:1, 
   SMOOTH:0.2, 
-  TTL:35,    // Увеличено время жизни трека для стабильности
+  TTL:35,    
   IOU:0.20
 };
 
@@ -203,11 +202,6 @@ const OBJ_H={
   'cell phone':0.15, bottle:0.28, backpack:0.55, chair:0.9, tv:0.6, default:1.0
 };
 
-const CAT={
-  HUMAN:['person'],
-  VEHICLE:['car','truck','bus','motorcycle','bicycle'],
-  ANIMAL:['bird','cat','dog','horse','sheep','cow','elephant']
-};
 const THREAT=new Set(['person','car','truck','bus','motorcycle']);
 
 const COL={
@@ -336,8 +330,29 @@ function canLog(cls, id){
 
 function toggleNight(){
   nightMode=!nightMode;
-  video.style.filter=nightMode?'brightness(.4) contrast(1.7) saturate(0) sepia(.9) hue-rotate(80deg)':'brightness(.55) contrast(1.38) saturate(.88)';
+  video.style.filter=nightMode?'brightness(.4) contrast(2.2) saturate(0) sepia(.9) hue-rotate(80deg)':'brightness(.55) contrast(1.38) saturate(.88)';
   log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
+}
+
+// ЭФФЕКТ ASCII ДЛЯ СИЛУЭТОВ
+function drawASCII(x, y, w, h, color) {
+  const chars = "01$#@!^".split("");
+  const fontSize = 9;
+  ctx.font = `${fontSize}px 'Share Tech Mono'`;
+  ctx.fillStyle = color;
+  
+  // Рисуем сетку символов внутри bbox
+  for (let _y = y; _y < y + h; _y += fontSize) {
+    for (let _x = x; _x < x + w; _x += fontSize * 0.6) {
+      // Рандомное мерцание для эффекта "цифрового шума"
+      if (Math.random() > 0.4) {
+        const char = chars[Math.floor(Math.random() * chars.length)];
+        ctx.globalAlpha = 0.3 + Math.random() * 0.5;
+        ctx.fillText(char, _x, _y);
+      }
+    }
+  }
+  ctx.globalAlpha = 1.0;
 }
 
 async function renderLoop(now){
@@ -369,6 +384,11 @@ function draw(){
     const isSel = p.id === selTid;
     const name = getAlias(p.cls);
     
+    // Ночной режим: ASCII силуэт
+    if(nightMode) {
+      drawASCII(x, y, w, h, col);
+    }
+
     ctx.strokeStyle=col;
     ctx.lineWidth=isSel ? 4 : 1.5;
     ctx.strokeRect(x,y,w,h);
@@ -456,8 +476,6 @@ function renameObject() {
   if (newAlias !== null && newAlias.trim() !== "") {
     USER_MEM[cls] = newAlias.trim().toUpperCase();
     localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
-    
-    // МГНОВЕННАЯ ПЕРЕЗАГРУЗКА ДЛЯ ПРИМЕНЕНИЯ КЭША
     log(`СОХРАНЕНИЕ В КЭШ... ПЕРЕЗАПУСК`, 'warn');
     setTimeout(() => location.reload(), 800);
   }
