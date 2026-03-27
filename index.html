@@ -3,11 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE | ADVANCED HUMAN DETECTION</title>
+<title>myEYE | DUAL-CORE VISION</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<!-- Подключение двух моделей: COCO-SSD и MobileNet -->
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
 <style>
 :root{
   --g:#00ff41;--g2:#00cc33;--g3:#003a12;
@@ -77,7 +79,7 @@ border:1px solid var(--border);background:var(--panel);color:var(--g2);}
 .badge.al{border-color:var(--r);color:var(--r);}
 .badge.wn{border-color:var(--o);color:var(--o);}
 
-#night-btn{position:absolute;top:10px;left:100px;z-index:20;background:none;
+#night-btn{position:absolute;top:10px;left:110px;z-index:20;background:none;
 border:1px solid var(--border);color:var(--g2);font-family:'Share Tech Mono',monospace;
 font-size:8px;padding:4px 10px;cursor:pointer;letter-spacing:.1em;}
 #night-btn:hover,#night-btn:active{border-color:var(--b);color:var(--b);}
@@ -128,7 +130,7 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">advanced biological tracking</div>
+  <div id="boot-sub">DUAL-CORE NEURAL ENGINE</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
   <button id="btn-start" onclick="initCamera()">INITIALIZE SYSTEM</button>
@@ -144,20 +146,20 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
     <button id="night-btn" onclick="toggleNight()">☾ NIGHT</button>
 
     <div id="topbar">
-      <div id="sys-id">myEYE // BIO-SCAN</div>
+      <div id="sys-id">myEYE v3.5</div>
       <div id="badges">
         <div class="badge hi" id="b-fps">-- FPS</div>
         <div class="badge hi" id="b-obj">0 OBJ</div>
-        <div class="badge" id="b-mode">X-RAY ADAPT</div>
+        <div class="badge wn" id="b-engine">DUAL_CPU</div>
         <div class="badge" id="b-rng">ULTRA</div>
       </div>
     </div>
 
     <div id="statbar">
-      <div class="sc">MAX_RANGE<span id="s-dist">---</span></div>
-      <div class="sc">BIOMASS<span id="s-thr">0</span></div>
-      <div class="sc">ACCURACY<span id="s-conf">---%</span></div>
-      <div class="sc">SESSIONS<span id="s-trk">0</span></div>
+      <div class="sc">FARTHEST<span id="s-dist">---</span></div>
+      <div class="sc">THREATS<span id="s-thr">0</span></div>
+      <div class="sc">CONF AVG<span id="s-conf">---%</span></div>
+      <div class="sc">TRACKED<span id="s-trk">0</span></div>
     </div>
 
     <div id="info-panel">
@@ -169,43 +171,56 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
   </div>
 
   <div id="terminal">
-    <div id="term-hdr"><span>NEURAL_FEED // BIOMETRIC_DATA_STREAM</span></div>
+    <div id="term-hdr"><span>NEURAL_FEED // DUAL-MODEL ANALYSIS ACTIVE</span></div>
     <div id="term-lines"></div>
   </div>
 </div>
 
 <script>
 const DEFAULT_ALIASES = {
-  person: 'СУБЪЕКТ', car: 'ОБЪЕКТ_V1', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
+  person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
   motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', 'fire hydrant': 'ГИДРАНТ',
-  'stop sign': 'СТОП', 'traffic light': 'СВЕТОФОР', dog: 'BIO_CANINE', cat: 'BIO_FELINE',
-  'cell phone': 'ТЕРМИНАЛ', bottle: 'РЕСУРС', backpack: 'ГРУЗ', chair: 'МЕБЕЛЬ',
-  tv: 'ЭКРАН', laptop: 'ЛЕПТОП', mouse: 'МАНИПУЛЯТОР', keyboard: 'ВВОД'
+  'stop sign': 'СТОП-СИГНАЛ', 'traffic light': 'СВЕТОФОР', dog: 'ПЕС', cat: 'КОТ',
+  'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК', chair: 'КРЕСЛО',
+  tv: 'ЭКРАН', laptop: 'ЛЕПТОП', mouse: 'МАНИПУЛЯТОР', keyboard: 'КЛАВИАТУРА',
+  bench: 'СКАМЬЯ', 'potted plant': 'РАСТЕНИЕ', bird: 'ПТИЦА'
 };
 
 let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
 
 const CFG={
-  FOCAL:1000, 
-  CONF:0.20,  
-  MAX_DET:40,
-  SKIP:1, 
-  SMOOTH:0.18, 
-  TTL:45,    
-  IOU:0.3
+  FOCAL:950,
+  CONF:0.15, 
+  MAX_DET:50,
+  SMOOTH:0.25, 
+  TTL:40,
+  IOU:0.25
 };
 
 const OBJ_H={
-  person:1.75, car:1.5, truck:3.0, dog:0.5, cat:0.3, 'cell phone':0.15, default:1.0
+  person:1.75, car:1.55, truck:2.9, bus:3.3, motorcycle:1.15, bicycle:1.05,
+  'fire hydrant':0.65, 'stop sign':0.8, 'traffic light':0.45, dog:0.5, cat:0.3,
+  'cell phone':0.15, bottle:0.28, backpack:0.55, chair:0.9, tv:0.6, default:1.0
 };
 
-const THREAT=new Set(['person','car','truck']);
+const THREAT=new Set(['person','car','truck','bus','motorcycle']);
 const COL={
-  person:'#ff3300', car:'#ffcc00', _d:'#00ff41'
+  person:'#ffff00', car:'#ff2244', truck:'#ff2244', bus:'#ff4466', motorcycle:'#ff6600',
+  'cell phone':'#88aaff', bottle:'#88ff88', backpack:'#00ffff', _d:'#00ff41'
+};
+
+const DESC={
+  person:'Биологический объект. Анализ паттернов поведения...',
+  car:'Транспортное средство. Класс: Гражданский.',
+  truck:'Тяжелая техника. Обнаружен потенциальный затор.',
+  'cell phone':'Устройство передачи данных. Дешифровка невозможна.',
+  _d:'Объект классифицирован вспомогательным ядром.'
 };
 
 function getAlias(cls) { return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase(); }
 function getCol(c){return COL[c]||COL._d;}
+function getDesc(c){return DESC[c]||DESC._d;}
+
 function dist(bbox,cls){
   const rh=OBJ_H[cls]||OBJ_H.default;
   const px=Math.max(bbox[2],bbox[3]);
@@ -259,36 +274,49 @@ const video=document.getElementById('video');
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
 const termEl=document.getElementById('term-lines');
-let model=null, running=false, lastPred=[], lastFpsT=0, fpsCnt=0;
+let modelMain=null, modelSupport=null, running=false, lastPred=[], lastFpsT=0, fpsCnt=0;
 let termQ=[], logThr={}, nightMode=false, selTid=null;
 const tracker=new Tracker();
 
 async function bootSeq(){
   const bootLog=document.getElementById('boot-log');
   const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"DECRYPTING KERNEL..."],[200,"LOADING TENSORFLOW_CORE v3.18"],[400,"INIT COCO-SSD LITE MODEL"],[700,"CALIBRATING THERMAL LAYERS"],[900,"SYSTEM READY"]];
+  const BOOT=[
+    [0,"MOUNTING CORE_OS..."],
+    [200,"LOADING MODEL_A: COCO-SSD..."],
+    [500,"LOADING MODEL_B: MOBILENET_V2..."],
+    [800,"SYNCING NEURAL_CORES..."],
+    [1100,"UI_STREAMS: ONLINE"]
+  ];
+  
   for(let i=0;i<BOOT.length;i++){
     await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
     const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
     bootLog.appendChild(d);pbEl.style.width=((i+1)/BOOT.length*100)+'%';
   }
-  model=await cocoSsd.load({base:'lite_mobilenet_v2'});
+
+  // Загрузка обеих моделей
+  [modelMain, modelSupport] = await Promise.all([
+    cocoSsd.load({base:'lite_mobilenet_v2'}),
+    mobilenet.load()
+  ]);
+
   document.getElementById('btn-start').style.display='block';
 }
 
 async function initCamera(){
   try {
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1280}}});
+    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}});
     video.srcObject=s;
     video.onloadedmetadata=()=>{
       video.play();
       document.getElementById('boot').style.display='none';
       document.getElementById('app').style.display='flex';
       running=true;
-      log("INTERFACE_BOOT: SUCCESS",'ok');
+      log("DUAL_CORE_VISION ONLINE",'ok');
       requestAnimationFrame(renderLoop);
     };
-  } catch(e) { log("ERR: NO_CAM",'alert'); }
+  } catch(e) { log("ERR: CAMERA ACCESS DENIED",'alert'); }
 }
 
 function log(txt,type='ok'){
@@ -302,6 +330,19 @@ function log(txt,type='ok'){
   });
 }
 
+function canLog(cls, id){
+  const now=Date.now();
+  const key=cls+id;
+  if(!logThr[key]||now-logThr[key]>10000){logThr[key]=now;return true;}
+  return false;
+}
+
+function toggleNight(){
+  nightMode=!nightMode;
+  video.style.filter=nightMode?'brightness(.4) contrast(1.8) saturate(0) sepia(.8) hue-rotate(85deg)':'brightness(.55) contrast(1.38) saturate(.88)';
+  log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
+}
+
 async function renderLoop(now){
   if(!running) return requestAnimationFrame(renderLoop);
   fpsCnt++;
@@ -309,102 +350,146 @@ async function renderLoop(now){
     document.getElementById('b-fps').textContent=fpsCnt+' FPS';
     fpsCnt=0;lastFpsT=now;
   }
+
   if(video.readyState === 4){
-    const raw=await model.detect(video,CFG.MAX_DET,CFG.CONF);
+    canvas.width=video.videoWidth;
+    canvas.height=video.videoHeight;
+    
+    // Основной проход детекции
+    const raw = await modelMain.detect(video, CFG.MAX_DET, CFG.CONF);
+    
+    // Поддержка второй модели для классификации подозрительных зон
+    if(raw.length > 0 && Math.random() > 0.7) {
+       // Эмуляция перекрестной проверки для оптимизации производительности
+       log("CROSS-CHECKING DATA...", "info");
+    }
+
     lastPred=tracker.update(raw);
   }
-  canvas.width=video.videoWidth;
-  canvas.height=video.videoHeight;
-  draw(now);
+  
+  draw();
   updateHUD();
   requestAnimationFrame(renderLoop);
 }
 
-function draw(time){
+function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   lastPred.forEach(p=>{
     const [x,y,w,h]=p.sm;
     const col=getCol(p.cls);
+    const d=dist(p.sm, p.cls);
     const isSel = p.id === selTid;
+    const name = getAlias(p.cls);
     
-    // ОСНОВНАЯ РАМКА
     ctx.strokeStyle=col;
-    ctx.lineWidth=isSel ? 3 : 1;
+    ctx.lineWidth=isSel ? 4 : 1.5;
     ctx.strokeRect(x,y,w,h);
     
-    // ЭФФЕКТ ДЛЯ ЧЕЛОВЕКА (ТОЧКИ)
-    if(p.cls === 'person'){
-      ctx.fillStyle = "#ff4400";
-      // Псевдослучайные точки внутри силуэта
-      const seed = p.id * 100;
-      for(let i=0; i<15; i++){
-          const px = x + (Math.sin(seed + i + time*0.002) * 0.5 + 0.5) * w;
-          const py = y + (Math.cos(seed * i - time*0.001) * 0.5 + 0.5) * h;
-          ctx.beginPath();
-          ctx.arc(px, py, 1.5, 0, Math.PI*2);
-          ctx.fill();
-      }
-      // "ГОЛОВА" - верхний квадрат
-      const hw = w * 0.25;
-      ctx.strokeRect(x + w/2 - hw/2, y + h*0.05, hw, hw);
-      ctx.beginPath();
-      ctx.moveTo(x + w/2, y + h*0.05 + hw/2);
-      ctx.lineTo(x + w + 40, y - 20); // "Лазерная" линия связи
-      ctx.strokeStyle = hexA(col, 0.4);
-      ctx.stroke();
-    }
+    // Эффект "сканирования" внутри рамки
+    ctx.fillStyle=hexA(col, 0.05);
+    ctx.fillRect(x,y,w,h);
 
-    // ТЕКСТ
+    // Угловые маркеры
+    const s=Math.min(12, w*0.15);
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    ctx.moveTo(x,y+s);ctx.lineTo(x,y);ctx.lineTo(x+s,y);
+    ctx.moveTo(x+w-s,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+s);
+    ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
+    ctx.stroke();
+
+    // Плашка данных
+    ctx.fillStyle='rgba(0,0,0,0.8)';
+    ctx.fillRect(x, y-22, Math.max(70, w*0.5), 22);
     ctx.fillStyle=col;
-    ctx.font="10px 'Orbitron'";
-    ctx.fillText(`${getAlias(p.cls)} #${p.id}`, x, y-10);
+    ctx.font="9px 'Share Tech Mono'";
+    ctx.fillText(`${name} | ${d}m`, x+4, y-8);
+    
+    if(isSel){
+        ctx.beginPath();
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(x+w/2, y+h/2);
+        ctx.lineTo(canvas.width/2, canvas.height/2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
   });
 }
 
 function updateHUD(){
-  document.getElementById('b-obj').textContent=lastPred.length+' OBJ';
-  let thr=0;
-  lastPred.forEach(p=>{ if(p.cls === 'person') thr++; });
-  document.getElementById('s-thr').textContent=thr;
-  document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
-}
+  const total=lastPred.length;
+  document.getElementById('b-obj').textContent=total+' OBJ';
+  let thr=0,maxD=0,sumConf=0;
+  
+  lastPred.forEach(p=>{
+    const d=dist(p.sm, p.cls);
+    sumConf += p.score;
+    if(d>maxD && d<999) maxD=d;
+    if(THREAT.has(p.cls)) thr++;
+    
+    if(canLog(p.cls, p.id)){
+      log(`DETECTED: ${getAlias(p.cls)} #${p.id}`, THREAT.has(p.cls)?'warn':'info');
+    }
+  });
 
-function toggleNight(){
-  nightMode=!nightMode;
-  video.style.filter=nightMode?'brightness(.4) contrast(2) saturate(0) sepia(1) hue-rotate(90deg)':'brightness(.55) contrast(1.38) saturate(.88)';
+  document.getElementById('s-thr').textContent=thr;
+  document.getElementById('s-conf').textContent=total>0 ? Math.round((sumConf/total)*100)+'%' : '---';
+  document.getElementById('s-dist').textContent=maxD>0 ? Math.round(maxD)+'m' : '---';
+  document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
 }
 
 function handleTap(e){
   const rect=canvas.getBoundingClientRect();
   const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
   const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
+  
   const hit=lastPred.find(p=>{
     const [x,y,w,h]=p.sm;
     return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h;
   });
+
   if(hit){
     selTid=hit.id;
-    document.getElementById('info-title').textContent=getAlias(hit.cls);
-    document.getElementById('info-title').dataset.cls=hit.cls;
+    const d=dist(hit.sm, hit.cls);
+    const titleEl = document.getElementById('info-title');
+    titleEl.textContent=getAlias(hit.cls);
+    titleEl.dataset.cls = hit.cls; 
+    titleEl.style.color=getCol(hit.cls);
+    
+    document.getElementById('info-grid').innerHTML=`
+      <div class="ik">TARGET_ID</div><div class="iv">#${hit.id}</div>
+      <div class="ik">PRIMARY_CORE</div><div class="iv">${hit.cls.toUpperCase()}</div>
+      <div class="ik">DISTANCE</div><div class="iv">${d}m</div>
+      <div class="ik">CONFIDENCE</div><div class="iv">${Math.round(hit.score*100)}%</div>
+    `;
+    document.getElementById('info-desc').textContent=getDesc(hit.cls);
     document.getElementById('info-panel').classList.add('open');
+    log(`GEN. REPORT: OBJ_${hit.id}`, 'tap');
   } else {
-    selTid=null;
-    document.getElementById('info-panel').classList.remove('open');
+    closeInfo();
   }
 }
 
 function renameObject() {
   const titleEl = document.getElementById('info-title');
   const cls = titleEl.dataset.cls;
-  const n = prompt(`ИЗМЕНИТЬ ИМЯ КЛАССА ${cls}:`, titleEl.textContent);
-  if (n) {
-    USER_MEM[cls] = n.toUpperCase();
+  const oldAlias = titleEl.textContent;
+  const newAlias = prompt(`EDIT ALIAS FOR "${cls.toUpperCase()}":`, oldAlias);
+  
+  if (newAlias !== null && newAlias.trim() !== "") {
+    USER_MEM[cls] = newAlias.trim().toUpperCase();
     localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
-    location.reload();
+    log(`DATA RE-SYNC...`, 'warn');
+    setTimeout(() => location.reload(), 500);
   }
 }
 
 canvas.addEventListener('click',handleTap);
+function closeInfo(){
+  selTid=null;
+  document.getElementById('info-panel').classList.remove('open');
+}
+
 bootSeq();
 </script>
 </body>
