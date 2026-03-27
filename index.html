@@ -218,7 +218,6 @@ const DESC={
   _d:'Объект идентифицирован. Данные загружены в кэш.'
 };
 
-// ДАННЫЕ СИЛУЭТА ИЗ КАРТИНКИ (ОЧИЩЕННЫЕ ОТ ОТСТУПОВ)
 const HUMAN_ASCII_ART = [
   "       \\`\\` ",
   "      .001.^",
@@ -361,18 +360,13 @@ function toggleNight(){
   log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
 }
 
-// НОВАЯ ФУНКЦИЯ: Отрисовка точного ASCII-силуэта человека
 function drawHumanASCII(x, y, w, h, color) {
   const art = HUMAN_ASCII_ART;
   const rows = art.length;
   const cols = Math.max(...art.map(r => r.length));
   
-  // Расчет динамического размера шрифта, чтобы вписать силуэт в рамку
-  // Используем Share Tech Mono для сохранения структуры
   const fontHeight = h / rows;
   const fontWidth = w / cols;
-  
-  // Выбираем минимальный размер, чтобы сохранить пропорции, но ограничиваем, чтобы текст не был слишком мелким или огромным
   const fontSize = Math.max(1.5, Math.min(fontHeight, fontWidth * 1.6)); 
   
   ctx.font = `bold ${fontSize}px 'Share Tech Mono'`;
@@ -380,45 +374,44 @@ function drawHumanASCII(x, y, w, h, color) {
   ctx.textAlign = 'left';
   ctx.textBaseline = 'top';
 
-  // Вычисляем отступы для центрирования арта внутри bbox
-  const actualArtWidth = cols * (fontSize * 0.6); // Примерная ширина моноширинного символа
+  const actualArtWidth = cols * (fontSize * 0.6);
   const offsetX = x + (w - actualArtWidth) / 2;
   const offsetY = y + (h - rows * fontSize) / 2;
 
-  // Рисуем построчно
+  // Анимация движения
+  const time = Date.now() * 0.006;
+
   for (let i = 0; i < rows; i++) {
     const line = art[i];
-    // Эффект мерцания: рандомная прозрачность для каждого символа или строки
-    ctx.globalAlpha = 0.5 + Math.random() * 0.4; 
-    ctx.fillText(line, offsetX, offsetY + (i * fontSize));
+    
+    // Динамический сдвиг для имитации движения (синусоида по высоте)
+    // Строки 10-15 (таз/ноги) двигаются сильнее
+    const waveShift = Math.sin(time + (i * 0.3)) * (fontSize * 0.4);
+    const movement = (i > 8) ? waveShift : waveShift * 0.3;
+
+    ctx.globalAlpha = 0.4 + Math.random() * 0.5; 
+    ctx.fillText(line, offsetX + movement, offsetY + (i * fontSize));
   }
   
-  // Сброс прозрачности
   ctx.globalAlpha = 1.0;
 }
 
-// УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ASCII (теперь вызывает специфичную для человека)
 function drawASCII(x, y, w, h, color, cls) {
   if (cls === 'person') {
     drawHumanASCII(x, y, w, h, color);
-  } else {
-    // Для остальных объектов оставляем старый "шум", если нужно, или ничего
-    // В данном случае, чтобы не загромождать, рисуем силуэт только для людей.
   }
 }
 
-// ОТРИСОВКА ОКРУЖЕНИЯ (ТОЛЬКО СКАНИРУЮЩАЯ ЛИНИЯ)
 function drawEnvironment() {
   const w = canvas.width;
   const h = canvas.height;
-  const horizon = h * 0.50; // ВЫРАВНИВАЕМ ПО ЦЕНТРУ ЭКРАНА (50%)
+  const horizon = h * 0.50;
   const color = nightMode ? '#00ccff' : 'rgba(0, 255, 65, 0.2)';
   
-  // "Сканирующая" линия горизонта (теперь на 50%)
   ctx.lineWidth = 2;
   ctx.strokeStyle = hexA(color, 0.5);
   ctx.beginPath();
-  const scanY = horizon + Math.sin(Date.now()*0.002) * 5; // Уменьшил амплитуду для точности
+  const scanY = horizon + Math.sin(Date.now()*0.002) * 5;
   ctx.moveTo(w*0.05, scanY); ctx.lineTo(w*0.95, scanY);
   ctx.stroke();
 }
@@ -454,19 +447,16 @@ function draw(){
     const name = getAlias(p.cls);
     
     if(nightMode) {
-      // Вызываем обновленную функцию ASCII
       drawASCII(x, y, w, h, col, p.cls);
     }
 
-    // Соединение объекта с точкой горизонта (пунктиры к углам рамки от ЦЕНТРА ЭКРАНА)
     ctx.setLineDash([5, 5]);
     ctx.strokeStyle = hexA(col, 0.4);
     ctx.lineWidth = 1;
     const cX = canvas.width/2;
-    const cY = canvas.height * 0.50; // ВЫРАВНИВАЕМ С ПРИЦЕЛОМ (50%)
+    const cY = canvas.height * 0.50; 
     
     ctx.beginPath();
-    // Тянем к углам bbox от центра
     ctx.moveTo(cX, cY); ctx.lineTo(x, y); 
     ctx.moveTo(cX, cY); ctx.lineTo(x+w, y); 
     ctx.moveTo(cX, cY); ctx.lineTo(x, y+h); 
@@ -477,7 +467,6 @@ function draw(){
     ctx.strokeStyle=col;
     ctx.lineWidth=isSel ? 4 : 1.5;
     ctx.strokeRect(x,y,w,h);
-    // Прозрачность фона рамки чуть больше в ночном режиме для видимости арта
     ctx.fillStyle=hexA(col, (isSel ? 0.3 : (nightMode ? 0.08 : 0.03)));
     ctx.fillRect(x,y,w,h);
 
