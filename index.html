@@ -1,141 +1,446 @@
 <!DOCTYPE html>
+
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE</title>
+<title>myEYE // VISION OS</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 <style>
 :root{
-  --g:#00ff41;--g2:#00cc33;--g3:#003a12;
-  --y:#ffff00;--o:#ff9900;--r:#ff2244;--b:#00aaff;
-  --bg:#020804;--panel:rgba(2,8,4,.94);--border:rgba(0,255,65,.22);
+  --g:#00ff41;--g2:#00cc33;--g3:#003a12;--g4:#001a08;
+  --y:#ffe600;--o:#ff9900;--r:#ff2244;--b:#00c8ff;--p:#bf00ff;
+  --bg:#010603;--panel:rgba(1,6,3,.97);--border:rgba(0,255,65,.18);
+  --glow: 0 0 20px rgba(0,255,65,.4), 0 0 40px rgba(0,255,65,.15);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body,html{width:100%;height:100%;background:#000;overflow:hidden;
   font-family:'Share Tech Mono',monospace;color:var(--g);
   user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
 
-/* BOOT */
+/* ═══════════════════════════════ BOOT ═══════════════════════════════ */
 #boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;
 flex-direction:column;justify-content:center;align-items:center;}
-#boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;
-font-size:clamp(30px,8vw,54px);letter-spacing:.18em;color:var(--g);
-text-shadow:0 0 30px var(--g);animation:bootGlow 3s ease-in-out infinite;}
-#boot-sub{font-size:9px;letter-spacing:.45em;color:var(--g2);margin:6px 0 32px;opacity:0.7;}
-#boot-log{width:min(360px,86vw);font-size:9.5px;color:var(--g2);min-height:115px;line-height:1.9;}
-#boot-log .bl{opacity:0;animation:fi .22s forwards;}
-#pb-wrap{width:min(360px,86vw);height:2px;background:#0a1a0a;margin-top:18px;position:relative;overflow:hidden;}
-#pb{height:100%;width:0;background:var(--g);box-shadow:0 0 12px var(--g);transition:width 0.5s cubic-bezier(0.4, 0, 0.2, 1);}
-#btn-start{margin-top:28px;display:none;background:none;border:1px solid var(--g);
-color:var(--g);font-family:'Orbitron',sans-serif;font-size:11px;
-letter-spacing:.3em;padding:13px 42px;cursor:pointer;transition:all .3s;}
-#btn-start:hover{background:var(--g);color:#000;box-shadow:0 0 20px var(--g);}
 
-/* LAYOUT */
+#boot-hex-bg{position:absolute;inset:0;overflow:hidden;opacity:0.06;}
+#boot-hex-bg svg{width:100%;height:100%;}
+
+#boot-eye{width:90px;height:90px;position:relative;margin-bottom:22px;}
+#boot-eye svg{width:100%;height:100%;}
+.eye-iris{animation:eyePulse 2.5s ease-in-out infinite;}
+.eye-scan{animation:eyeScan 2s linear infinite;}
+
+#boot-logo{font-family:‘Orbitron’,sans-serif;font-weight:900;
+font-size:clamp(32px,8vw,56px);letter-spacing:.2em;color:var(–g);
+text-shadow:var(–glow);position:relative;}
+#boot-logo::after{content:’’;position:absolute;bottom:-4px;left:0;right:0;
+height:1px;background:linear-gradient(90deg,transparent,var(–g),transparent);
+animation:scanLine 2s ease-in-out infinite;}
+
+#boot-sub{font-family:‘Rajdhani’,sans-serif;font-size:10px;letter-spacing:.5em;
+color:var(–g2);margin:8px 0 30px;opacity:0.6;text-transform:uppercase;}
+
+#boot-log{width:min(380px,88vw);font-size:9px;color:var(–g2);min-height:120px;line-height:2;}
+#boot-log .bl{opacity:0;animation:fi .2s forwards;padding-left:4px;
+border-left:2px solid var(–g3);}
+#boot-log .bl.ok::before{content:’✔ ’;color:var(–g);}
+#boot-log .bl.warn::before{content:’⚡ ’;color:var(–o);}
+#boot-log .bl.err::before{content:’✕ ’;color:var(–r);}
+
+#pb-wrap{width:min(380px,88vw);margin-top:20px;position:relative;}
+#pb-track{height:2px;background:var(–g3);overflow:hidden;}
+#pb{height:100%;width:0;background:linear-gradient(90deg,var(–g2),var(–g));
+box-shadow:0 0 15px var(–g);transition:width 0.4s cubic-bezier(.22,1,.36,1);}
+#pb-pct{font-size:8px;color:var(–g2);text-align:right;margin-top:4px;letter-spacing:.15em;}
+
+#btn-start{margin-top:28px;display:none;background:none;
+border:1px solid var(–g);color:var(–g);font-family:‘Orbitron’,sans-serif;
+font-size:10px;letter-spacing:.4em;padding:14px 48px;cursor:pointer;
+position:relative;overflow:hidden;transition:color .3s;}
+#btn-start::before{content:’’;position:absolute;inset:0;
+background:var(–g);transform:scaleX(0);transform-origin:left;
+transition:transform .3s cubic-bezier(.22,1,.36,1);z-index:-1;}
+#btn-start:hover::before{transform:scaleX(1);}
+#btn-start:hover{color:#000;box-shadow:0 0 30px var(–g);}
+
+/* ═══════════════════════════════ APP ═══════════════════════════════ */
 #app{position:fixed;inset:0;display:flex;flex-direction:column;}
 #vp{position:relative;flex:1 1 auto;overflow:hidden;background:#000;}
+
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
-filter:brightness(.55) contrast(1.38) saturate(.88);}
+filter:brightness(.52) contrast(1.4) saturate(.82);}
 canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
 
-#vp::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
-background:repeating-linear-gradient(0deg,transparent,transparent 3px,
-rgba(0,255,65,.01) 3px,rgba(0,255,65,.01) 4px);
-animation:scanroll 10s linear infinite;}
+/* Scanlines */
+#vp::after{content:’’;position:absolute;inset:0;z-index:5;pointer-events:none;
+background:repeating-linear-gradient(0deg,transparent,transparent 2px,
+rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);animation:scanroll 8s linear infinite;}
 
-.hc{position:absolute;width:52px;height:52px;z-index:10;pointer-events:none;}
-.hc::before,.hc::after{content:'';position:absolute;background:var(--g);box-shadow:0 0 5px var(--g);}
-.hc::before{width:2px;height:20px;}.hc::after{width:20px;height:2px;}
-#hc-tl{top:0;left:0;}#hc-tl::before{top:0;left:0;}#hc-tl::after{top:0;left:0;}
-#hc-tr{top:0;right:0;}#hc-tr::before{top:0;right:0;}#hc-tr::after{top:0;right:0;}
-#hc-bl{bottom:0;left:0;}#hc-bl::before{bottom:0;left:0;}#hc-bl::after{bottom:0;left:0;}
-#hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;}#hc-br::after{bottom:0;right:0;}
+/* Vignette */
+#vignette{position:absolute;inset:0;z-index:6;pointer-events:none;
+background:radial-gradient(ellipse at center,transparent 40%,rgba(0,0,0,.85) 100%);}
 
+/* Grid overlay */
+#grid-overlay{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:.035;
+background-image:linear-gradient(var(–g) 1px,transparent 1px),
+linear-gradient(90deg,var(–g) 1px,transparent 1px);
+background-size:40px 40px;}
+
+/* Corner HUD frames */
+.hc{position:absolute;width:60px;height:60px;z-index:10;pointer-events:none;}
+.hc-inner{position:absolute;inset:0;}
+.hc-inner::before,.hc-inner::after,.hc-inner .arm3,.hc-inner .arm4{
+content:’’;position:absolute;background:var(–g);box-shadow:0 0 8px var(–g);}
+.hc-inner::before{width:2px;height:22px;}
+.hc-inner::after{width:22px;height:2px;}
+.hc-inner .arm3{width:2px;height:22px;}
+.hc-inner .arm4{width:22px;height:2px;}
+
+#hc-tl{top:0;left:0;}
+#hc-tl .hc-inner::before{top:0;left:0;}
+#hc-tl .hc-inner::after{top:0;left:0;}
+#hc-tr{top:0;right:0;}
+#hc-tr .hc-inner::before{top:0;right:0;}
+#hc-tr .hc-inner::after{top:0;right:0;}
+#hc-bl{bottom:0;left:0;}
+#hc-bl .hc-inner::before{bottom:0;left:0;}
+#hc-bl .hc-inner::after{bottom:0;left:0;}
+#hc-br{bottom:0;right:0;}
+#hc-br .hc-inner::before{bottom:0;right:0;}
+#hc-br .hc-inner::after{bottom:0;right:0;}
+
+/* Animated corner pulse */
+.hc-pulse{position:absolute;inset:-4px;border:1px solid var(–g);opacity:0;
+animation:cornerPulse 3s ease-out infinite;}
+#hc-tl .hc-pulse{animation-delay:0s;}
+#hc-tr .hc-pulse{animation-delay:.75s;}
+#hc-bl .hc-pulse{animation-delay:1.5s;}
+#hc-br .hc-pulse{animation-delay:2.25s;}
+
+/* Crosshair */
 #xhair{position:absolute;top:50%;left:50%;z-index:8;pointer-events:none;
-width:22px;height:22px;margin:-11px;}
-#xhair::before{content:'';position:absolute;top:10px;left:0;width:22px;height:1px;background:rgba(0,255,65,.2);}
-#xhair::after{content:'';position:absolute;left:10px;top:0;width:1px;height:22px;background:rgba(0,255,65,.2);}
+width:28px;height:28px;margin:-14px;animation:xhairRotate 20s linear infinite;}
+#xhair svg{width:100%;height:100%;}
 
+/* Radar sweep (decorative) */
+#radar{position:absolute;bottom:130px;right:16px;z-index:12;pointer-events:none;
+width:70px;height:70px;opacity:0.6;}
+#radar svg{width:100%;height:100%;}
+.radar-sweep{animation:radarSweep 3s linear infinite;transform-origin:50% 50%;}
+.radar-blip{animation:blipFade 3s ease-out infinite;}
+
+/* ── Top Bar ── */
 #topbar{position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
-display:flex;align-items:center;justify-content:space-between;padding:10px 14px;}
-#sys-id{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--g);text-shadow:0 0 12px var(--g);}
-#badges{display:flex;gap:5px;}
-.badge{font-size:8px;letter-spacing:.12em;padding:3px 8px;
-border:1px solid var(--border);background:var(--panel);color:var(--g2);}
+display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;
+background:linear-gradient(180deg,rgba(0,0,0,.65) 0%,transparent 100%);}
+#sys-id{font-family:‘Orbitron’,sans-serif;font-size:13px;font-weight:900;
+letter-spacing:.25em;color:var(–g);text-shadow:var(–glow);}
+#sys-id span{font-weight:400;font-size:10px;opacity:.5;letter-spacing:.1em;}
+#badges{display:flex;gap:5px;align-items:center;}
+.badge{font-size:7.5px;letter-spacing:.12em;padding:3px 8px;
+border:1px solid var(–border);background:var(–panel);color:var(–g2);
+position:relative;overflow:hidden;}
+.badge::before{content:’’;position:absolute;top:0;left:-100%;width:40%;height:100%;
+background:linear-gradient(90deg,transparent,rgba(0,255,65,.1),transparent);
+animation:badgeSweep 4s linear infinite;}
+#b-fps{border-color:rgba(0,200,255,.3);color:var(–b);}
+#b-fps::before{background:linear-gradient(90deg,transparent,rgba(0,200,255,.1),transparent);}
+#b-threat{border-color:rgba(255,34,68,.3);color:var(–r);}
+.badge-dot{width:5px;height:5px;border-radius:50%;background:var(–g);
+display:inline-block;margin-right:4px;animation:dotBlink 1.5s ease-in-out infinite;
+box-shadow:0 0 6px var(–g);}
 
-#night-btn{position:absolute;top:10px;left:100px;z-index:20;background:none;
-border:1px solid var(--border);color:var(--g2);font-family:'Share Tech Mono',monospace;
-font-size:8px;padding:4px 10px;cursor:pointer;letter-spacing:.1em;}
+/* ── Status bar (bottom of vp) ── */
+#statusbar{position:absolute;bottom:0;left:0;right:0;z-index:14;pointer-events:none;
+display:flex;align-items:center;justify-content:space-between;
+padding:6px 14px;
+background:linear-gradient(0deg,rgba(0,0,0,.75) 0%,transparent 100%);}
+.sb-item{font-size:8px;color:var(–g2);letter-spacing:.12em;}
+#sb-coords{color:rgba(0,255,65,.4);}
+#sb-time{color:rgba(0,255,65,.4);}
 
+/* ── Night / Mode buttons ── */
+#ctrl-btns{position:absolute;top:42px;right:14px;z-index:20;
+display:flex;flex-direction:column;gap:5px;}
+.ctrl-btn{background:var(–panel);border:1px solid var(–border);
+color:var(–g2);font-family:‘Share Tech Mono’,monospace;
+font-size:8px;padding:5px 10px;cursor:pointer;letter-spacing:.1em;
+transition:all .2s;text-align:center;}
+.ctrl-btn:hover,.ctrl-btn.active{border-color:var(–g);color:var(–g);
+box-shadow:0 0 12px rgba(0,255,65,.3);}
+
+/* ── Alert flash ── */
+#alert-flash{position:absolute;inset:0;z-index:13;pointer-events:none;
+opacity:0;background:rgba(255,34,68,.04);animation:alertFlash 0s;}
+#alert-flash.active{animation:alertFlash 1.5s ease-out forwards;}
+
+/* ── Info Panel ── */
 #info-panel{position:absolute;bottom:0;left:0;right:0;z-index:25;
-background:rgba(2,8,4,.97);border-top:1px solid var(--g);
-padding:12px 16px 10px;transform:translateY(100%);
-transition:transform .28s cubic-bezier(.22,1,.36,1);pointer-events:none;}
+background:linear-gradient(0deg,rgba(1,6,3,.99) 0%,rgba(1,10,4,.97) 100%);
+border-top:1px solid var(–g);
+padding:14px 16px 12px;transform:translateY(100%);
+transition:transform .3s cubic-bezier(.22,1,.36,1);pointer-events:none;}
 #info-panel.open{transform:translateY(0);pointer-events:all;}
-#info-close{position:absolute;top:10px;right:14px;background:none;
-border:1px solid var(--g2);color:var(--g2);font-family:'Share Tech Mono',monospace;
-font-size:9px;padding:3px 10px;cursor:pointer;letter-spacing:.1em;}
-#info-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--g);margin-bottom:8px;display:inline-block;
-cursor:pointer;}
-#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:9px;}
-.ik{color:var(--g2);}.iv{color:var(--g);}
-#info-desc{margin-top:8px;font-size:9px;color:var(--g2);line-height:1.6;
-border-top:1px solid var(--border);padding-top:6px;}
+#info-panel::before{content:’’;position:absolute;top:0;left:0;right:0;height:1px;
+background:linear-gradient(90deg,transparent,var(–g),var(–g2),var(–g),transparent);
+animation:scanLine 3s linear infinite;}
 
-#terminal{flex:0 0 auto;height:108px;background:var(--bg);
-border-top:1px solid var(--border);padding:10px 14px;overflow:hidden;z-index:20;}
-#term-lines{font-size:9px;line-height:1.72;}
-.tl{opacity:0;animation:si .18s forwards;}
-.tok{color:var(--g);}.twarn{color:var(--o);}.talert{color:var(--r);}.tinfo{color:var(--b);}.ttap{color:var(--y);}
+#info-close{position:absolute;top:12px;right:14px;background:none;
+border:1px solid rgba(0,255,65,.3);color:var(–g2);font-family:‘Share Tech Mono’,monospace;
+font-size:8px;padding:4px 10px;cursor:pointer;letter-spacing:.15em;transition:all .2s;}
+#info-close:hover{border-color:var(–g);color:var(–g);}
 
-@keyframes bootGlow{
-  0%,100%{text-shadow:0 0 20px var(--g); opacity: 1;}
-  50%{text-shadow:0 0 40px var(--g); opacity: 0.8;}
+#info-header{display:flex;align-items:baseline;gap:10px;margin-bottom:10px;}
+#info-title{font-family:‘Orbitron’,sans-serif;font-size:14px;font-weight:700;
+letter-spacing:.2em;color:var(–g);cursor:pointer;display:inline-block;
+transition:text-shadow .3s;}
+#info-title:hover{text-shadow:var(–glow);}
+#info-title-sub{font-size:8px;color:var(–g2);opacity:.6;letter-spacing:.2em;}
+
+#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:4px 16px;font-size:8.5px;
+margin-bottom:8px;}
+.ik{color:rgba(0,255,65,.5);letter-spacing:.12em;font-size:8px;}
+.iv{color:var(–g);letter-spacing:.08em;}
+.iv.warn{color:var(–o);}
+.iv.alert{color:var(–r);}
+
+#info-desc{font-size:8.5px;color:rgba(0,255,65,.55);line-height:1.7;
+border-top:1px solid var(–border);padding-top:8px;}
+
+#info-threat-bar{margin-top:8px;display:flex;align-items:center;gap:8px;}
+#info-threat-label{font-size:7.5px;color:var(–g2);letter-spacing:.12em;}
+#info-threat-track{flex:1;height:3px;background:var(–g3);position:relative;overflow:hidden;}
+#info-threat-fill{height:100%;background:var(–g);width:0%;
+transition:width .5s,background .3s;box-shadow:0 0 8px var(–g);}
+
+/* ── Terminal ── */
+#terminal{flex:0 0 auto;height:114px;background:var(–bg);
+border-top:1px solid var(–border);padding:9px 14px;overflow:hidden;z-index:20;
+position:relative;}
+#terminal::before{content:‘SYSTEM LOG’;position:absolute;top:4px;right:12px;
+font-size:7px;letter-spacing:.2em;color:rgba(0,255,65,.2);}
+#term-lines{font-size:8.5px;line-height:1.75;}
+.tl{opacity:0;animation:si .16s forwards;display:flex;align-items:baseline;gap:6px;}
+.tl-ts{color:rgba(0,255,65,.3);font-size:7.5px;flex-shrink:0;}
+.tl-txt{flex:1;}
+.tok{color:var(–g);}.twarn{color:var(–o);}.talert{color:var(–r);}
+.tinfo{color:var(–b);}.ttap{color:var(–y);}.tsys{color:var(–p);}
+
+/* ═════════════════ KEYFRAMES ═════════════════ */
+@keyframes eyePulse{
+0%,100%{opacity:1;transform:scale(1);}
+50%{opacity:.7;transform:scale(.95);}
+}
+@keyframes eyeScan{
+from{stroke-dashoffset:0;}to{stroke-dashoffset:-120;}
 }
 @keyframes fi{to{opacity:1;}}
-@keyframes si{from{opacity:0;transform:translateX(-5px);}to{opacity:.93;transform:none;}}
-@keyframes scanroll{from{background-position:0 0;}to{background-position:0 120px;}}
+@keyframes si{from{opacity:0;transform:translateX(-6px);}to{opacity:.92;transform:none;}}
+@keyframes scanroll{from{background-position:0 0;}to{background-position:0 80px;}}
+@keyframes scanLine{from{background-position:0 0;}to{background-position:200% 0;}}
+@keyframes cornerPulse{
+0%{opacity:.7;transform:scale(1);}
+100%{opacity:0;transform:scale(1.8);}
+}
+@keyframes xhairRotate{
+from{transform:rotate(0deg);}to{transform:rotate(360deg);}
+}
+@keyframes dotBlink{
+0%,100%{opacity:1;box-shadow:0 0 6px var(–g);}
+50%{opacity:.3;box-shadow:none;}
+}
+@keyframes badgeSweep{
+0%{left:-100%;}100%{left:200%;}
+}
+@keyframes alertFlash{
+0%{opacity:1;}50%{opacity:.6;}100%{opacity:0;}
+}
+@keyframes radarSweep{
+from{transform:rotate(0deg);}to{transform:rotate(360deg);}
+}
+@keyframes blipFade{
+0%,100%{opacity:0;r:2;}
+30%,70%{opacity:1;r:3;}
+}
+@keyframes bootGlow{
+0%,100%{opacity:1;}50%{opacity:.7;}
+}
+@keyframes lockOn{
+0%{transform:scale(1.4);opacity:0;}
+50%{opacity:1;}
+100%{transform:scale(1);opacity:0;}
+}
+@keyframes glitchH{
+0%,100%{clip-path:none;transform:translateX(0);}
+92%{clip-path:none;transform:translateX(0);}
+93%{clip-path:polygon(0 20%,100% 20%,100% 40%,0 40%);transform:translateX(-4px);}
+94%{clip-path:polygon(0 60%,100% 60%,100% 80%,0 80%);transform:translateX(4px);}
+95%{clip-path:none;transform:translateX(0);}
+}
+@keyframes threatPulse{
+0%,100%{box-shadow:inset 0 0 0 0 rgba(255,34,68,0);}
+50%{box-shadow:inset 0 0 40px 10px rgba(255,34,68,.08);}
+}
+@keyframes dataScroll{
+from{transform:translateY(0);}to{transform:translateY(-50%);}
+}
 </style>
+
 </head>
 <body>
 
+<!-- ════════════════════ BOOT ════════════════════ -->
+
 <div id="boot">
+  <div id="boot-hex-bg">
+    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
+      <defs><pattern id="hex" x="0" y="0" width="60" height="52" patternUnits="userSpaceOnUse">
+        <polygon points="30,2 58,17 58,45 30,50 2,45 2,17" fill="none" stroke="#00ff41" stroke-width=".5"/>
+      </pattern></defs>
+      <rect width="100%" height="100%" fill="url(#hex)"/>
+    </svg>
+  </div>
+
+  <div id="boot-eye">
+    <svg viewBox="0 0 100 100">
+      <defs>
+        <radialGradient id="irisGrad" cx="50%" cy="50%">
+          <stop offset="0%" stop-color="#00ff41"/>
+          <stop offset="100%" stop-color="#003a12"/>
+        </radialGradient>
+      </defs>
+      <!-- Outer ring -->
+      <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(0,255,65,.2)" stroke-width="1"/>
+      <circle cx="50" cy="50" r="44" fill="none" stroke="rgba(0,255,65,.5)" stroke-width="1"
+        stroke-dasharray="30 10" class="eye-scan"/>
+      <!-- Eye shape -->
+      <ellipse cx="50" cy="50" rx="38" ry="22" fill="none" stroke="var(--g)" stroke-width="1.5" class="eye-iris"/>
+      <!-- Iris -->
+      <circle cx="50" cy="50" r="14" fill="url(#irisGrad)" class="eye-iris"/>
+      <circle cx="50" cy="50" r="14" fill="none" stroke="var(--g)" stroke-width="1" class="eye-iris"/>
+      <!-- Pupil -->
+      <circle cx="50" cy="50" r="6" fill="#000"/>
+      <circle cx="50" cy="50" r="6" fill="none" stroke="var(--g2)" stroke-width="1"/>
+      <!-- Scan lines through eye -->
+      <line x1="12" y1="50" x2="88" y2="50" stroke="rgba(0,255,65,.2)" stroke-width=".5"/>
+      <line x1="50" y1="28" x2="50" y2="72" stroke="rgba(0,255,65,.2)" stroke-width=".5"/>
+      <!-- Corner ticks -->
+      <line x1="8" y1="8" x2="18" y2="8" stroke="var(--g)" stroke-width="1.5"/>
+      <line x1="8" y1="8" x2="8" y2="18" stroke="var(--g)" stroke-width="1.5"/>
+      <line x1="92" y1="8" x2="82" y2="8" stroke="var(--g)" stroke-width="1.5"/>
+      <line x1="92" y1="8" x2="92" y2="18" stroke="var(--g)" stroke-width="1.5"/>
+      <line x1="8" y1="92" x2="18" y2="92" stroke="var(--g)" stroke-width="1.5"/>
+      <line x1="8" y1="92" x2="8" y2="82" stroke="var(--g)" stroke-width="1.5"/>
+      <line x1="92" y1="92" x2="82" y2="92" stroke="var(--g)" stroke-width="1.5"/>
+      <line x1="92" y1="92" x2="92" y2="82" stroke="var(--g)" stroke-width="1.5"/>
+    </svg>
+  </div>
+
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">created by bortin'2026</div>
+  <div id="boot-sub">VISION OS v4.0 // created by bortin'2026</div>
   <div id="boot-log"></div>
-  <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="initCamera()">open</button>
+  <div id="pb-wrap">
+    <div id="pb-track"><div id="pb"></div></div>
+    <div id="pb-pct">0%</div>
+  </div>
+  <button id="btn-start" onclick="initCamera()">◈ ACTIVATE VISION ◈</button>
 </div>
+
+<!-- ════════════════════ APP ════════════════════ -->
 
 <div id="app" style="display:none;">
   <div id="vp">
     <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
-    <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
-    <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-    <div id="xhair"></div>
-    <button id="night-btn" onclick="toggleNight()">☾ NIGHT</button>
+    <div id="grid-overlay"></div>
+    <div id="vignette"></div>
+    <div id="alert-flash"></div>
 
-    <div id="topbar">
-      <div id="sys-id">myEYE</div>
-      <div id="badges">
-        <div class="badge" id="b-fps">-- FPS</div>
-        <div class="badge" id="b-obj">0 OBJ</div>
-      </div>
-    </div>
+```
+<!-- Corners -->
+<div class="hc" id="hc-tl"><div class="hc-inner"><div class="arm3"></div><div class="arm4"></div></div><div class="hc-pulse"></div></div>
+<div class="hc" id="hc-tr"><div class="hc-inner"><div class="arm3"></div><div class="arm4"></div></div><div class="hc-pulse"></div></div>
+<div class="hc" id="hc-bl"><div class="hc-inner"><div class="arm3"></div><div class="arm4"></div></div><div class="hc-pulse"></div></div>
+<div class="hc" id="hc-br"><div class="hc-inner"><div class="arm3"></div><div class="arm4"></div></div><div class="hc-pulse"></div></div>
 
-    <div id="info-panel">
-      <button id="info-close" onclick="closeInfo()">✕ close</button>
-      <div id="info-title" onclick="renameObject()">---</div>
-      <div id="info-grid"></div>
-      <div id="info-desc"></div>
-    </div>
+<!-- Crosshair -->
+<div id="xhair">
+  <svg viewBox="0 0 28 28">
+    <circle cx="14" cy="14" r="12" fill="none" stroke="rgba(0,255,65,.15)" stroke-width="1"/>
+    <circle cx="14" cy="14" r="12" fill="none" stroke="rgba(0,255,65,.4)" stroke-width="1"
+      stroke-dasharray="8 4"/>
+    <line x1="0" y1="14" x2="28" y2="14" stroke="rgba(0,255,65,.2)" stroke-width=".5"/>
+    <line x1="14" y1="0" x2="14" y2="28" stroke="rgba(0,255,65,.2)" stroke-width=".5"/>
+    <circle cx="14" cy="14" r="2" fill="var(--g)" opacity=".6"/>
+  </svg>
+</div>
+
+<!-- Mini Radar -->
+<div id="radar">
+  <svg viewBox="0 0 70 70">
+    <circle cx="35" cy="35" r="32" fill="rgba(0,255,65,.04)" stroke="rgba(0,255,65,.2)" stroke-width=".5"/>
+    <circle cx="35" cy="35" r="21" fill="none" stroke="rgba(0,255,65,.15)" stroke-width=".5"/>
+    <circle cx="35" cy="35" r="10" fill="none" stroke="rgba(0,255,65,.15)" stroke-width=".5"/>
+    <line x1="3" y1="35" x2="67" y2="35" stroke="rgba(0,255,65,.1)" stroke-width=".5"/>
+    <line x1="35" y1="3" x2="35" y2="67" stroke="rgba(0,255,65,.1)" stroke-width=".5"/>
+    <!-- Sweep -->
+    <g class="radar-sweep">
+      <path d="M35,35 L67,35 A32,32 0 0,0 35,3 Z" fill="rgba(0,255,65,.12)"/>
+      <line x1="35" y1="35" x2="67" y2="35" stroke="var(--g)" stroke-width="1" opacity=".7"/>
+    </g>
+    <!-- Blips (random positions) -->
+    <circle cx="48" cy="22" r="2.5" fill="var(--g)" class="radar-blip" style="animation-delay:.8s"/>
+    <circle cx="25" cy="45" r="2" fill="var(--o)" class="radar-blip" style="animation-delay:1.6s"/>
+    <circle cx="55" cy="50" r="1.5" fill="var(--g)" class="radar-blip" style="animation-delay:2.1s"/>
+    <!-- Center dot -->
+    <circle cx="35" cy="35" r="2" fill="var(--g)" opacity=".8"/>
+  </svg>
+</div>
+
+<!-- Top Bar -->
+<div id="topbar">
+  <div id="sys-id">myEYE <span>// ONLINE</span></div>
+  <div id="badges">
+    <div class="badge" id="b-fps"><span class="badge-dot" style="background:var(--b);box-shadow:0 0 6px var(--b);"></span>-- FPS</div>
+    <div class="badge" id="b-obj"><span class="badge-dot"></span>0 OBJ</div>
+    <div class="badge" id="b-threat" style="display:none;"><span class="badge-dot" style="background:var(--r);box-shadow:0 0 6px var(--r);animation-duration:.8s;"></span>THREAT</div>
+  </div>
+</div>
+
+<!-- Control Buttons -->
+<div id="ctrl-btns">
+  <button class="ctrl-btn" id="night-btn" onclick="toggleNight()">☾ NIGHT</button>
+  <button class="ctrl-btn" id="therm-btn" onclick="toggleThermal()">◈ THERM</button>
+  <button class="ctrl-btn" id="edge-btn" onclick="toggleEdge()">⬡ EDGE</button>
+</div>
+
+<!-- Status bar -->
+<div id="statusbar">
+  <div class="sb-item" id="sb-coords">LAT 55.751244 / LON 37.618423</div>
+  <div class="sb-item" id="sb-time">--:--:--</div>
+  <div class="sb-item" id="sb-status">SCANNING</div>
+</div>
+
+<!-- Info Panel -->
+<div id="info-panel">
+  <button id="info-close" onclick="closeInfo()">✕ CLOSE</button>
+  <div id="info-header">
+    <div id="info-title" onclick="renameObject()">---</div>
+    <div id="info-title-sub">TAP TO RENAME</div>
+  </div>
+  <div id="info-grid"></div>
+  <div id="info-desc"></div>
+  <div id="info-threat-bar">
+    <div id="info-threat-label">THREAT LEVEL</div>
+    <div id="info-threat-track"><div id="info-threat-fill"></div></div>
+    <div id="info-threat-val" style="font-size:8px;color:var(--g);min-width:28px;text-align:right;">0%</div>
+  </div>
+</div>
+```
+
   </div>
 
   <div id="terminal">
@@ -144,248 +449,569 @@ border-top:1px solid var(--border);padding:10px 14px;overflow:hidden;z-index:20;
 </div>
 
 <script>
+// ══════════════════════════════════════════════════
+// KNOWLEDGE BASE — расширенная база знаний
+// ══════════════════════════════════════════════════
 const DEFAULT_ALIASES = {
-  person: 'person', car: 'car', truck: 'truck', bus: 'bus',
-  motorcycle: 'motocycle', bicycle: 'bicycle', 'fire hydrant': 'fire hydrant',
-  'stop sign': 'stop', 'traffic light': 'traffic light', dog: 'dog', cat: 'cat',
-  'cell phone': 'phone', bottle: 'bottle', backpack: 'backpack', chair: 'chair',
-  tv: 'tv', laptop: 'laptop', mouse: 'mouse', keyboard: 'keyboard',
-  bench: 'bench', 'potted plant': 'plant', bird: 'bird'
+  person:'ЧЕЛОВЕК', car:'АВТОМОБИЛЬ', truck:'ГРУЗОВИК', bus:'АВТОБУС',
+  motorcycle:'МОТОЦИКЛ', bicycle:'ВЕЛОСИПЕД', 'fire hydrant':'ГИДРАНТ',
+  'stop sign':'ЗНАК СТОП', 'traffic light':'СВЕТОФОР', dog:'СОБАКА', cat:'КОТ',
+  'cell phone':'ТЕЛЕФОН', bottle:'БУТЫЛКА', backpack:'РЮКЗАК', chair:'КРЕСЛО',
+  tv:'МОНИТОР', laptop:'НОУТБУК', mouse:'МЫШЬ', keyboard:'КЛАВИАТУРА',
+  bench:'СКАМЕЙКА', 'potted plant':'РАСТЕНИЕ', bird:'ПТИЦА',
+  cup:'СТАКАН', fork:'ВИЛКА', knife:'НОЖ', spoon:'ЛОЖКА', bowl:'МИСКА',
+  book:'КНИГА', clock:'ЧАСЫ', vase:'ВАЗА', scissors:'НОЖНИЦЫ',
+  umbrella:'ЗОНТ', handbag:'СУМКА', suitcase:'ЧЕМОДАН',
+  'sports ball':'МЯЧ', 'tennis racket':'РАКЕТКА', skateboard:'СКЕЙТБОРД',
+  'dining table':'СТОЛ', toilet:'ТУАЛЕТ', sink:'РАКОВИНА',
+  airplane:'САМОЛЁТ', boat:'ЛОДКА', train:'ПОЕЗД',
+  cow:'КОРОВА', horse:'ЛОШАДЬ', sheep:'ОВЦА', bear:'МЕДВЕДЬ', zebra:'ЗЕБРА',
+  giraffe:'ЖИРАФ', elephant:'СЛОН'
 };
 
+const OBJ_KB = {
+  person:{
+    type:'БИОЛОГИЧЕСКИЙ', subtype:'ГУМАНОИД', threat:0.75,
+    desc:'Биологический объект — вид Homo sapiens. Активна трекинговая сессия. Вычисляется вектор перемещения. Идентификация по контуру.',
+    tags:['ДВИЖЕНИЕ','МАССА ~70кг','ИК-СИГНАТУРА']
+  },
+  car:{
+    type:'ТРАНСПОРТ', subtype:'ЛЕГКОВОЕ ТС', threat:0.55,
+    desc:'Колёсное транспортное средство. Класс: Гражданское. Анализ скоростного вектора активен. Металлическая сигнатура детектирована.',
+    tags:['МЕТАЛЛ','ДВС','≈1200кг']
+  },
+  truck:{
+    type:'ТРАНСПОРТ', subtype:'ГРУЗОВОЕ ТС', threat:0.7,
+    desc:'Тяжёлая грузовая техника. Зона повышенной опасности. Оценка массы по габаритам активна. Слепые зоны: критические.',
+    tags:['МЕТАЛЛ','ДИЗЕЛЬ','≥3.5т']
+  },
+  bus:{
+    type:'ТРАНСПОРТ', subtype:'ПАССАЖИРСКОЕ ТС', threat:0.5,
+    desc:'Крупногабаритный пассажирский транспорт. Режим мониторинга: пешеходные зоны. Оценка пассажиропотока.',
+    tags:['МЕТАЛЛ','ПАССАЖИРЫ','МАРШРУТ']
+  },
+  motorcycle:{
+    type:'ТРАНСПОРТ', subtype:'МОТОЦИКЛ', threat:0.65,
+    desc:'Двухколёсное моторизованное ТС. Высокая скорость манёвра. Уязвимость оператора: критическая. Трекинг активен.',
+    tags:['СКОРОСТЬ','МАНЁВР','ШЛЕМ?']
+  },
+  bicycle:{
+    type:'ТРАНСПОРТ', subtype:'ВЕЛОСИПЕД', threat:0.3,
+    desc:'Немоторизованное двухколёсное ТС. Экологически нейтральный объект. Скоростной вектор: низкий приоритет.',
+    tags:['ЭКОВЕКТОР','~15км/ч','МАНЕВР']
+  },
+  'fire hydrant':{
+    type:'ИНФРАСТРУКТУРА', subtype:'ПОЖАРНЫЙ ГИДРАНТ', threat:0.1,
+    desc:'Элемент городской противопожарной системы. Статичный объект. Давление: ~4 атм. Зона доступа: 1.5м.',
+    tags:['МЕТАЛЛ','СТАТИЧНЫЙ','ГОС.СОБСТВ']
+  },
+  'stop sign':{
+    type:'ИНФРАСТРУКТУРА', subtype:'ДОРОЖНЫЙ ЗНАК', threat:0.05,
+    desc:'Предписывающий дорожный знак. Статичный. Нормативный приоритет: абсолютный.',
+    tags:['СТАТИЧНЫЙ','ПДД','РЕГУЛЯТОР']
+  },
+  'traffic light':{
+    type:'ИНФРАСТРУКТУРА', subtype:'СВЕТОФОР', threat:0.05,
+    desc:'Автоматизированный узел управления дорожным движением. Цикл: 30-120с. Мониторинг фазы.',
+    tags:['СТАТИЧНЫЙ','ЦИКЛ','УПРАВЛЕНИЕ']
+  },
+  dog:{
+    type:'БИОЛОГИЧЕСКИЙ', subtype:'ЖИВОТНОЕ', threat:0.35,
+    desc:'Одомашненный хищник Canis lupus familiaris. Оценка поведенческого вектора активна. Возможна непредсказуемая реакция.',
+    tags:['ИК-СИГН','~20кг','ПОВЕДЕНИЕ?']
+  },
+  cat:{
+    type:'БИОЛОГИЧЕСКИЙ', subtype:'ЖИВОТНОЕ', threat:0.1,
+    desc:'Felis catus. Независимый биологический агент. Высокая мобильность. Термальная сигнатура: тёплая.',
+    tags:['ИК-СИГН','~4кг','АВТОНОМНЫЙ']
+  },
+  'cell phone':{
+    type:'ЭЛЕКТРОНИКА', subtype:'МОБИЛЬНОЕ УСТ-ВО', threat:0.2,
+    desc:'Персональное устройство связи и вычислений. Активный EMF-источник. Возможна передача данных. Анализ RF-среды.',
+    tags:['ЭМИ','СВЯЗЬ','ДАННЫЕ']
+  },
+  laptop:{
+    type:'ЭЛЕКТРОНИКА', subtype:'КОМПЬЮТЕР', threat:0.15,
+    desc:'Портативная вычислительная система. Обнаружен активный радиомодуль. Идентификация ОС: не определена.',
+    tags:['ЭМИ','WIFI','BLUETOOTH']
+  },
+  backpack:{
+    type:'СНАРЯЖЕНИЕ', subtype:'НОСИМЫЙ КОНТЕЙНЕР', threat:0.4,
+    desc:'Объект неизвестного содержимого. Масса по деформации: оценивается. Трекинг привязан к оператору.',
+    tags:['СОДЕРЖИМОЕ?','НОСИМЫЙ','МАССА?']
+  },
+  chair:{
+    type:'ОБОРУДОВАНИЕ', subtype:'МЕБЕЛЬ', threat:0.0,
+    desc:'Статичный предмет мебели. Идентификация назначения: сидячее место. Материал: неопределён.',
+    tags:['СТАТИЧНЫЙ','МЕБЕЛЬ','ИНТЕРЬЕР']
+  },
+  _default:{
+    type:'ОБЪЕКТ', subtype:'НЕИЗВЕСТНЫЙ', threat:0.25,
+    desc:'Объект идентифицирован нейросетью. Класс загружен в кэш. Расширенный анализ: выполняется.',
+    tags:['ОБРАБОТКА','КЭШ','АНАЛИЗ']
+  }
+};
+
+function getKB(cls){ return OBJ_KB[cls] || OBJ_KB._default; }
+
+// ══════════════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════════════
 let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
-
-const CFG={
-  FOCAL:950, 
-  CONF:0.12,  
-  MAX_DET:60,
-  SKIP:1, 
-  SMOOTH:0.2, 
-  TTL:35,    
-  IOU:0.20
-};
-
+const CFG={FOCAL:950,CONF:0.11,MAX_DET:60,SMOOTH:0.22,TTL:38,IOU:0.22};
 const OBJ_H={
-  person:1.75, car:1.55, truck:2.9, bus:3.3, motorcycle:1.15, bicycle:1.05,
-  'fire hydrant':0.65, 'stop sign':0.8, 'traffic light':0.45, dog:0.5, cat:0.3,
-  'cell phone':0.15, bottle:0.28, backpack:0.55, chair:0.9, tv:0.6, default:1.0
+  person:1.75,car:1.55,truck:2.9,bus:3.3,motorcycle:1.15,bicycle:1.05,
+  'fire hydrant':0.65,'stop sign':0.8,'traffic light':0.45,dog:0.5,cat:0.3,
+  'cell phone':0.15,bottle:0.28,backpack:0.55,chair:0.9,tv:0.6,
+  laptop:0.3,umbrella:1.0,suitcase:0.7,default:1.0
 };
-
-const THREAT=new Set(['person','car','truck','bus','motorcycle']);
-
+const THREAT_SET = new Set(['person','car','truck','bus','motorcycle','backpack']);
 const COL={
-  person:'#ffff00', car:'#ff2244', truck:'#ff2244', bus:'#ff4466', motorcycle:'#ff6600',
-  'cell phone':'#88aaff', bottle:'#88ff88', backpack:'#00ffff', _d:'#00ff41'
+  person:'#ffe600',car:'#ff2244',truck:'#ff4455',bus:'#ff6677',
+  motorcycle:'#ff8800',bicycle:'#88ff88','cell phone':'#00aaff',
+  backpack:'#ff00aa',dog:'#ffaa44',cat:'#88ffff',
+  laptop:'#44aaff',tv:'#4488ff',_d:'#00ff41'
 };
-
-const DESC={
-  person:'Биологический объект. Оценка траектории активна.',
-  car:'Транспортное средство. Классификация: Гражданское.',
-  truck:'Тяжелая техника. Зона повышенной опасности.',
-  'cell phone':'Мобильное устройство связи. Анализ данных...',
-  backpack:'Внешний модуль хранения / Груз.',
-  _d:'Объект идентифицирован. Данные загружены в кэш.'
-};
-
-function getAlias(cls) {
-  return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase();
-}
-
+function getAlias(cls){return USER_MEM[cls]||DEFAULT_ALIASES[cls]||cls.toUpperCase();}
 function getCol(c){return COL[c]||COL._d;}
-function getDesc(c){return DESC[c]||DESC._d;}
-
 function dist(bbox,cls){
   const rh=OBJ_H[cls]||OBJ_H.default;
   const px=Math.max(bbox[2],bbox[3]);
   return px<2?999:Math.min(999,+(CFG.FOCAL*rh/px).toFixed(1));
 }
-
 function hexA(hex,a){
   const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${a})`;
 }
-
 function iou(a,b){
   const ix=Math.max(a[0],b[0]),iy=Math.max(a[1],b[1]);
   const iw=Math.min(a[0]+a[2],b[0]+b[2])-ix,ih=Math.min(a[1]+a[3],b[1]+b[3])-iy;
-  if(iw<=0||ih<=0) return 0;
-  return (iw*ih)/(a[2]*a[3]+b[2]*b[3]-iw*ih);
+  if(iw<=0||ih<=0)return 0;
+  return(iw*ih)/(a[2]*a[3]+b[2]*b[3]-iw*ih);
 }
 
+// ══════════════════════════════════════════════════
+// TRACKER
+// ══════════════════════════════════════════════════
 class Tracker{
   constructor(){this.tracks={};this.nid=1;}
   update(preds){
     for(const k in this.tracks){
-      this.tracks[k].age++;
-      this.tracks[k].seen=false;
+      this.tracks[k].age++;this.tracks[k].seen=false;
       if(this.tracks[k].age>CFG.TTL) delete this.tracks[k];
     }
     for(const p of preds){
-      let best=null, bs=CFG.IOU;
+      let best=null,bs=CFG.IOU;
       for(const id in this.tracks){
         const t=this.tracks[id];
-        if(t.cls!==p.class) continue;
+        if(t.cls!==p.class)continue;
         const s=iou(t.sm,p.bbox);
         if(s>bs){bs=s;best=t;}
       }
       if(best){
         best.sm=best.sm.map((v,i)=>v+(p.bbox[i]-v)*CFG.SMOOTH);
         best.score=best.score+(p.score-best.score)*CFG.SMOOTH;
-        best.age=0; best.seen=true;
-        p._tid=best.id;
+        best.age=0;best.seen=true;p._tid=best.id;
       }else{
         const id=this.nid++;
         this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,seen:true,born:Date.now()};
         p._tid=id;
       }
     }
-    return Object.values(this.tracks).filter(t=>t.age<2);
+    return Object.values(this.tracks).filter(t=>t.age<3);
   }
 }
 
+// ══════════════════════════════════════════════════
+// GLOBALS
+// ══════════════════════════════════════════════════
 const video=document.getElementById('video');
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
 const termEl=document.getElementById('term-lines');
-let model=null, running=false, lastPred=[], lastFpsT=0, fpsCnt=0;
-let termQ=[], logThr={}, nightMode=false, selTid=null;
+let model=null,running=false,lastPred=[],lastFpsT=0,fpsCnt=0;
+let termQ=[],logThr={},nightMode=false,thermalMode=false,edgeMode=false,selTid=null;
+let lockAnims=[];
 const tracker=new Tracker();
+let frameCount=0;
+let threatActive=false;
 
+// ══════════════════════════════════════════════════
+// BOOT SEQUENCE
+// ══════════════════════════════════════════════════
 async function bootSeq(){
   const bootLog=document.getElementById('boot-log');
   const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"INIT VISION OS..."],[300,"MEMORY SYNC: LOCAL ALIASES"],[600,"MODEL: COCO-SSD LITE"],[900,"ZOOM CORRECTION: ACTIVE"],[1200,"UI: TERMINAL READY"]];
+  const pctEl=document.getElementById('pb-pct');
+
+  const BOOT=[
+    [0,'INIT VISION OS v4.0','ok'],
+    [250,'CPU TENSOR CORE: ONLINE','ok'],
+    [500,'MEMORY SYNC: USER ALIASES LOADED','ok'],
+    [750,'KNOWLEDGE BASE: 80 CLASSES INDEXED','ok'],
+    [1000,'LOADING MODEL: COCO-SSD LITE_MV2','warn'],
+    [1350,'TRACKER: KALMAN-IOU INITIALIZED','ok'],
+    [1600,'GRID OVERLAY: ACTIVE','ok'],
+    [1850,'RADAR MODULE: ENABLED','ok'],
+    [2100,'THREAT CLASSIFIER: READY','ok'],
+  ];
+
   for(let i=0;i<BOOT.length;i++){
     await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
-    const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
-    bootLog.appendChild(d);pbEl.style.width=((i+1)/BOOT.length*100)+'%';
+    const d=document.createElement('div');
+    d.className=`bl ${BOOT[i][2]}`;
+    d.textContent=BOOT[i][1];
+    bootLog.appendChild(d);
+    const pct=Math.round((i+1)/BOOT.length*60);
+    pbEl.style.width=pct+'%';
+    pctEl.textContent=pct+'%';
   }
+
   model=await cocoSsd.load({base:'lite_mobilenet_v2'});
+
+  for(let p=60;p<=100;p+=4){
+    await new Promise(r=>setTimeout(r,50));
+    pbEl.style.width=p+'%';
+    pctEl.textContent=p+'%';
+  }
+
+  const d=document.createElement('div');
+  d.className='bl ok';d.textContent='MODEL READY — ALL SYSTEMS GO';
+  bootLog.appendChild(d);
   document.getElementById('btn-start').style.display='block';
 }
 
+// ══════════════════════════════════════════════════
+// CAMERA INIT
+// ══════════════════════════════════════════════════
 async function initCamera(){
-  try {
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}});
+  try{
+    const s=await navigator.mediaDevices.getUserMedia({
+      video:{facingMode:'environment',width:{ideal:1920},height:{ideal:1080}}
+    });
     video.srcObject=s;
     video.onloadedmetadata=()=>{
       video.play();
       document.getElementById('boot').style.display='none';
       document.getElementById('app').style.display='flex';
       running=true;
-      log("VISION_OS v3.1 ONLINE",'ok');
+      startClock();
+      log('VISION OS v4.0 ONLINE','ok');
+      log('КАМЕРА АКТИВИРОВАНА','ok');
       requestAnimationFrame(renderLoop);
     };
-  } catch(e) { log("ERR: CAMERA ACCESS DENIED",'alert'); }
+  }catch(e){
+    log('ERR: CAMERA ACCESS DENIED','alert');
+  }
 }
 
+// ══════════════════════════════════════════════════
+// CLOCK
+// ══════════════════════════════════════════════════
+function startClock(){
+  setInterval(()=>{
+    const n=new Date();
+    document.getElementById('sb-time').textContent=
+      n.toTimeString().slice(0,8);
+  },1000);
+}
+
+// ══════════════════════════════════════════════════
+// TERMINAL LOG
+// ══════════════════════════════════════════════════
 function log(txt,type='ok'){
-  termQ.push({txt,type});
+  const ts=new Date().toTimeString().slice(0,8);
+  termQ.push({txt,type,ts});
   if(termQ.length>5) termQ.shift();
   termEl.innerHTML='';
   termQ.forEach(q=>{
     const d=document.createElement('div');
-    d.className='tl t'+q.type; d.textContent='> '+q.txt;
+    d.className='tl t'+q.type;
+    d.innerHTML=`<span class="tl-ts">${q.ts}</span><span class="tl-txt">${q.txt}</span>`;
     termEl.appendChild(d);
   });
 }
-
-function canLog(cls, id){
-  const now=Date.now();
-  const key=cls+id;
-  if(!logThr[key]||now-logThr[key]>8000){logThr[key]=now;return true;}
+function canLog(cls,id){
+  const k=cls+id,now=Date.now();
+  if(!logThr[k]||now-logThr[k]>8000){logThr[k]=now;return true;}
   return false;
 }
 
+// ══════════════════════════════════════════════════
+// VISION MODES
+// ══════════════════════════════════════════════════
 function toggleNight(){
   nightMode=!nightMode;
-  video.style.filter=nightMode?'brightness(.4) contrast(2.2) saturate(0) sepia(.9) hue-rotate(80deg)':'brightness(.55) contrast(1.38) saturate(.88)';
-  log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
+  updateFilters();
+  document.getElementById('night-btn').classList.toggle('active',nightMode);
+  log('НОЧНОЙ РЕЖИМ: '+(nightMode?'ВКЛЮЧЁН':'ВЫКЛЮЧЕН'),nightMode?'warn':'ok');
+}
+function toggleThermal(){
+  thermalMode=!thermalMode;
+  updateFilters();
+  document.getElementById('therm-btn').classList.toggle('active',thermalMode);
+  log('ТЕПЛОВИЗОР: '+(thermalMode?'ВКЛЮЧЁН':'ВЫКЛЮЧЕН'),thermalMode?'warn':'ok');
+}
+function toggleEdge(){
+  edgeMode=!edgeMode;
+  document.getElementById('edge-btn').classList.toggle('active',edgeMode);
+  log('ДЕТЕКТОР КОНТУРОВ: '+(edgeMode?'АКТИВЕН':'ВЫКЛЮЧЕН'),edgeMode?'info':'ok');
+}
+function updateFilters(){
+  let f='brightness(.52) contrast(1.4) saturate(.82)';
+  if(nightMode) f='brightness(.35) contrast(2.5) saturate(0) sepia(1) hue-rotate(80deg)';
+  if(thermalMode) f='brightness(.6) contrast(2) saturate(4) hue-rotate(200deg) invert(.15)';
+  video.style.filter=f;
 }
 
+// ══════════════════════════════════════════════════
+// ALERT
+// ══════════════════════════════════════════════════
+function triggerAlert(){
+  const el=document.getElementById('alert-flash');
+  el.classList.remove('active');
+  void el.offsetWidth;
+  el.classList.add('active');
+  document.getElementById('vp').style.animation='threatPulse 1s ease-out';
+  setTimeout(()=>document.getElementById('vp').style.animation='',1000);
+}
+
+// ══════════════════════════════════════════════════
+// RENDER LOOP
+// ══════════════════════════════════════════════════
 async function renderLoop(now){
   if(!running) return requestAnimationFrame(renderLoop);
-  fpsCnt++;
+  fpsCnt++;frameCount++;
   if(now-lastFpsT>1000){
     document.getElementById('b-fps').textContent=fpsCnt+' FPS';
     fpsCnt=0;lastFpsT=now;
   }
-
-  if(video.readyState === 4){
+  if(video.readyState===4){
     canvas.width=video.videoWidth;
     canvas.height=video.videoHeight;
     const raw=await model.detect(video,CFG.MAX_DET,CFG.CONF);
     lastPred=tracker.update(raw);
   }
-  
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  draw(); 
+  if(edgeMode) drawEdgeEffect();
+  draw();
+  drawLockAnims();
   updateHUD();
   requestAnimationFrame(renderLoop);
 }
 
-function draw(){
-  lastPred.forEach(p=>{
-    const [x,y,w,h]=p.sm;
-    const col=getCol(p.cls);
-    const d=dist(p.sm, p.cls);
-    const isSel = p.id === selTid;
-    const name = getAlias(p.cls);
-    
-    // Соединение объекта с точкой горизонта
-    ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = hexA(col, 0.4);
-    ctx.lineWidth = 1;
-    const cX = canvas.width/2;
-    const cY = canvas.height * 0.50;
-    
+// ══════════════════════════════════════════════════
+// EDGE EFFECT (CSS-level simulated via canvas)
+// ══════════════════════════════════════════════════
+function drawEdgeEffect(){
+  // Add subtle green tint overlay for edge mode
+  ctx.fillStyle='rgba(0,255,65,0.03)';
+  ctx.fillRect(0,0,canvas.width,canvas.height);
+}
+
+// ══════════════════════════════════════════════════
+// LOCK-ON ANIMATIONS
+// ══════════════════════════════════════════════════
+function addLockAnim(x,y,w,h,col){
+  lockAnims.push({x,y,w,h,col,t:0,maxT:30});
+}
+function drawLockAnims(){
+  lockAnims=lockAnims.filter(a=>{
+    const prog=a.t/a.maxT;
+    const alpha=(1-prog);
+    const expand=prog*40;
+    ctx.strokeStyle=hexA(a.col,alpha*.8);
+    ctx.lineWidth=2;
+    ctx.strokeRect(a.x-expand,a.y-expand,a.w+expand*2,a.h+expand*2);
+    // Corner diamonds
+    const cx=a.x+a.w/2,cy=a.y+a.h/2;
+    const r=8+expand;
     ctx.beginPath();
-    ctx.moveTo(cX, cY); ctx.lineTo(x, y); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x+w, y); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x, y+h); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x+w, y+h); 
+    ctx.moveTo(cx,cy-r);ctx.lineTo(cx+r,cy);
+    ctx.lineTo(cx,cy+r);ctx.lineTo(cx-r,cy);
+    ctx.closePath();
+    ctx.strokeStyle=hexA(a.col,alpha*.5);
     ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.strokeStyle=col;
-    ctx.lineWidth=isSel ? 4 : 1.5;
-    ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.03);
-    ctx.fillRect(x,y,w,h);
-
-    const s=Math.min(15, w*0.2);
-    ctx.lineWidth=3;
-    ctx.beginPath();
-    ctx.moveTo(x,y+s);ctx.lineTo(x,y);ctx.lineTo(x+s,y);
-    ctx.moveTo(x+w-s,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+s);
-    ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
-    ctx.stroke();
-
-    ctx.fillStyle=col;
-    ctx.font="bold 12px 'Share Tech Mono'";
-    ctx.fillText(`${name} #${p.id}`, x+2, y-12);
-    ctx.font="9px 'Share Tech Mono'";
-    ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+2, y-2);
+    a.t++;
+    return a.t<a.maxT;
   });
 }
 
-function updateHUD(){
-  const total=lastPred.length;
-  document.getElementById('b-obj').textContent=total+' OBJ';
-  
+// ══════════════════════════════════════════════════
+// MAIN DRAW
+// ══════════════════════════════════════════════════
+function draw(){
+  const t=frameCount;
+  const cX=canvas.width/2, cY=canvas.height*0.48;
+
   lastPred.forEach(p=>{
-    const d=dist(p.sm, p.cls);
-    if(canLog(p.cls, p.id)){
-      log(`${getAlias(p.cls)} #${p.id} -- ${d}m`, THREAT.has(p.cls)?'warn':'info');
+    const [x,y,w,h]=p.sm;
+    const col=getCol(p.cls);
+    const d=dist(p.sm,p.cls);
+    const isSel=p.id===selTid;
+    const name=getAlias(p.cls);
+    const kb=getKB(p.cls);
+    const isThreat=THREAT_SET.has(p.cls);
+    const age=(Date.now()-p.born)/1000;
+
+    // ── Perspective lines to vanishing point ──
+    ctx.setLineDash([3,8]);
+    ctx.lineWidth=.7;
+    const corners=[[x,y],[x+w,y],[x,y+h],[x+w,y+h]];
+    corners.forEach(([cx2,cy2])=>{
+      const grad=ctx.createLinearGradient(cX,cY,cx2,cy2);
+      grad.addColorStop(0,hexA(col,0));
+      grad.addColorStop(1,hexA(col,.25));
+      ctx.strokeStyle=grad;
+      ctx.beginPath();ctx.moveTo(cX,cY);ctx.lineTo(cx2,cy2);ctx.stroke();
+    });
+    ctx.setLineDash([]);
+
+    // ── Main bounding box ──
+    ctx.lineWidth=isSel?3:1.5;
+
+    // Pulse effect for threats
+    if(isThreat&&!isSel){
+      const pulse=Math.sin(t*0.15)*0.3+0.7;
+      ctx.strokeStyle=hexA(col,pulse);
+    } else {
+      ctx.strokeStyle=col;
+    }
+    ctx.strokeRect(x,y,w,h);
+
+    // Fill
+    ctx.fillStyle=hexA(col, isSel?0.18:(isThreat?0.06:0.03));
+    ctx.fillRect(x,y,w,h);
+
+    // ── Animated corner brackets ──
+    const cs=Math.min(18,w*.22,h*.22);
+    const animOffset=isSel?(Math.sin(t*0.1)*2):0;
+    ctx.strokeStyle=col;
+    ctx.lineWidth=isSel?3:2;
+    ctx.shadowColor=col;ctx.shadowBlur=isSel?12:6;
+
+    // TL
+    ctx.beginPath();
+    ctx.moveTo(x-animOffset,y+cs-animOffset);ctx.lineTo(x-animOffset,y-animOffset);ctx.lineTo(x+cs-animOffset,y-animOffset);
+    ctx.stroke();
+    // TR
+    ctx.beginPath();
+    ctx.moveTo(x+w-cs+animOffset,y-animOffset);ctx.lineTo(x+w+animOffset,y-animOffset);ctx.lineTo(x+w+animOffset,y+cs-animOffset);
+    ctx.stroke();
+    // BL
+    ctx.beginPath();
+    ctx.moveTo(x-animOffset,y+h-cs+animOffset);ctx.lineTo(x-animOffset,y+h+animOffset);ctx.lineTo(x+cs-animOffset,y+h+animOffset);
+    ctx.stroke();
+    // BR
+    ctx.beginPath();
+    ctx.moveTo(x+w-cs+animOffset,y+h+animOffset);ctx.lineTo(x+w+animOffset,y+h+animOffset);ctx.lineTo(x+w+animOffset,y+h-cs+animOffset);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+
+    // ── Scanning line (for selected) ──
+    if(isSel){
+      const scanY=y+(((t*2)%100)/100)*h;
+      const scanGrad=ctx.createLinearGradient(x,scanY-8,x,scanY+8);
+      scanGrad.addColorStop(0,hexA(col,0));
+      scanGrad.addColorStop(.5,hexA(col,.5));
+      scanGrad.addColorStop(1,hexA(col,0));
+      ctx.fillStyle=scanGrad;
+      ctx.fillRect(x,scanY-8,w,16);
+    }
+
+    // ── Target reticle (center dot) ──
+    const objCX=x+w/2, objCY=y+h/2;
+    ctx.strokeStyle=hexA(col,.5);
+    ctx.lineWidth=1;
+    const rl=8;
+    ctx.beginPath();
+    ctx.moveTo(objCX-rl,objCY);ctx.lineTo(objCX-3,objCY);
+    ctx.moveTo(objCX+3,objCY);ctx.lineTo(objCX+rl,objCY);
+    ctx.moveTo(objCX,objCY-rl);ctx.lineTo(objCX,objCY-3);
+    ctx.moveTo(objCX,objCY+3);ctx.lineTo(objCX,objCY+rl);
+    ctx.stroke();
+
+    // ── Label background ──
+    const labelY=y>28?y-4:y+h+16;
+    const upward=y>28;
+    const label1=`${name} #${p.id}`;
+    const label2=`${d}m | ${Math.round(p.score*100)}%`;
+
+    ctx.font="bold 11px 'Share Tech Mono'";
+    const lw=Math.max(ctx.measureText(label1).width, ctx.measureText(label2).width)+10;
+
+    ctx.fillStyle=hexA(col,.9);
+    ctx.fillRect(x, upward?labelY-22:labelY-11, lw, 22);
+
+    ctx.fillStyle='#000';
+    ctx.font="bold 11px 'Share Tech Mono'";
+    ctx.fillText(label1, x+4, upward?labelY-12:labelY-1);
+    ctx.font="9px 'Share Tech Mono'";
+    ctx.fillText(label2, x+4, upward?labelY-3:labelY+8);
+
+    // ── Type badge (top-right of box) ──
+    if(w>80){
+      ctx.fillStyle=hexA(col,.15);
+      ctx.fillRect(x+w-60, y+2, 58, 12);
+      ctx.strokeStyle=hexA(col,.4);
+      ctx.lineWidth=.5;
+      ctx.strokeRect(x+w-60,y+2,58,12);
+      ctx.fillStyle=col;
+      ctx.font="7px 'Share Tech Mono'";
+      ctx.fillText(kb.type, x+w-58, y+11);
+    }
+
+    // ── Distance arc ──
+    if(d<30){
+      const arcR=Math.min(w,h)*0.38;
+      const arcProg=Math.max(0,1-d/30);
+      ctx.strokeStyle=hexA(col,arcProg*0.4);
+      ctx.lineWidth=1.5;
+      ctx.beginPath();
+      ctx.arc(objCX,objCY,arcR,Math.PI*1.5,Math.PI*1.5+Math.PI*2*arcProg);
+      ctx.stroke();
     }
   });
 }
 
+// ══════════════════════════════════════════════════
+// HUD UPDATE
+// ══════════════════════════════════════════════════
+function updateHUD(){
+  const total=lastPred.length;
+  document.getElementById('b-obj').textContent=total+' OBJ';
+
+  const hasThreats=lastPred.some(p=>THREAT_SET.has(p.cls));
+  const threatBadge=document.getElementById('b-threat');
+  if(hasThreats!==threatActive){
+    threatActive=hasThreats;
+    threatBadge.style.display=hasThreats?'flex':'none';
+    if(hasThreats){ triggerAlert(); log('УГРОЗА ОБНАРУЖЕНА','alert'); }
+    else { log('УГРОЗЫ НЕ ОБНАРУЖЕНЫ','ok'); }
+  }
+
+  const statuses=['SCANNING','TRACKING','ANALYZING'];
+  document.getElementById('sb-status').textContent=
+    total>0?'TRACKING '+total:'SCANNING';
+
+  lastPred.forEach(p=>{
+    const d=dist(p.sm,p.cls);
+    if(canLog(p.cls,p.id)){
+      const type=THREAT_SET.has(p.cls)?'warn':'info';
+      log(`${getAlias(p.cls)} #${p.id} → ${d}м | ${Math.round(p.score*100)}%`,type);
+    }
+  });
+}
+
+// ══════════════════════════════════════════════════
+// TAP / CLICK HANDLER
+// ══════════════════════════════════════════════════
+canvas.addEventListener('click',handleTap);
 function handleTap(e){
   const rect=canvas.getBoundingClientRect();
   const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
   const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
-  
+
   const hit=lastPred.find(p=>{
     const [x,y,w,h]=p.sm;
     return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h;
@@ -393,46 +1019,71 @@ function handleTap(e){
 
   if(hit){
     selTid=hit.id;
-    const d=dist(hit.sm, hit.cls);
-    const titleEl = document.getElementById('info-title');
+    addLockAnim(hit.sm[0],hit.sm[1],hit.sm[2],hit.sm[3],getCol(hit.cls));
+    const d=dist(hit.sm,hit.cls);
+    const kb=getKB(hit.cls);
+    const col=getCol(hit.cls);
+
+    const titleEl=document.getElementById('info-title');
     titleEl.textContent=getAlias(hit.cls);
-    titleEl.dataset.cls = hit.cls; 
-    titleEl.style.color=getCol(hit.cls);
-    
+    titleEl.dataset.cls=hit.cls;
+    titleEl.style.color=col;
+    titleEl.style.textShadow=`0 0 16px ${col}`;
+
+    const threat=Math.round(kb.threat*100);
+    const threatFill=document.getElementById('info-threat-fill');
+    const threatVal=document.getElementById('info-threat-val');
+    threatFill.style.width=threat+'%';
+    threatFill.style.background=threat>60?'var(--r)':threat>35?'var(--o)':'var(--g)';
+    threatFill.style.boxShadow=`0 0 8px ${threat>60?'var(--r)':threat>35?'var(--o)':'var(--g)'}`;
+    threatVal.textContent=threat+'%';
+
+    const tagsHtml=kb.tags.map(t=>`<span style="border:1px solid ${col};color:${col};
+      padding:1px 5px;font-size:7px;margin-right:3px;opacity:.7">${t}</span>`).join('');
+
     document.getElementById('info-grid').innerHTML=`
       <div class="ik">ID ТРЕКА</div><div class="iv">#${hit.id}</div>
-      <div class="ik">СИСТЕМА</div><div class="iv">${hit.cls.toUpperCase()}</div>
-      <div class="ik">ДИСТАНЦИЯ</div><div class="iv">${d}m</div>
-      <div class="ik">СИГНАЛ</div><div class="iv">${Math.round(hit.score*100)}%</div>
+      <div class="ik">КЛАСС</div><div class="iv">${hit.cls.toUpperCase()}</div>
+      <div class="ik">ТИП</div><div class="iv">${kb.type}</div>
+      <div class="ik">ПОДТИП</div><div class="iv" style="font-size:7.5px">${kb.subtype}</div>
+      <div class="ik">ДИСТАНЦИЯ</div><div class="iv ${d<5?'alert':d<15?'warn':''}">${d}м</div>
+      <div class="ik">УВЕРЕННОСТЬ</div><div class="iv">${Math.round(hit.score*100)}%</div>
+      <div class="ik" style="grid-column:1/-1;margin-top:4px">${tagsHtml}</div>
     `;
-    document.getElementById('info-desc').textContent=getDesc(hit.cls);
+    document.getElementById('info-desc').textContent=kb.desc;
     document.getElementById('info-panel').classList.add('open');
-  } else {
+    log(`LOCK-ON: ${getAlias(hit.cls)} #${hit.id}`,'ok');
+  }else{
     closeInfo();
   }
 }
 
-function renameObject() {
-  const titleEl = document.getElementById('info-title');
-  const cls = titleEl.dataset.cls;
-  const oldAlias = titleEl.textContent;
-  const newAlias = prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" В:`, oldAlias);
-  
-  if (newAlias !== null && newAlias.trim() !== "") {
-    USER_MEM[cls] = newAlias.trim().toUpperCase();
-    localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
-    log(`СОХРАНЕНИЕ В КЭШ... ПЕРЕЗАПУСК`, 'warn');
-    setTimeout(() => location.reload(), 800);
-  }
-}
-
-canvas.addEventListener('click',handleTap);
 function closeInfo(){
   selTid=null;
   document.getElementById('info-panel').classList.remove('open');
 }
 
+// ══════════════════════════════════════════════════
+// RENAME
+// ══════════════════════════════════════════════════
+function renameObject(){
+  const titleEl=document.getElementById('info-title');
+  const cls=titleEl.dataset.cls;
+  const oldAlias=titleEl.textContent;
+  const newAlias=prompt(`ПЕРЕИМЕНОВАТЬ "${cls.toUpperCase()}" →`,oldAlias);
+  if(newAlias!==null&&newAlias.trim()!==''){
+    USER_MEM[cls]=newAlias.trim().toUpperCase();
+    localStorage.setItem('myeye_mem',JSON.stringify(USER_MEM));
+    log('КЭШ ОБНОВЛЁН. ПЕРЕЗАГРУЗКА...','warn');
+    setTimeout(()=>location.reload(),700);
+  }
+}
+
+// ══════════════════════════════════════════════════
+// BOOT
+// ══════════════════════════════════════════════════
 bootSeq();
 </script>
+
 </body>
 </html>
