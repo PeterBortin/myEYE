@@ -24,16 +24,16 @@ body,html{width:100%;height:100%;background:#000;overflow:hidden;
 flex-direction:column;justify-content:center;align-items:center;}
 #boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;
 font-size:clamp(30px,8vw,54px);letter-spacing:.18em;color:var(--g);
-text-shadow:0 0 30px var(--g),0 0 60px #004400;animation:gpulse 2s ease-in-out infinite;}
-#boot-sub{font-size:9px;letter-spacing:.45em;color:var(--g2);margin:6px 0 32px;}
+text-shadow:0 0 30px var(--g);animation:bootGlow 3s ease-in-out infinite;}
+#boot-sub{font-size:9px;letter-spacing:.45em;color:var(--g2);margin:6px 0 32px;opacity:0.7;}
 #boot-log{width:min(360px,86vw);font-size:9.5px;color:var(--g2);min-height:115px;line-height:1.9;}
 #boot-log .bl{opacity:0;animation:fi .22s forwards;}
-#pb-wrap{width:min(360px,86vw);height:2px;background:#0a1a0a;margin-top:18px;}
-#pb{height:100%;width:0;background:var(--g);box-shadow:0 0 8px var(--g);transition:width .3s;}
+#pb-wrap{width:min(360px,86vw);height:2px;background:#0a1a0a;margin-top:18px;position:relative;overflow:hidden;}
+#pb{height:100%;width:0;background:var(--g);box-shadow:0 0 12px var(--g);transition:width 0.5s cubic-bezier(0.4, 0, 0.2, 1);}
 #btn-start{margin-top:28px;display:none;background:none;border:1px solid var(--g);
 color:var(--g);font-family:'Orbitron',sans-serif;font-size:11px;
-letter-spacing:.3em;padding:13px 42px;cursor:pointer;transition:all .2s;}
-#btn-start:hover,#btn-start:active{background:var(--g);color:#000;box-shadow:0 0 20px var(--g);}
+letter-spacing:.3em;padding:13px 42px;cursor:pointer;transition:all .3s;}
+#btn-start:hover{background:var(--g);color:#000;box-shadow:0 0 20px var(--g);}
 
 /* LAYOUT */
 #app{position:fixed;inset:0;display:flex;flex-direction:column;}
@@ -44,7 +44,7 @@ canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index
 
 #vp::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
 background:repeating-linear-gradient(0deg,transparent,transparent 3px,
-rgba(0,255,65,.016) 3px,rgba(0,255,65,.016) 4px);
+rgba(0,255,65,.01) 3px,rgba(0,255,65,.01) 4px);
 animation:scanroll 10s linear infinite;}
 
 .hc{position:absolute;width:52px;height:52px;z-index:10;pointer-events:none;}
@@ -57,14 +57,8 @@ animation:scanroll 10s linear infinite;}
 
 #xhair{position:absolute;top:50%;left:50%;z-index:8;pointer-events:none;
 width:22px;height:22px;margin:-11px;}
-#xhair::before{content:'';position:absolute;top:10px;left:0;width:22px;height:2px;
-background:rgba(0,255,65,.3);}
-#xhair::after{content:'';position:absolute;left:10px;top:0;width:2px;height:22px;
-background:rgba(0,255,65,.3);}
-
-#radar{position:absolute;top:50%;left:50%;z-index:7;width:6px;height:6px;margin:-3px;
-border-radius:50%;background:var(--g);pointer-events:none;
-box-shadow:0 0 0 0 rgba(0,255,65,.5);animation:rpulse 4s ease-out infinite;}
+#xhair::before{content:'';position:absolute;top:10px;left:0;width:22px;height:1px;background:rgba(0,255,65,.2);}
+#xhair::after{content:'';position:absolute;left:10px;top:0;width:1px;height:22px;background:rgba(0,255,65,.2);}
 
 #topbar{position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
 display:flex;align-items:center;justify-content:space-between;padding:10px 14px;}
@@ -73,24 +67,13 @@ letter-spacing:.2em;color:var(--g);text-shadow:0 0 12px var(--g);}
 #badges{display:flex;gap:5px;}
 .badge{font-size:8px;letter-spacing:.12em;padding:3px 8px;
 border:1px solid var(--border);background:var(--panel);color:var(--g2);}
-.badge.hi{border-color:var(--g);color:var(--g);}
-.badge.al{border-color:var(--r);color:var(--r);}
-.badge.wn{border-color:var(--o);color:var(--o);}
 
 #night-btn{position:absolute;top:10px;left:100px;z-index:20;background:none;
 border:1px solid var(--border);color:var(--g2);font-family:'Share Tech Mono',monospace;
 font-size:8px;padding:4px 10px;cursor:pointer;letter-spacing:.1em;}
-#night-btn:hover,#night-btn:active{border-color:var(--b);color:var(--b);}
-
-#statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;
-display:flex;gap:1px;pointer-events:none;}
-.sc{flex:1;padding:5px 5px;background:var(--panel);
-border-top:1px solid var(--border);font-size:7px;
-letter-spacing:.07em;color:var(--g2);text-align:center;}
-.sc span{display:block;color:var(--g);font-size:10px;font-weight:bold;}
 
 #info-panel{position:absolute;bottom:0;left:0;right:0;z-index:25;
-background:rgba(2,8,4,.97);border-top:2px solid var(--g);
+background:rgba(2,8,4,.97);border-top:1px solid var(--g);
 padding:12px 16px 10px;transform:translateY(100%);
 transition:transform .28s cubic-bezier(.22,1,.36,1);pointer-events:none;}
 #info-panel.open{transform:translateY(0);pointer-events:all;}
@@ -99,29 +82,25 @@ border:1px solid var(--g2);color:var(--g2);font-family:'Share Tech Mono',monospa
 font-size:9px;padding:3px 10px;cursor:pointer;letter-spacing:.1em;}
 #info-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
 letter-spacing:.2em;color:var(--g);margin-bottom:8px;display:inline-block;
-cursor:pointer;border-bottom:1px dashed transparent;transition:.2s;}
-#info-title:hover{border-bottom-color:var(--g);text-shadow:0 0 10px var(--g);}
+cursor:pointer;}
 #info-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:9px;}
 .ik{color:var(--g2);}.iv{color:var(--g);}
 #info-desc{margin-top:8px;font-size:9px;color:var(--g2);line-height:1.6;
 border-top:1px solid var(--border);padding-top:6px;}
 
 #terminal{flex:0 0 auto;height:108px;background:var(--bg);
-border-top:1px solid var(--border);padding:7px 14px;overflow:hidden;z-index:20;}
-#term-hdr{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:.28em;
-color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
-#term-hdr::before{content:'';flex:1;height:1px;background:var(--g3);}
+border-top:1px solid var(--border);padding:10px 14px;overflow:hidden;z-index:20;}
 #term-lines{font-size:9px;line-height:1.72;}
 .tl{opacity:0;animation:si .18s forwards;}
 .tok{color:var(--g);}.twarn{color:var(--o);}.talert{color:var(--r);}.tinfo{color:var(--b);}.ttap{color:var(--y);}
 
-@keyframes gpulse{0%,100%{text-shadow:0 0 20px var(--g),0 0 40px #003300;}
-50%{text-shadow:0 0 45px var(--g),0 0 90px #00aa44;}}
+@keyframes bootGlow{
+  0%,100%{text-shadow:0 0 20px var(--g); opacity: 1;}
+  50%{text-shadow:0 0 40px var(--g); opacity: 0.8;}
+}
 @keyframes fi{to{opacity:1;}}
 @keyframes si{from{opacity:0;transform:translateX(-5px);}to{opacity:.93;transform:none;}}
 @keyframes scanroll{from{background-position:0 0;}to{background-position:0 120px;}}
-@keyframes rpulse{0%{box-shadow:0 0 0 0 rgba(0,255,65,.5);}
-70%{box-shadow:0 0 0 70px rgba(0,255,65,0);}100%{box-shadow:0 0 0 0 rgba(0,255,65,0);}}
 </style>
 </head>
 <body>
@@ -140,24 +119,15 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
     <canvas id="canvas"></canvas>
     <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
     <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-    <div id="xhair"></div><div id="radar"></div>
+    <div id="xhair"></div>
     <button id="night-btn" onclick="toggleNight()">☾ NIGHT</button>
 
     <div id="topbar">
       <div id="sys-id">myEYE</div>
       <div id="badges">
-        <div class="badge hi" id="b-fps">-- FPS</div>
-        <div class="badge hi" id="b-obj">0 OBJ</div>
-        <div class="badge" id="b-mode">SCAN</div>
-        <div class="badge" id="b-rng">STD</div>
+        <div class="badge" id="b-fps">-- FPS</div>
+        <div class="badge" id="b-obj">0 OBJ</div>
       </div>
-    </div>
-
-    <div id="statbar">
-      <div class="sc">FARTHEST<span id="s-dist">---</span></div>
-      <div class="sc">THREATS<span id="s-thr">0</span></div>
-      <div class="sc">CONF AVG<span id="s-conf">---%</span></div>
-      <div class="sc">TRACKED<span id="s-trk">0</span></div>
     </div>
 
     <div id="info-panel">
@@ -169,7 +139,6 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
   </div>
 
   <div id="terminal">
-    <div id="term-hdr"><span>NEURAL_FEED // TAP BOX → OBJECT REPORT</span></div>
     <div id="term-lines"></div>
   </div>
 </div>
@@ -217,32 +186,6 @@ const DESC={
   backpack:'Внешний модуль хранения / Груз.',
   _d:'Объект идентифицирован. Данные загружены в кэш.'
 };
-
-const HUMAN_ASCII_ART = [
-  "       \\`\\` ",
-  "      .001.^",
-  "      u\\$0N=1",
-  "      z00BA|",
-  "     |..=~.",
-  "    ;s<'''",
-  "   NRX~=-`",
-  "  z0c^<X^",
-  "  ~B0s~^\\",
-  "   @@\\$H~'",
-  "  n\\$0=XN;.`",
-  " iBBB0vU1=~'",
-  " `$@00cRr`vul",
-  " FAHZuqr-`",
-  " ZZUFA@FI.`",
-  ";BRHv n\\$U^-",
-  "`ARN1   ^@si",
-  "'Onv~    01.'",
-  "c0qr     rs.",
-  "aUU`      ul'",
-  "`RO-      :.",
-  "nn~`      -=.`|-`",
-  "=1^`..      \\.,."
-];
 
 function getAlias(cls) {
   return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase();
@@ -360,62 +303,6 @@ function toggleNight(){
   log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
 }
 
-function drawHumanASCII(x, y, w, h, color) {
-  const art = HUMAN_ASCII_ART;
-  const rows = art.length;
-  const cols = Math.max(...art.map(r => r.length));
-  
-  const fontHeight = h / rows;
-  const fontWidth = w / cols;
-  const fontSize = Math.max(1.5, Math.min(fontHeight, fontWidth * 1.6)); 
-  
-  ctx.font = `bold ${fontSize}px 'Share Tech Mono'`;
-  ctx.fillStyle = color;
-  ctx.textAlign = 'left';
-  ctx.textBaseline = 'top';
-
-  const actualArtWidth = cols * (fontSize * 0.6);
-  const offsetX = x + (w - actualArtWidth) / 2;
-  const offsetY = y + (h - rows * fontSize) / 2;
-
-  // Анимация движения
-  const time = Date.now() * 0.006;
-
-  for (let i = 0; i < rows; i++) {
-    const line = art[i];
-    
-    // Динамический сдвиг для имитации движения (синусоида по высоте)
-    // Строки 10-15 (таз/ноги) двигаются сильнее
-    const waveShift = Math.sin(time + (i * 0.3)) * (fontSize * 0.4);
-    const movement = (i > 8) ? waveShift : waveShift * 0.3;
-
-    ctx.globalAlpha = 0.4 + Math.random() * 0.5; 
-    ctx.fillText(line, offsetX + movement, offsetY + (i * fontSize));
-  }
-  
-  ctx.globalAlpha = 1.0;
-}
-
-function drawASCII(x, y, w, h, color, cls) {
-  if (cls === 'person') {
-    drawHumanASCII(x, y, w, h, color);
-  }
-}
-
-function drawEnvironment() {
-  const w = canvas.width;
-  const h = canvas.height;
-  const horizon = h * 0.50;
-  const color = nightMode ? '#00ccff' : 'rgba(0, 255, 65, 0.2)';
-  
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = hexA(color, 0.5);
-  ctx.beginPath();
-  const scanY = horizon + Math.sin(Date.now()*0.002) * 5;
-  ctx.moveTo(w*0.05, scanY); ctx.lineTo(w*0.95, scanY);
-  ctx.stroke();
-}
-
 async function renderLoop(now){
   if(!running) return requestAnimationFrame(renderLoop);
   fpsCnt++;
@@ -432,7 +319,6 @@ async function renderLoop(now){
   }
   
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawEnvironment(); 
   draw(); 
   updateHUD();
   requestAnimationFrame(renderLoop);
@@ -446,15 +332,12 @@ function draw(){
     const isSel = p.id === selTid;
     const name = getAlias(p.cls);
     
-    if(nightMode) {
-      drawASCII(x, y, w, h, col, p.cls);
-    }
-
+    // Соединение объекта с точкой горизонта
     ctx.setLineDash([5, 5]);
     ctx.strokeStyle = hexA(col, 0.4);
     ctx.lineWidth = 1;
     const cX = canvas.width/2;
-    const cY = canvas.height * 0.50; 
+    const cY = canvas.height * 0.50;
     
     ctx.beginPath();
     ctx.moveTo(cX, cY); ctx.lineTo(x, y); 
@@ -467,7 +350,7 @@ function draw(){
     ctx.strokeStyle=col;
     ctx.lineWidth=isSel ? 4 : 1.5;
     ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col, (isSel ? 0.3 : (nightMode ? 0.08 : 0.03)));
+    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.03);
     ctx.fillRect(x,y,w,h);
 
     const s=Math.min(15, w*0.2);
@@ -478,36 +361,24 @@ function draw(){
     ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
     ctx.stroke();
 
-    ctx.fillStyle='rgba(0,0,0,0.85)';
-    ctx.fillRect(x, y-28, Math.max(80, w*0.6), 28);
     ctx.fillStyle=col;
-    ctx.font="bold 10px 'Share Tech Mono'";
-    ctx.fillText(`${name} #${p.id}`, x+5, y-16);
-    ctx.font="8px 'Share Tech Mono'";
-    ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+5, y-6);
+    ctx.font="bold 12px 'Share Tech Mono'";
+    ctx.fillText(`${name} #${p.id}`, x+2, y-12);
+    ctx.font="9px 'Share Tech Mono'";
+    ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+2, y-2);
   });
 }
 
 function updateHUD(){
   const total=lastPred.length;
   document.getElementById('b-obj').textContent=total+' OBJ';
-  let thr=0,maxD=0,sumConf=0;
   
   lastPred.forEach(p=>{
     const d=dist(p.sm, p.cls);
-    sumConf += p.score;
-    if(d>maxD && d<999) maxD=d;
-    if(THREAT.has(p.cls)) thr++;
-    
     if(canLog(p.cls, p.id)){
       log(`${getAlias(p.cls)} #${p.id} -- ${d}m`, THREAT.has(p.cls)?'warn':'info');
     }
   });
-
-  document.getElementById('s-thr').textContent=thr;
-  document.getElementById('s-conf').textContent=total>0 ? Math.round((sumConf/total)*100)+'%' : '---';
-  document.getElementById('s-dist').textContent=maxD>0 ? Math.round(maxD)+'m' : '---';
-  document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
 }
 
 function handleTap(e){
@@ -536,7 +407,6 @@ function handleTap(e){
     `;
     document.getElementById('info-desc').textContent=getDesc(hit.cls);
     document.getElementById('info-panel').classList.add('open');
-    log(`OTЧЕТ #${hit.id} -- ТАП ПО ИМЕНИ ДЛЯ КОРРЕКЦИИ`, 'tap');
   } else {
     closeInfo();
   }
