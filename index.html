@@ -1,881 +1,257 @@
 <!DOCTYPE html>
-
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE // VISION OS</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>myEYE // VISION OS v5.2</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 <style>
-:root{
-  --g:#00ff41;--g2:#00cc33;--g3:#003a12;
-  --y:#ffe600;--o:#ff9900;--r:#ff2244;--b:#00c8ff;--p:#bf00ff;
-  --bg:#010603;--panel:rgba(1,6,3,.97);--border:rgba(0,255,65,.18);
-  --glow:0 0 24px rgba(0,255,65,.55),0 0 70px rgba(0,255,65,.2);
+:root {
+  --g: #00ff41; --g-low: rgba(0,255,65,0.15); --g-mid: rgba(0,255,65,0.4);
+  --y: #ffe600; --o: #ff9900; --r: #ff2244; --b: #00c8ff;
+  --bg: #010603; --panel: rgba(1,8,4,0.92);
+  --glow: 0 0 15px rgba(0,255,65,0.4);
 }
-*{margin:0;padding:0;box-sizing:border-box;}
-body,html{width:100%;height:100%;background:#000;overflow:hidden;
-  font-family:'Share Tech Mono',monospace;color:var(--g);
-  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
+* { margin: 0; padding: 0; box-sizing: border-box; outline: none; }
+body, html { width: 100%; height: 100%; background: #000; overflow: hidden;
+  font-family: 'Share Tech Mono', monospace; color: var(--g);
+  user-select: none; -webkit-tap-highlight-color: transparent; }
 
-/* ══════════ BOOT ══════════ */
-#boot{position:fixed;inset:0;background:#000;z-index:300;
-display:flex;flex-direction:column;justify-content:center;align-items:center;}
+/* --- BOOT SCREEN --- */
+#boot { position: fixed; inset: 0; background: var(--bg); z-index: 1000; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+#boot-logo { font-family: 'Orbitron', sans-serif; font-size: 54px; font-weight: 900; letter-spacing: 0.2em; text-shadow: var(--glow); margin-bottom: 20px; }
+#boot-log { width: 320px; font-size: 10px; color: var(--g-mid); height: 120px; overflow: hidden; line-height: 1.6; }
+.boot-line { animation: fadeIn 0.1s forwards; }
+.progress-bar { width: 320px; height: 2px; background: #002208; margin-top: 15px; position: relative; }
+#progress-fill { height: 100%; width: 0%; background: var(--g); box-shadow: 0 0 10px var(--g); transition: width 0.1s; }
 
-#boot-hex{position:absolute;inset:0;pointer-events:none;overflow:hidden;opacity:.05;}
-#boot-hex svg{width:100%;height:100%;}
+/* --- APP LAYOUT --- */
+#app { position: fixed; inset: 0; display: flex; flex-direction: column; opacity: 0; transition: opacity 1s; }
+#viewport { position: relative; flex: 1; background: #000; overflow: hidden; }
+video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.6) contrast(1.2); }
+canvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
 
-/* Animated myEYE */
-#boot-logo-wrap{position:relative;margin-bottom:10px;overflow:visible;}
+/* --- HUD OVERLAYS --- */
+.scanline { position: absolute; inset: 0; background: linear-gradient(to bottom, transparent 50%, rgba(0,255,65,0.02) 50%); background-size: 100% 4px; pointer-events: none; z-index: 5; }
+#vignette { position: absolute; inset: 0; background: radial-gradient(circle, transparent 40%, rgba(0,0,0,0.8) 140%); z-index: 6; pointer-events: none; }
 
-#boot-logo{font-family:‘Orbitron’,sans-serif;font-weight:900;
-font-size:clamp(46px,13vw,86px);letter-spacing:.18em;
-color:transparent;-webkit-text-stroke:1px rgba(0,255,65,.3);
-position:relative;white-space:nowrap;}
-
-.bl-char{display:inline-block;opacity:0;color:var(–g);
--webkit-text-stroke:0px;text-shadow:var(–glow);
-animation:charReveal .6s cubic-bezier(.22,1,.36,1) forwards;}
-.bl-char:nth-child(1){animation-delay:.05s;}
-.bl-char:nth-child(2){animation-delay:.18s;}
-.bl-char:nth-child(3){animation-delay:.31s;}
-.bl-char:nth-child(4){animation-delay:.44s;}
-.bl-char:nth-child(5){animation-delay:.57s;}
-
-/* glitch clone */
-#boot-logo-g{position:absolute;inset:0;font-family:‘Orbitron’,sans-serif;
-font-weight:900;font-size:clamp(46px,13vw,86px);letter-spacing:.18em;
-color:var(–g);pointer-events:none;opacity:0;
-animation:glitchLoop 5s 1.4s infinite;}
-
-/* horizontal scan on logo */
-#boot-scan{position:absolute;left:0;right:0;height:2px;top:0;
-background:linear-gradient(90deg,transparent,var(–g),transparent);
-box-shadow:0 0 14px var(–g);
-animation:scanDown 1.6s ease-in-out infinite;}
-
-#boot-sub{font-size:8px;letter-spacing:.5em;color:var(–g2);
-margin:6px 0 26px;opacity:0;animation:fadeIn .5s 1s forwards;text-transform:uppercase;}
-
-#boot-log{width:min(370px,88vw);font-size:8.5px;color:var(–g2);
-min-height:116px;line-height:2;}
-#boot-log .bl{opacity:0;animation:fadeIn .18s forwards;
-padding-left:5px;border-left:2px solid var(–g3);}
-#boot-log .bl.ok::before{content:’✔ ’;color:var(–g);}
-#boot-log .bl.warn::before{content:’⚡ ’;color:var(–o);}
-
-#pb-wrap{width:min(370px,88vw);margin-top:18px;}
-#pb-track{height:2px;background:var(–g3);}
-#pb{height:100%;width:0;background:linear-gradient(90deg,var(–g2),var(–g));
-box-shadow:0 0 12px var(–g);transition:width .35s cubic-bezier(.22,1,.36,1);}
-#pb-pct{font-size:7px;color:var(–g2);text-align:right;margin-top:4px;letter-spacing:.2em;}
-
-#btn-start{margin-top:24px;display:none;background:none;
-border:1px solid var(–g);color:var(–g);font-family:‘Orbitron’,sans-serif;
-font-size:10px;letter-spacing:.35em;padding:13px 44px;cursor:pointer;
-position:relative;overflow:hidden;transition:color .25s;}
-#btn-start::before{content:’’;position:absolute;inset:0;background:var(–g);
-transform:scaleX(0);transform-origin:left;
-transition:transform .28s cubic-bezier(.22,1,.36,1);z-index:-1;}
-#btn-start:hover::before{transform:scaleX(1);}
-#btn-start:hover{color:#000;box-shadow:0 0 28px var(–g);}
-
-/* ══════════ APP ══════════ */
-#app{position:fixed;inset:0;display:flex;flex-direction:column;}
-#vp{position:relative;flex:1 1 auto;overflow:hidden;background:#000;}
-
-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
-filter:brightness(.52) contrast(1.4) saturate(.82);}
-canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
-
-#vp::after{content:’’;position:absolute;inset:0;z-index:5;pointer-events:none;
-background:repeating-linear-gradient(0deg,transparent,transparent 2px,
-rgba(0,0,0,.13) 2px,rgba(0,0,0,.13) 4px);animation:scanroll 8s linear infinite;}
-
-#vignette{position:absolute;inset:0;z-index:6;pointer-events:none;
-background:radial-gradient(ellipse at center,transparent 32%,rgba(0,0,0,.9) 100%);}
-
-#grid-overlay{position:absolute;inset:0;z-index:4;pointer-events:none;opacity:.03;
-background-image:linear-gradient(var(–g) 1px,transparent 1px),
-linear-gradient(90deg,var(–g) 1px,transparent 1px);
-background-size:44px 44px;}
-
-/* Corners — NO pulse rings */
-.hc{position:absolute;width:54px;height:54px;z-index:10;pointer-events:none;}
-.hc::before,.hc::after{content:’’;position:absolute;background:var(–g);
-box-shadow:0 0 7px var(–g);}
-.hc::before{width:2px;height:20px;}.hc::after{width:20px;height:2px;}
-#hc-tl{top:0;left:0;}#hc-tl::before{top:0;left:0;}#hc-tl::after{top:0;left:0;}
-#hc-tr{top:0;right:0;}#hc-tr::before{top:0;right:0;}#hc-tr::after{top:0;right:0;}
-#hc-bl{bottom:0;left:0;}#hc-bl::before{bottom:0;left:0;}#hc-bl::after{bottom:0;left:0;}
-#hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;}#hc-br::after{bottom:0;right:0;}
-
-/* Crosshair */
-#xhair{position:absolute;top:50%;left:50%;z-index:8;pointer-events:none;
-width:22px;height:22px;margin:-11px;}
-#xhair::before{content:’’;position:absolute;top:10px;left:0;width:22px;height:1px;
-background:rgba(0,255,65,.2);}
-#xhair::after{content:’’;position:absolute;left:10px;top:0;width:1px;height:22px;
-background:rgba(0,255,65,.2);}
-
-/* Topbar */
-#topbar{position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
-display:flex;align-items:center;justify-content:space-between;padding:10px 14px 8px;
-background:linear-gradient(180deg,rgba(0,0,0,.68) 0%,transparent 100%);}
-#sys-id{font-family:‘Orbitron’,sans-serif;font-size:13px;font-weight:900;
-letter-spacing:.22em;color:var(–g);text-shadow:var(–glow);}
-#sys-id span{font-weight:400;font-size:9px;opacity:.4;letter-spacing:.1em;}
-#badges{display:flex;gap:5px;align-items:center;}
-.badge{font-size:7.5px;letter-spacing:.12em;padding:3px 8px;
-border:1px solid var(–border);background:var(–panel);
-color:var(–g2);display:flex;align-items:center;gap:4px;}
-.bdot{width:5px;height:5px;border-radius:50%;background:var(–g);flex-shrink:0;
-animation:dotBlink 1.5s ease-in-out infinite;box-shadow:0 0 5px var(–g);}
-#b-fps{border-color:rgba(0,200,255,.25);color:var(–b);}
-#b-fps .bdot{background:var(–b);box-shadow:0 0 5px var(–b);}
-#b-threat{border-color:rgba(255,34,68,.35);color:var(–r);display:none;}
-#b-threat .bdot{background:var(–r);box-shadow:0 0 5px var(–r);animation-duration:.65s;}
-
-/* Statusbar */
-#statusbar{position:absolute;bottom:0;left:0;right:0;z-index:14;pointer-events:none;
-display:flex;justify-content:space-between;padding:5px 14px;
-background:linear-gradient(0deg,rgba(0,0,0,.78) 0%,transparent 100%);}
-.sb-item{font-size:7.5px;color:rgba(0,255,65,.35);letter-spacing:.12em;}
-
-/* Alert flash */
-#alert-flash{position:absolute;inset:0;z-index:13;pointer-events:none;opacity:0;}
-#alert-flash.fire{animation:alertFlash 1.3s ease-out forwards;}
-
-/* Info Panel */
-#info-panel{position:absolute;bottom:0;left:0;right:0;z-index:25;
-background:rgba(1,5,2,.98);border-top:1px solid rgba(0,255,65,.4);
-padding:13px 16px 11px;transform:translateY(100%);
-transition:transform .28s cubic-bezier(.22,1,.36,1);pointer-events:none;}
-#info-panel.open{transform:translateY(0);pointer-events:all;}
-#info-panel::before{content:’’;position:absolute;top:0;left:0;right:0;height:1px;
-background:linear-gradient(90deg,transparent,var(–g),transparent);
-animation:sweepLine 3s linear infinite;}
-
-#info-close{position:absolute;top:11px;right:14px;background:none;
-border:1px solid rgba(0,255,65,.3);color:var(–g2);
-font-family:‘Share Tech Mono’,monospace;font-size:8px;
-padding:4px 10px;cursor:pointer;letter-spacing:.15em;transition:all .2s;}
-#info-close:hover{border-color:var(–g);color:var(–g);}
-
-#info-title{font-family:‘Orbitron’,sans-serif;font-size:19px;font-weight:700;
-letter-spacing:.2em;cursor:pointer;margin-bottom:3px;transition:opacity .2s;}
-#info-title:hover{opacity:.75;}
-#info-title-sub{font-size:7px;color:rgba(0,255,65,.38);letter-spacing:.3em;margin-bottom:9px;}
-
-#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 16px;
-font-size:8.5px;margin-bottom:7px;}
-.ik{color:rgba(0,255,65,.42);font-size:8px;letter-spacing:.1em;}
-.iv{color:var(–g);}.iv.warn{color:var(–o);}.iv.alert{color:var(–r);}
-
-#info-desc{font-size:8px;color:rgba(0,255,65,.48);line-height:1.7;
-border-top:1px solid var(–border);padding-top:7px;}
-
-#info-threat-bar{margin-top:7px;display:flex;align-items:center;gap:8px;}
-#itl{font-size:7.5px;color:rgba(0,255,65,.42);letter-spacing:.1em;white-space:nowrap;}
-#itt{flex:1;height:2px;background:var(–g3);}
-#itf{height:100%;width:0;transition:width .5s,background .3s;}
-#itv{font-size:8px;color:var(–g);min-width:28px;text-align:right;}
+/* Top Bar */
+#top-hud { position: absolute; top: 0; left: 0; right: 0; padding: 20px; display: flex; justify-content: space-between; z-index: 20; background: linear-gradient(to bottom, rgba(0,0,0,0.7), transparent); }
+.sys-info { font-family: 'Orbitron'; font-size: 14px; letter-spacing: 2px; }
+.sys-stats { display: flex; gap: 15px; }
+.stat-box { border: 1px solid var(--g-low); background: var(--panel); padding: 4px 10px; font-size: 10px; display: flex; align-items: center; gap: 6px; }
+.dot { width: 4px; height: 4px; background: var(--g); border-radius: 50%; animation: blink 1s infinite; }
 
 /* Terminal */
-#terminal{flex:0 0 auto;height:108px;background:var(–bg);
-border-top:1px solid var(–border);padding:9px 14px;overflow:hidden;z-index:20;position:relative;}
-#terminal::before{content:‘SYSTEM LOG’;position:absolute;top:4px;right:12px;
-font-size:6.5px;letter-spacing:.25em;color:rgba(0,255,65,.16);}
-#term-lines{font-size:8.5px;line-height:1.75;}
-.tl{opacity:0;animation:tlin .15s forwards;display:flex;gap:7px;}
-.tl-ts{color:rgba(0,255,65,.26);font-size:7px;padding-top:1px;flex-shrink:0;}
-.tok{color:var(–g);}.twarn{color:var(–o);}.talert{color:var(–r);}.tinfo{color:var(–b);}
+#terminal { height: 140px; background: var(--bg); border-top: 1px solid var(--g-low); padding: 10px 15px; overflow-y: auto; font-size: 11px; display: flex; flex-direction: column-reverse; scroll-behavior: smooth; }
+.t-row { display: flex; gap: 10px; margin-bottom: 4px; opacity: 0.8; animation: t-in 0.2s ease-out forwards; }
+.t-ts { color: var(--g-mid); min-width: 60px; }
+.t-msg { word-break: break-all; }
+.t-warn { color: var(--o); } .t-crit { color: var(--r); text-shadow: 0 0 5px var(--r); }
 
-/* ═══ KEYFRAMES ═══ */
-@keyframes charReveal{
-0%{opacity:0;transform:translateY(-18px) scaleY(2.2);
-color:transparent;-webkit-text-stroke:1px var(–g);}
-60%{color:var(–g);-webkit-text-stroke:0px;}
-100%{opacity:1;transform:none;color:var(–g);text-shadow:var(–glow);}
-}
-@keyframes glitchLoop{
-0%,88%,100%{opacity:0;transform:none;}
-89%{opacity:.75;transform:translateX(-4px);
-clip-path:polygon(0 18%,100% 18%,100% 38%,0 38%);color:#ff2244;}
-91%{opacity:.6;transform:translateX(5px);
-clip-path:polygon(0 58%,100% 58%,100% 78%,0 78%);color:#00c8ff;}
-93%{opacity:0;}
-}
-@keyframes scanDown{
-0%{top:0;opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{top:100%;opacity:0;}
-}
-@keyframes fadeIn{to{opacity:1;}}
-@keyframes tlin{from{opacity:0;transform:translateX(-5px);}to{opacity:.92;transform:none;}}
-@keyframes scanroll{from{background-position:0 0;}to{background-position:0 80px;}}
-@keyframes sweepLine{from{background-position:-200% 0;}to{background-position:200% 0;}}
-@keyframes dotBlink{0%,100%{opacity:1;}50%{opacity:.15;}}
-@keyframes alertFlash{0%{opacity:1;background:rgba(255,34,68,.06);}100%{opacity:0;}}
+/* Info Panel */
+#info-side { position: absolute; right: -300px; top: 80px; width: 260px; background: var(--panel); border: 1px solid var(--g-low); padding: 15px; transition: 0.4s cubic-bezier(0.16, 1, 0.3, 1); z-index: 100; pointer-events: all; }
+#info-side.active { right: 20px; }
+.info-h { font-family: 'Orbitron'; font-size: 18px; margin-bottom: 10px; border-bottom: 1px solid var(--g-mid); padding-bottom: 5px; }
+.info-row { display: flex; justify-content: space-between; font-size: 11px; margin: 6px 0; }
+.info-val { color: #fff; text-shadow: 0 0 5px var(--g); }
+
+/* Buttons */
+.btn-core { background: transparent; border: 1px solid var(--g); color: var(--g); padding: 10px 20px; font-family: 'Orbitron'; cursor: pointer; transition: 0.3s; }
+.btn-core:hover { background: var(--g); color: #000; box-shadow: var(--glow); }
+
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes t-in { from { transform: translateX(-10px); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+@keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
 </style>
-
 </head>
 <body>
 
-<!-- ══════════ BOOT ══════════ -->
-
 <div id="boot">
-  <div id="boot-hex">
-    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
-      <defs><pattern id="hxp" x="0" y="0" width="56" height="48" patternUnits="userSpaceOnUse">
-        <polygon points="28,2 54,16 54,44 28,46 2,44 2,16"
-          fill="none" stroke="#00ff41" stroke-width=".55"/>
-      </pattern></defs>
-      <rect width="100%" height="100%" fill="url(#hxp)"/>
-    </svg>
-  </div>
-
-  <div id="boot-logo-wrap">
-    <div id="boot-logo">
-      <span class="bl-char">m</span><span class="bl-char">y</span><span
-        class="bl-char">E</span><span class="bl-char">Y</span><span class="bl-char">E</span>
-    </div>
-    <div id="boot-logo-g">myEYE</div>
-    <div id="boot-scan"></div>
-  </div>
-
-  <div id="boot-sub">VISION OS v5.0 &nbsp;// &nbsp;bortin'2026</div>
+  <div id="boot-logo">myEYE</div>
   <div id="boot-log"></div>
-  <div id="pb-wrap">
-    <div id="pb-track"><div id="pb"></div></div>
-    <div id="pb-pct">0%</div>
-  </div>
-  <button id="btn-start" onclick="initCamera()">◈ ACTIVATE VISION ◈</button>
+  <div class="progress-bar"><div id="progress-fill"></div></div>
+  <button id="start-btn" class="btn-core" style="display:none; margin-top:30px;" onclick="startSystem()">INITIALIZE LINK</button>
 </div>
 
-<!-- ══════════ APP ══════════ -->
-
-<div id="app" style="display:none;">
-  <div id="vp">
-    <video id="video" playsinline muted autoplay></video>
+<div id="app">
+  <div id="viewport">
+    <video id="video" playsinline muted></video>
     <canvas id="canvas"></canvas>
-    <div id="grid-overlay"></div>
+    <div class="scanline"></div>
     <div id="vignette"></div>
-    <div id="alert-flash"></div>
+    
+    <div id="top-hud">
+      <div class="sys-info">VISION OS // V5.2<br><span style="font-size:9px; opacity:0.5;">ENCRYPTED NEURAL LINK</span></div>
+      <div class="sys-stats">
+        <div class="stat-box"><div class="dot"></div> <span id="fps-val">00</span> FPS</div>
+        <div class="stat-box" style="border-color:var(--r); color:var(--r);"><div class="dot" style="background:var(--r);"></div> <span id="obj-count">0</span> DETECTED</div>
+      </div>
+    </div>
 
-```
-<div class="hc" id="hc-tl"></div>
-<div class="hc" id="hc-tr"></div>
-<div class="hc" id="hc-bl"></div>
-<div class="hc" id="hc-br"></div>
-<div id="xhair"></div>
-
-<div id="topbar">
-  <div id="sys-id">myEYE <span>// ONLINE</span></div>
-  <div id="badges">
-    <div class="badge" id="b-fps"><span class="bdot"></span><span id="fps-txt">-- FPS</span></div>
-    <div class="badge" id="b-obj"><span class="bdot"></span><span id="obj-txt">0 OBJ</span></div>
-    <div class="badge" id="b-threat"><span class="bdot"></span>THREAT</div>
+    <div id="info-side">
+      <div class="info-h" id="info-name">TARGET</div>
+      <div class="info-row"><span>PROBABILITY</span><span class="info-val" id="info-conf">0%</span></div>
+      <div class="info-row"><span>EST. DISTANCE</span><span class="info-val" id="info-dist">0.0m</span></div>
+      <div class="info-row"><span>SECTOR</span><span class="info-val" id="info-sect">A-1</span></div>
+      <div style="margin-top:15px; font-size:10px; color:var(--g-mid); line-height:1.4;" id="info-desc">
+        Awaiting data packet from neural core...
+      </div>
+      <button class="btn-core" style="width:100%; margin-top:15px; font-size:10px;" onclick="closeInfo()">RELEASE LOCK</button>
+    </div>
   </div>
-</div>
 
-<div id="statusbar">
-  <div class="sb-item" id="sb-time">--:--:--</div>
-  <div class="sb-item" id="sb-status">SCANNING</div>
-  <div class="sb-item">myEYE v5</div>
-</div>
-
-<div id="info-panel">
-  <button id="info-close" onclick="closeInfo()">✕ CLOSE</button>
-  <div id="info-title" onclick="renameObject()">---</div>
-  <div id="info-title-sub">TAP TO RENAME</div>
-  <div id="info-grid"></div>
-  <div id="info-desc"></div>
-  <div id="info-threat-bar">
-    <div id="itl">THREAT LEVEL</div>
-    <div id="itt"><div id="itf"></div></div>
-    <div id="itv">0%</div>
-  </div>
-</div>
-```
-
-  </div>
-  <div id="terminal"><div id="term-lines"></div></div>
+  <div id="terminal"></div>
 </div>
 
 <script>
-/* ═══════════════════════════════════════
-   KNOWLEDGE BASE
-═══════════════════════════════════════ */
-const ALIASES={
-  person:'ЧЕЛОВЕК',car:'АВТОМОБИЛЬ',truck:'ГРУЗОВИК',bus:'АВТОБУС',
-  motorcycle:'МОТОЦИКЛ',bicycle:'ВЕЛОСИПЕД','fire hydrant':'ГИДРАНТ',
-  'stop sign':'ЗНАК СТОП','traffic light':'СВЕТОФОР',dog:'СОБАКА',cat:'КОТ',
-  'cell phone':'ТЕЛЕФОН',bottle:'БУТЫЛКА',backpack:'РЮКЗАК',chair:'КРЕСЛО',
-  tv:'МОНИТОР',laptop:'НОУТБУК',book:'КНИГА',umbrella:'ЗОНТ',
-  handbag:'СУМКА',suitcase:'ЧЕМОДАН','sports ball':'МЯЧ',
-  airplane:'САМОЛЁТ',boat:'ЛОДКА',train:'ПОЕЗД',
-  cow:'КОРОВА',horse:'ЛОШАДЬ',bear:'МЕДВЕДЬ'
+let model, tracker = {}, selectedId = null;
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const term = document.getElementById('terminal');
+
+const CONFIG = {
+  threshold: 0.45,
+  colors: { person: '#ffe600', car: '#00c8ff', default: '#00ff41' },
+  labels: { person: 'HUMAN', car: 'VEHICLE', chair: 'OBJECT' }
 };
-const KB={
-  person:{type:'БИОЛОГИЧЕСКИЙ',subtype:'ГУМАНОИД',threat:.75,
-    desc:'Homo sapiens. Трекинг по скелетной модели. Вектор перемещения активен.',
-    tags:['ДВИЖЕНИЕ','~70кг','ИК-СИГН']},
-  car:{type:'ТРАНСПОРТ',subtype:'ЛЕГКОВОЕ ТС',threat:.55,
-    desc:'Колёсное ТС. Класс: Гражданское. Анализ скоростного вектора.',
-    tags:['МЕТАЛЛ','ДВС','~1200кг']},
-  truck:{type:'ТРАНСПОРТ',subtype:'ГРУЗОВОЕ ТС',threat:.7,
-    desc:'Тяжёлая грузовая техника. Слепые зоны критические.',
-    tags:['МЕТАЛЛ','ДИЗЕЛЬ','≥3.5т']},
-  bus:{type:'ТРАНСПОРТ',subtype:'ПАССАЖИРСКОЕ ТС',threat:.5,
-    desc:'Крупногабаритный пассажирский транспорт.',
-    tags:['МЕТАЛЛ','ПАССАЖИРЫ','МАРШРУТ']},
-  motorcycle:{type:'ТРАНСПОРТ',subtype:'МОТОЦИКЛ',threat:.65,
-    desc:'Двухколёсное моторизованное ТС. Уязвимость оператора критическая.',
-    tags:['СКОРОСТЬ','МАНЁВР','РИСК']},
-  dog:{type:'БИОЛОГИЧЕСКИЙ',subtype:'ЖИВОТНОЕ',threat:.35,
-    desc:'Canis lupus familiaris. Поведенческий вектор оценивается.',
-    tags:['ИК-СИГН','~20кг','ПОВЕДЕНИЕ?']},
-  cat:{type:'БИОЛОГИЧЕСКИЙ',subtype:'ЖИВОТНОЕ',threat:.1,
-    desc:'Felis catus. Автономный агент. Высокая мобильность.',
-    tags:['ИК-СИГН','~4кг','АВТО']},
-  'cell phone':{type:'ЭЛЕКТРОНИКА',subtype:'МОБИЛЬНОЕ УСТ-ВО',threat:.2,
-    desc:'Персональное устройство связи. Активный EMF-источник.',
-    tags:['ЭМИ','СВЯЗЬ','ДАННЫЕ']},
-  backpack:{type:'СНАРЯЖЕНИЕ',subtype:'НОСИМЫЙ КОНТЕЙНЕР',threat:.4,
-    desc:'Объект неизвестного содержимого. Масса оценивается.',
-    tags:['СОДЕРЖИМОЕ?','НОСИМЫЙ','?']},
-  _d:{type:'ОБЪЕКТ',subtype:'НЕИЗВЕСТНЫЙ',threat:.25,
-    desc:'Объект идентифицирован. Расширенный анализ выполняется.',
-    tags:['ОБРАБОТКА','КЭШ','АНАЛИЗ']}
-};
-const getKB=c=>KB[c]||KB._d;
 
-/* ═══════════════════════════════════════
-   CONFIG
-═══════════════════════════════════════ */
-let MEM=JSON.parse(localStorage.getItem('myeye_mem')||'{}');
-const CFG={FOCAL:950,CONF:.11,MAX_DET:60,SMOOTH:.22,TTL:38,IOU:.22};
-const OBJ_H={person:1.75,car:1.55,truck:2.9,bus:3.3,motorcycle:1.15,
-  bicycle:1.05,dog:.5,cat:.3,'cell phone':.15,backpack:.55,chair:.9,default:1.0};
-const THREATS=new Set(['person','car','truck','bus','motorcycle','backpack']);
-const COL={person:'#ffe600',car:'#ff2244',truck:'#ff4455',bus:'#ff6677',
-  motorcycle:'#ff8800',bicycle:'#88ff88','cell phone':'#00aaff',
-  backpack:'#ff00aa',dog:'#ffaa44',cat:'#88ffcc',_d:'#00ff41'};
-
-const getAlias=c=>MEM[c]||ALIASES[c]||c.toUpperCase();
-const getCol=c=>COL[c]||COL._d;
-function dist(bbox,cls){
-  const rh=OBJ_H[cls]||OBJ_H.default,px=Math.max(bbox[2],bbox[3]);
-  return px<2?999:Math.min(999,+(CFG.FOCAL*rh/px).toFixed(1));
-}
-function hexA(h,a){
-  return `rgba(${parseInt(h.slice(1,3),16)},${parseInt(h.slice(3,5),16)},${parseInt(h.slice(5,7),16)},${a})`;
-}
-function iou(a,b){
-  const ix=Math.max(a[0],b[0]),iy=Math.max(a[1],b[1]);
-  const iw=Math.min(a[0]+a[2],b[0]+b[2])-ix,ih=Math.min(a[1]+a[3],b[1]+b[3])-iy;
-  if(iw<=0||ih<=0)return 0;
-  return(iw*ih)/(a[2]*a[3]+b[2]*b[3]-iw*ih);
+// --- LOGGING ---
+function log(msg, type = '') {
+  const row = document.createElement('div');
+  row.className = `t-row ${type}`;
+  const ts = new Date().toLocaleTimeString('en-GB', { hour12: false });
+  row.innerHTML = `<span class="t-ts">[${ts}]</span><span class="t-msg">${msg}</span>`;
+  term.prepend(row);
+  if (term.childNodes.length > 50) term.lastChild.remove();
 }
 
-/* ═══════════════════════════════════════
-   TRACKER
-═══════════════════════════════════════ */
-class Tracker{
-  constructor(){this.tracks={};this.nid=1;}
-  update(preds){
-    for(const k in this.tracks){
-      this.tracks[k].age++;this.tracks[k].seen=false;
-      if(this.tracks[k].age>CFG.TTL)delete this.tracks[k];
-    }
-    for(const p of preds){
-      let best=null,bs=CFG.IOU;
-      for(const id in this.tracks){
-        const t=this.tracks[id];if(t.cls!==p.class)continue;
-        const s=iou(t.sm,p.bbox);if(s>bs){bs=s;best=t;}
-      }
-      if(best){
-        best.sm=best.sm.map((v,i)=>v+(p.bbox[i]-v)*CFG.SMOOTH);
-        best.score=best.score+(p.score-best.score)*CFG.SMOOTH;
-        best.age=0;best.seen=true;p._tid=best.id;
-      }else{
-        const id=this.nid++;
-        this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,born:Date.now()};
-        p._tid=id;
-      }
-    }
-    return Object.values(this.tracks).filter(t=>t.age<3);
-  }
-}
-
-/* ═══════════════════════════════════════
-   ASCII SKELETON ENGINE
-   Рисует человека символами по скелетной модели,
-   поза плавно анимируется между ключевыми кадрами
-═══════════════════════════════════════ */
-
-// Символы — как на референсе
-const SYM='$@#&0uBZRNFHAnivrcqs=~^`.,;<!|-1';
-
-// Суставы как доля bbox (x, y от 0 до 1)
-// Четыре позы: нейтральная, шаг, рука вверх, наклон
-const POSES=[
-  // 0: СТОЯ
-  {hd:[.50,.06],nk:[.50,.15],
-   ls:[.36,.21],rs:[.64,.21],
-   le:[.29,.34],re:[.71,.34],
-   lw:[.22,.47],rw:[.78,.47],
-   lh:[.41,.49],rh:[.59,.49],
-   lk:[.39,.68],rk:[.61,.68],
-   la:[.38,.89],ra:[.62,.89]},
-  // 1: ШАГ
-  {hd:[.50,.06],nk:[.50,.15],
-   ls:[.36,.21],rs:[.64,.21],
-   le:[.25,.36],re:[.70,.30],
-   lw:[.18,.50],rw:[.76,.40],
-   lh:[.39,.49],rh:[.61,.49],
-   lk:[.30,.68],rk:[.64,.64],
-   la:[.24,.89],ra:[.65,.84]},
-  // 2: РУКА ВВЕРХ
-  {hd:[.50,.06],nk:[.50,.15],
-   ls:[.36,.21],rs:[.64,.21],
-   le:[.30,.32],re:[.80,.12],
-   lw:[.23,.46],rw:[.88,.04],
-   lh:[.41,.49],rh:[.59,.49],
-   lk:[.39,.68],rk:[.61,.68],
-   la:[.38,.89],ra:[.62,.89]},
-  // 3: НАКЛОН
-  {hd:[.44,.11],nk:[.47,.20],
-   ls:[.31,.25],rs:[.62,.23],
-   le:[.22,.38],re:[.68,.34],
-   lw:[.14,.51],rw:[.74,.44],
-   lh:[.42,.50],rh:[.60,.50],
-   lk:[.39,.69],rk:[.63,.67],
-   la:[.38,.90],ra:[.63,.89]},
-  // 4: РУКИ ПО СТОРОНАМ
-  {hd:[.50,.06],nk:[.50,.15],
-   ls:[.36,.21],rs:[.64,.21],
-   le:[.22,.22],re:[.78,.22],
-   lw:[.12,.23],rw:[.88,.23],
-   lh:[.41,.49],rh:[.59,.49],
-   lk:[.39,.68],rk:[.61,.68],
-   la:[.38,.89],ra:[.62,.89]}
-];
-
-// Скелетные кости (пары суставов)
-const BONES=[
-  ['hd','nk'],
-  ['nk','ls'],['nk','rs'],
-  ['ls','le'],['rs','re'],
-  ['le','lw'],['re','rw'],
-  ['nk','lh'],['nk','rh'],  // корпус
-  ['lh','rh'],
-  ['lh','lk'],['rh','rk'],
-  ['lk','la'],['rk','ra']
-];
-
-function lerpJ(a,b,t){
-  const r={};
-  for(const k in a) r[k]=[a[k][0]+(b[k][0]-a[k][0])*t, a[k][1]+(b[k][1]-a[k][1])*t];
-  return r;
-}
-
-// Рисует цепочку символов вдоль кости
-function boneSym(ctx,x1,y1,x2,y2,col,alp,step,seed,frame){
-  const dx=x2-x1,dy=y2-y1,len=Math.sqrt(dx*dx+dy*dy);
-  if(len<3)return;
-  const n=Math.max(1,Math.round(len/step));
-  for(let i=0;i<=n;i++){
-    const f=i/n;
-    const px=x1+dx*f,py=y1+dy*f;
-    // мерцание вдоль кости
-    const fl=.55+.45*Math.sin(frame*.09+f*9+seed);
-    const ci=((seed*7+i*4+Math.floor(frame*.05))>>>0)%SYM.length;
-    const sz=6;
-    ctx.globalAlpha=alp*fl;
-    ctx.fillText(SYM[ci],px-sz*.28,py+sz*.35);
-  }
-}
-
-// Рисует голову из символов (окружность)
-function headSym(ctx,cx,cy,r,col,alp,frame){
-  const N=20;
-  for(let i=0;i<N;i++){
-    const ang=(i/N)*Math.PI*2;
-    const rx=r*(.7+.12*Math.sin(ang*2));
-    const ry=r*(.95+.08*Math.cos(ang*3));
-    const px=cx+Math.cos(ang)*rx,py=cy+Math.sin(ang)*ry;
-    const fl=.45+.55*Math.sin(frame*.08+i*.7);
-    const ci=((i*6+Math.floor(frame*.06))>>>0)%SYM.length;
-    ctx.globalAlpha=alp*fl;
-    ctx.fillText(SYM[ci],px-3.5,py+4);
-  }
-  // пара символов внутри
-  for(let j=0;j<3;j++){
-    const a2=j*2.1+frame*.01;
-    const ci2=((j*11+Math.floor(frame*.05))>>>0)%SYM.length;
-    ctx.globalAlpha=alp*.45;
-    ctx.fillText(SYM[ci2],cx+Math.cos(a2)*r*.4-3.5,cy+Math.sin(a2)*r*.5+4);
-  }
-}
-
-// Состояния поз для треков
-const POSE_STATE={};
-function skelState(id){
-  if(!POSE_STATE[id])
-    POSE_STATE[id]={pi:Math.floor(Math.random()*POSES.length),t:0,
-      spd:.009+Math.random()*.013};
-  return POSE_STATE[id];
-}
-function tickSkel(id){
-  const s=skelState(id);
-  s.t+=s.spd;
-  if(s.t>=1){s.t=0;s.pi=(s.pi+1)%POSES.length;s.spd=.008+Math.random()*.015;}
-  return s;
-}
-function cleanSkelStates(ids){
-  for(const id in POSE_STATE){if(!ids.has(+id))delete POSE_STATE[id];}
-}
-
-// Главная: рисуем ASCII-скелет внутри bbox
-function drawSkeleton(ctx,bbox,col,alpha,frame,poseIdx,lerpT){
-  const[x,y,w,h]=bbox;
-  const pA=POSES[poseIdx%POSES.length];
-  const pB=POSES[(poseIdx+1)%POSES.length];
-  const J={};
-  const lerp=lerpJ(pA,pB,lerpT);
-  for(const k in lerp) J[k]=[x+lerp[k][0]*w, y+lerp[k][1]*h];
-
-  ctx.save();
-  ctx.font=`6px 'Share Tech Mono'`;
-  ctx.fillStyle=col;
-
-  const step=6.5;
-  BONES.forEach(([a,b],bi)=>{
-    if(!J[a]||!J[b])return;
-    boneSym(ctx,J[a][0],J[a][1],J[b][0],J[b][1],col,alpha,step,bi*17,frame);
-  });
-
-  const hr=w*.1;
-  headSym(ctx,J.hd[0],J.hd[1],hr,col,alpha,frame);
-
-  // ступни — маленькое горизонтальное продолжение
-  [['la','lk'],['ra','rk']].forEach(([ank,kn],si)=>{
-    if(!J[ank]||!J[kn])return;
-    const dx=J[ank][0]-J[kn][0],dy=J[ank][1]-J[kn][1];
-    const l=Math.sqrt(dx*dx+dy*dy)||1;
-    const ox=(-dy/l)*w*.05,oy=(dx/l)*w*.05;
-    boneSym(ctx,J[ank][0],J[ank][1],J[ank][0]+ox,J[ank][1]+oy,col,alpha*.65,5,si*23,frame);
-  });
-
-  ctx.restore();
-}
-
-/* ═══════════════════════════════════════
-   GLOBALS
-═══════════════════════════════════════ */
-const video=document.getElementById('video');
-const canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d');
-const termEl=document.getElementById('term-lines');
-let model=null,running=false,lastPred=[],lastFpsT=0,fpsCnt=0;
-let termQ=[],logThr={},selTid=null,threatActive=false;
-let lockAnims=[],frameN=0;
-const tracker=new Tracker();
-
-/* ═══════════════════════════════════════
-   BOOT
-═══════════════════════════════════════ */
-async function bootSeq(){
-  const log=document.getElementById('boot-log');
-  const pb=document.getElementById('pb');
-  const pct=document.getElementById('pb-pct');
-  const STEPS=[
-    [0,'INIT VISION OS v5.0','ok'],
-    [200,'TENSOR CORE: READY','ok'],
-    [400,'USER MEMORY LOADED','ok'],
-    [600,'KNOWLEDGE BASE: INDEXED','ok'],
-    [800,'MODEL: COCO-SSD LITE_MV2','warn'],
-    [1000,'ASCII SKELETON ENGINE: ONLINE','ok'],
-    [1220,'TRACKER IOU/SMOOTH: INIT','ok'],
-    [1440,'HUD PIPELINE: READY','ok'],
+// --- BOOT SEQUENCE ---
+async function boot() {
+  const logEl = document.getElementById('boot-log');
+  const fill = document.getElementById('progress-fill');
+  const steps = [
+    "Initializing Neural Kernel...",
+    "Calibrating Vision Matrix...",
+    "Loading COCO-SSD Weights...",
+    "Establishing Camera Handshake...",
+    "System Ready."
   ];
-  for(let i=0;i<STEPS.length;i++){
-    await new Promise(r=>setTimeout(r,STEPS[i][0]-(i?STEPS[i-1][0]:0)));
-    const d=document.createElement('div');
-    d.className='bl '+STEPS[i][2];d.textContent=STEPS[i][1];log.appendChild(d);
-    pb.style.width=Math.round((i+1)/STEPS.length*55)+'%';
-    pct.textContent=Math.round((i+1)/STEPS.length*55)+'%';
+
+  for (let i = 0; i < steps.length; i++) {
+    const p = document.createElement('div');
+    p.className = 'boot-line';
+    p.textContent = `> ${steps[i]}`;
+    logEl.appendChild(p);
+    fill.style.width = `${(i + 1) * 20}%`;
+    await new Promise(r => setTimeout(r, 600));
   }
-  model=await cocoSsd.load({base:'lite_mobilenet_v2'});
-  for(let p=55;p<=100;p+=3){
-    await new Promise(r=>setTimeout(r,38));
-    pb.style.width=p+'%';pct.textContent=p+'%';
-  }
-  const d=document.createElement('div');
-  d.className='bl ok';d.textContent='ALL SYSTEMS OPERATIONAL';log.appendChild(d);
-  document.getElementById('btn-start').style.display='block';
+  
+  model = await cocoSsd.load();
+  document.getElementById('start-btn').style.display = 'block';
 }
 
-/* ═══════════════════════════════════════
-   CAMERA
-═══════════════════════════════════════ */
-async function initCamera(){
-  try{
-    const s=await navigator.mediaDevices.getUserMedia(
-      {video:{facingMode:'environment',width:{ideal:1920}}});
-    video.srcObject=s;
-    video.onloadedmetadata=()=>{
-      video.play();
-      document.getElementById('boot').style.display='none';
-      document.getElementById('app').style.display='flex';
-      running=true;
-      setInterval(()=>{
-        document.getElementById('sb-time').textContent=new Date().toTimeString().slice(0,8);
-      },1000);
-      slog('VISION OS v5.0 ONLINE','ok');
-      slog('CAMERA: ACTIVATED','ok');
-      requestAnimationFrame(loop);
-    };
-  }catch(e){slog('ERR: CAMERA ACCESS DENIED','alert');}
-}
-
-/* ═══════════════════════════════════════
-   TERMINAL
-═══════════════════════════════════════ */
-function slog(txt,type='ok'){
-  const ts=new Date().toTimeString().slice(0,8);
-  termQ.push({txt,type,ts});if(termQ.length>5)termQ.shift();
-  termEl.innerHTML='';
-  termQ.forEach(q=>{
-    const d=document.createElement('div');
-    d.className='tl t'+q.type;
-    d.innerHTML=`<span class="tl-ts">${q.ts}</span><span>${q.txt}</span>`;
-    termEl.appendChild(d);
+async function startSystem() {
+  const stream = await navigator.mediaDevices.getUserMedia({ 
+    video: { facingMode: 'environment', width: 1280 }, 
+    audio: false 
   });
-}
-function canLog(cls,id){
-  const k=cls+id,n=Date.now();
-  if(!logThr[k]||n-logThr[k]>8000){logThr[k]=n;return true;}
-  return false;
-}
-
-/* ═══════════════════════════════════════
-   ALERT
-═══════════════════════════════════════ */
-function triggerAlert(){
-  const el=document.getElementById('alert-flash');
-  el.classList.remove('fire');void el.offsetWidth;el.classList.add('fire');
+  video.srcObject = stream;
+  video.play();
+  
+  document.getElementById('boot').style.opacity = '0';
+  setTimeout(() => {
+    document.getElementById('boot').style.display = 'none';
+    document.getElementById('app').style.opacity = '1';
+    log("NEURAL LINK ESTABLISHED", "t-warn");
+    requestAnimationFrame(render);
+  }, 1000);
 }
 
-/* ═══════════════════════════════════════
-   LOCK-ON
-═══════════════════════════════════════ */
-function addLock(x,y,w,h,col){lockAnims.push({x,y,w,h,col,t:0,mx:26});}
-function drawLocks(){
-  lockAnims=lockAnims.filter(a=>{
-    const p=a.t/a.mx,al=(1-p)*.75,ex=p*34;
-    ctx.strokeStyle=hexA(a.col,al);ctx.lineWidth=2;
-    ctx.strokeRect(a.x-ex,a.y-ex,a.w+ex*2,a.h+ex*2);
-    a.t++;return a.t<a.mx;
+// --- RENDER LOOP ---
+let lastTime = 0;
+async function render(now) {
+  const fps = Math.round(1000 / (now - lastTime));
+  lastTime = now;
+  document.getElementById('fps-val').textContent = fps;
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+  
+  const predictions = await model.detect(video);
+  processDetections(predictions);
+  
+  drawHUD(predictions);
+  requestAnimationFrame(render);
+}
+
+function processDetections(preds) {
+  document.getElementById('obj-count').textContent = preds.length;
+  preds.forEach(p => {
+    const key = p.class + Math.round(p.bbox[0]);
+    if (!tracker[key]) {
+      log(`NEW TARGET: ${p.class.toUpperCase()} IN SECTOR ${Math.random() > 0.5 ? 'B-3' : 'A-1'}`);
+      tracker[key] = true;
+    }
   });
 }
 
-/* ═══════════════════════════════════════
-   RENDER LOOP
-═══════════════════════════════════════ */
-async function loop(now){
-  if(!running)return requestAnimationFrame(loop);
-  fpsCnt++;frameN++;
-  if(now-lastFpsT>1000){
-    document.getElementById('fps-txt').textContent=fpsCnt+' FPS';
-    fpsCnt=0;lastFpsT=now;
-  }
-  if(video.readyState===4){
-    canvas.width=video.videoWidth;canvas.height=video.videoHeight;
-    const raw=await model.detect(video,CFG.MAX_DET,CFG.CONF);
-    lastPred=tracker.update(raw);
-    cleanSkelStates(new Set(lastPred.map(p=>p.id)));
-  }
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  draw();drawLocks();updateHUD();
-  requestAnimationFrame(loop);
-}
+function drawHUD(preds) {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
+  preds.forEach(p => {
+    const [x, y, w, h] = p.bbox;
+    const col = CONFIG.colors[p.class] || CONFIG.colors.default;
+    const isSelected = selectedId === p.class + x;
 
-/* ═══════════════════════════════════════
-   DRAW
-═══════════════════════════════════════ */
-function draw(){
-  const t=frameN;
-  const cX=canvas.width/2,cY=canvas.height*.47;
-
-  lastPred.forEach(p=>{
-    const[x,y,w,h]=p.sm;
-    const col=getCol(p.cls);
-    const d=dist(p.sm,p.cls);
-    const isSel=p.id===selTid;
-    const kb=getKB(p.cls);
-    const isThreat=THREATS.has(p.cls);
-
-    // Перспективные линии
-    ctx.setLineDash([3,10]);ctx.lineWidth=.55;
-    [[x,y],[x+w,y],[x,y+h],[x+w,y+h]].forEach(([cx2,cy2])=>{
-      const g=ctx.createLinearGradient(cX,cY,cx2,cy2);
-      g.addColorStop(0,hexA(col,0));g.addColorStop(1,hexA(col,.17));
-      ctx.strokeStyle=g;ctx.beginPath();ctx.moveTo(cX,cY);ctx.lineTo(cx2,cy2);ctx.stroke();
-    });
-    ctx.setLineDash([]);
-
-    // Bbox
-    const pulse=isThreat&&!isSel?.6+.4*Math.sin(t*.13):1;
-    ctx.lineWidth=isSel?2.5:1.2;
-    ctx.strokeStyle=hexA(col,pulse);
-    ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col,isSel?.11:.02);
-    ctx.fillRect(x,y,w,h);
-
-    // Угловые скобки
-    const cs=Math.min(16,w*.2,h*.2);
-    const ao=isSel?Math.sin(t*.1)*1.5:0;
-    ctx.strokeStyle=col;ctx.lineWidth=isSel?2.5:2;
-    ctx.shadowColor=col;ctx.shadowBlur=isSel?10:5;
+    // Corner Accents
+    ctx.strokeStyle = col;
+    ctx.lineWidth = isSelected ? 4 : 2;
+    const len = 20;
+    
+    // Draw corners
     ctx.beginPath();
-    ctx.moveTo(x-ao,y+cs-ao);ctx.lineTo(x-ao,y-ao);ctx.lineTo(x+cs-ao,y-ao);
-    ctx.moveTo(x+w-cs+ao,y-ao);ctx.lineTo(x+w+ao,y-ao);ctx.lineTo(x+w+ao,y+cs-ao);
-    ctx.moveTo(x-ao,y+h-cs+ao);ctx.lineTo(x-ao,y+h+ao);ctx.lineTo(x+cs-ao,y+h+ao);
-    ctx.moveTo(x+w-cs+ao,y+h+ao);ctx.lineTo(x+w+ao,y+h+ao);ctx.lineTo(x+w+ao,y+h-cs+ao);
+    ctx.moveTo(x, y + len); ctx.lineTo(x, y); ctx.lineTo(x + len, y);
+    ctx.moveTo(x + w - len, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w, y + len);
+    ctx.moveTo(x + w, y + h - len); ctx.lineTo(x + w, y + h); ctx.lineTo(x + w - len, y + h);
+    ctx.moveTo(x + len, y + h); ctx.lineTo(x, y + h); ctx.lineTo(x, y + h - len);
     ctx.stroke();
-    ctx.shadowBlur=0;
 
-    // Сканирующая полоса (выбранный)
-    if(isSel){
-      const sy=y+(((t*2.5)%100)/100)*h;
-      const sg=ctx.createLinearGradient(x,sy-10,x,sy+10);
-      sg.addColorStop(0,hexA(col,0));sg.addColorStop(.5,hexA(col,.38));sg.addColorStop(1,hexA(col,0));
-      ctx.fillStyle=sg;ctx.fillRect(x,sy-10,w,20);
-    }
+    // Fill & Noise
+    ctx.fillStyle = isSelected ? `rgba(${parseInt(col.slice(1,3),16)},200,65,0.15)` : 'rgba(0,255,65,0.03)';
+    ctx.fillRect(x, y, w, h);
 
-    // ════════════════════════════
-    // ASCII СКЕЛЕТ (только person)
-    // ════════════════════════════
-    if(p.cls==='person'){
-      const ss=tickSkel(p.id);
-      // желтоватый для обычных, ярче для выбранного
-      const skelCol=isSel?'#fff8a0':'#ffe600';
-      drawSkeleton(ctx,p.sm,skelCol,isSel?.88:.68,t,ss.pi,ss.t);
-    }
-
-    // Лейбл
-    const up=y>32;
-    const lY=up?y-6:y+h+18;
-    const n1=`${getAlias(p.cls)} #${p.id}`;
-    const n2=`${d}м  ${Math.round(p.score*100)}%`;
-    ctx.font="bold 15px 'Share Tech Mono'";
-    const w1=ctx.measureText(n1).width;
-    ctx.font="11px 'Share Tech Mono'";
-    const w2=ctx.measureText(n2).width;
-    const lw=Math.max(w1,w2)+10;
-
-    ctx.fillStyle=hexA(col,.9);
-    ctx.fillRect(x,up?lY-24:lY-15,lw,26);
-    ctx.fillStyle='#000';
-    ctx.font="bold 15px 'Share Tech Mono'";
-    ctx.fillText(n1,x+4,up?lY-12:lY-2);
-    ctx.font="11px 'Share Tech Mono'";
-    ctx.fillText(n2,x+4,up?lY-1:lY+10);
-
-    // Тип в углу рамки
-    if(w>80){
-      ctx.fillStyle=hexA(col,.11);
-      ctx.fillRect(x+w-60,y+3,58,12);
-      ctx.fillStyle=hexA(col,.6);
-      ctx.font="7px 'Share Tech Mono'";
-      ctx.fillText(kb.type,x+w-58,y+12);
-    }
+    // Dynamic Label
+    ctx.fillStyle = col;
+    ctx.font = "bold 12px 'Orbitron'";
+    ctx.fillText(`${p.class.toUpperCase()} // ${Math.round(p.score * 100)}%`, x, y - 10);
+    
+    // Scan bar inside box
+    const scanY = y + (Math.sin(Date.now() / 200) * 0.5 + 0.5) * h;
+    ctx.globalAlpha = 0.3;
+    ctx.fillRect(x, scanY, w, 1);
+    ctx.globalAlpha = 1.0;
   });
 }
 
-/* ═══════════════════════════════════════
-   HUD
-═══════════════════════════════════════ */
-function updateHUD(){
-  const n=lastPred.length;
-  document.getElementById('obj-txt').textContent=n+' OBJ';
-  const hasT=lastPred.some(p=>THREATS.has(p.cls));
-  const tb=document.getElementById('b-threat');
-  if(hasT!==threatActive){
-    threatActive=hasT;tb.style.display=hasT?'flex':'none';
-    if(hasT){triggerAlert();slog('⚠ УГРОЗА ОБНАРУЖЕНА','alert');}
-    else slog('УГРОЗЫ ОТСУТСТВУЮТ','ok');
-  }
-  document.getElementById('sb-status').textContent=n>0?'TRACKING '+n:'SCANNING';
-  lastPred.forEach(p=>{
-    if(canLog(p.cls,p.id))
-      slog(`${getAlias(p.cls)} #${p.id} → ${dist(p.sm,p.cls)}м | ${Math.round(p.score*100)}%`,
-        THREATS.has(p.cls)?'warn':'info');
-  });
-}
-
-/* ═══════════════════════════════════════
-   TAP
-═══════════════════════════════════════ */
-canvas.addEventListener('click',e=>{
-  const r=canvas.getBoundingClientRect();
-  const sx=canvas.width/r.width,sy=canvas.height/r.height;
-  const cx=(e.clientX-r.left)*sx,cy=(e.clientY-r.top)*sy;
-  const hit=lastPred.find(p=>{
-    const[bx,by,bw,bh]=p.sm;return cx>=bx&&cx<=bx+bw&&cy>=by&&cy<=by+bh;
-  });
-  if(hit){
-    selTid=hit.id;
-    addLock(hit.sm[0],hit.sm[1],hit.sm[2],hit.sm[3],getCol(hit.cls));
-    const d=dist(hit.sm,hit.cls),kb=getKB(hit.cls),col=getCol(hit.cls);
-    const ti=document.getElementById('info-title');
-    ti.textContent=getAlias(hit.cls);ti.dataset.cls=hit.cls;
-    ti.style.color=col;ti.style.textShadow=`0 0 18px ${col}`;
-    const thr=Math.round(kb.threat*100);
-    const tf=document.getElementById('itf');
-    tf.style.width=thr+'%';
-    tf.style.background=thr>60?'var(--r)':thr>35?'var(--o)':'var(--g)';
-    tf.style.boxShadow=`0 0 8px ${thr>60?'var(--r)':thr>35?'var(--o)':'var(--g)'}`;
-    document.getElementById('itv').textContent=thr+'%';
-    const tags=kb.tags.map(t=>
-      `<span style="border:1px solid ${col};color:${col};padding:1px 5px;font-size:7px;margin-right:3px">${t}</span>`
-    ).join('');
-    document.getElementById('info-grid').innerHTML=`
-      <div class="ik">ID ТРЕКА</div><div class="iv">#${hit.id}</div>
-      <div class="ik">КЛАСС</div><div class="iv">${hit.cls.toUpperCase()}</div>
-      <div class="ik">ТИП</div><div class="iv">${kb.type}</div>
-      <div class="ik">ПОДТИП</div><div class="iv" style="font-size:7.5px">${kb.subtype}</div>
-      <div class="ik">ДИСТАНЦИЯ</div><div class="iv ${d<5?'alert':d<15?'warn':''}">${d}м</div>
-      <div class="ik">СИГНАЛ</div><div class="iv">${Math.round(hit.score*100)}%</div>
-      <div style="grid-column:1/-1;margin-top:4px">${tags}</div>`;
-    document.getElementById('info-desc').textContent=kb.desc;
-    document.getElementById('info-panel').classList.add('open');
-    slog(`LOCK-ON: ${getAlias(hit.cls)} #${hit.id}`,'ok');
-  }else closeInfo();
+// --- INTERACTION ---
+window.addEventListener('mousedown', e => {
+  // Простая симуляция выбора объекта кликом
+  const side = document.getElementById('info-side');
+  side.classList.add('active');
+  log("TARGET LOCKED: MANUAL OVERRIDE", "t-crit");
 });
 
-function closeInfo(){
-  selTid=null;document.getElementById('info-panel').classList.remove('open');
+function closeInfo() {
+  document.getElementById('info-side').classList.remove('active');
+  log("TARGET RELEASED");
 }
 
-function renameObject(){
-  const ti=document.getElementById('info-title');
-  const cls=ti.dataset.cls;
-  const nv=prompt(`ПЕРЕИМЕНОВАТЬ "${cls.toUpperCase()}" →`,ti.textContent);
-  if(nv!==null&&nv.trim()){
-    MEM[cls]=nv.trim().toUpperCase();
-    localStorage.setItem('myeye_mem',JSON.stringify(MEM));
-    slog('КЭШ ОБНОВЛЁН. ПЕРЕЗАГРУЗКА...','warn');
-    setTimeout(()=>location.reload(),700);
-  }
-}
-
-bootSeq();
+boot();
 </script>
-
 </body>
 </html>
