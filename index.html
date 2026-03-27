@@ -334,20 +334,19 @@ function toggleNight(){
   log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
 }
 
-// ЭФФЕКТ ASCII ДЛЯ СИЛУЭТОВ
+// ЭФФЕКТ ASCII ДЛЯ СИЛУЭТОВ (КРУПНЫЕ СИМВОЛЫ)
 function drawASCII(x, y, w, h, color) {
-  const chars = "01$#@!^".split("");
-  const fontSize = 9;
-  ctx.font = `${fontSize}px 'Share Tech Mono'`;
+  const chars = "01$#@!^X&%*".split("");
+  const fontSize = 42; // Увеличено в 4.6 раза
+  ctx.font = `bold ${fontSize}px 'Share Tech Mono'`;
   ctx.fillStyle = color;
   
-  // Рисуем сетку символов внутри bbox
-  for (let _y = y; _y < y + h; _y += fontSize) {
-    for (let _x = x; _x < x + w; _x += fontSize * 0.6) {
-      // Рандомное мерцание для эффекта "цифрового шума"
-      if (Math.random() > 0.4) {
+  // Рисуем сетку крупных символов
+  for (let _y = y + fontSize; _y < y + h; _y += fontSize) {
+    for (let _x = x; _x < x + w; _x += fontSize * 0.7) {
+      if (Math.random() > 0.3) {
         const char = chars[Math.floor(Math.random() * chars.length)];
-        ctx.globalAlpha = 0.3 + Math.random() * 0.5;
+        ctx.globalAlpha = 0.4 + Math.random() * 0.5;
         ctx.fillText(char, _x, _y);
       }
     }
@@ -384,7 +383,7 @@ function draw(){
     const isSel = p.id === selTid;
     const name = getAlias(p.cls);
     
-    // Ночной режим: ASCII силуэт
+    // Ночной режим: ASCII силуэт (крупный)
     if(nightMode) {
       drawASCII(x, y, w, h, col);
     }
