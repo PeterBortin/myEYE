@@ -107,7 +107,7 @@ border-top:1px solid var(--border);padding:10px 14px;overflow:hidden;z-index:20;
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">created by bortin</div>
+  <div id="boot-sub">created by bortin'2026</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
   <button id="btn-start" onclick="initCamera()">open</button>
@@ -131,7 +131,7 @@ border-top:1px solid var(--border);padding:10px 14px;overflow:hidden;z-index:20;
     </div>
 
     <div id="info-panel">
-      <button id="info-close" onclick="closeInfo()">✕ CLOSE</button>
+      <button id="info-close" onclick="closeInfo()">✕ close</button>
       <div id="info-title" onclick="renameObject()">---</div>
       <div id="info-grid"></div>
       <div id="info-desc"></div>
@@ -145,12 +145,12 @@ border-top:1px solid var(--border);padding:10px 14px;overflow:hidden;z-index:20;
 
 <script>
 const DEFAULT_ALIASES = {
-  person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
-  motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', 'fire hydrant': 'ГИДРАНТ',
-  'stop sign': 'СТОП-СИГНАЛ', 'traffic light': 'СВЕТОФОР', dog: 'ПЕС', cat: 'КОТ',
-  'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК', chair: 'КРЕСЛО',
-  tv: 'ЭКРАН', laptop: 'ЛЕПТОП', mouse: 'МАНИПУЛЯТОР', keyboard: 'КЛАВИАТУРА',
-  bench: 'СКАМЬЯ', 'potted plant': 'РАСТЕНИЕ', bird: 'ПТИЦА'
+  person: 'person', car: 'car', truck: 'truck', bus: 'bus',
+  motorcycle: 'motocycle', bicycle: 'bicycle', 'fire hydrant': 'fire hydrant',
+  'stop sign': 'stop', 'traffic light': 'traffic light', dog: 'dog', cat: 'cat',
+  'cell phone': 'phone', bottle: 'bottle', backpack: 'backpack', chair: 'chair',
+  tv: 'tv', laptop: 'laptop', mouse: 'mouse', keyboard: 'keyboard',
+  bench: 'bench', 'potted plant': 'plant', bird: 'bird'
 };
 
 let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
@@ -254,7 +254,7 @@ const tracker=new Tracker();
 async function bootSeq(){
   const bootLog=document.getElementById('boot-log');
   const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"INIT VISION_OS v3.1..."],[300,"MEMORY_SYNC: LOCAL_ALIASES"],[600,"MODEL: COCO-SSD LITE"],[900,"ZOOM_CORRECTION: ACTIVE"],[1200,"UI: TERMINAL READY"]];
+  const BOOT=[[0,"INIT VISION OS..."],[300,"MEMORY SYNC: LOCAL ALIASES"],[600,"MODEL: COCO-SSD LITE"],[900,"ZOOM CORRECTION: ACTIVE"],[1200,"UI: TERMINAL READY"]];
   for(let i=0;i<BOOT.length;i++){
     await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
     const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
