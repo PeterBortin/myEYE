@@ -79,7 +79,6 @@ const canvasCtx = canvasElement.getContext('2d');
 const term = document.getElementById('terminal');
 
 let objectDetector, lastFps = 0, frameCount = 0;
-let currentDetectionBox = null;
 let lastDetectedObjects = [];
 const offscreenCanvas = document.createElement('canvas');
 const offscreenCtx = offscreenCanvas.getContext('2d');
@@ -133,7 +132,6 @@ canvasElement.addEventListener('click', (e) => {
   lastDetectedObjects.forEach(o => {
     const [bx, by, bw, bh] = o.bbox;
     if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-      const group = getObjectGroup(o.class);
       log(`DATA_FETCH: ${o.class.toUpperCase()} | CONF: ${(o.score * 100).toFixed(1)}%`, 'info');
       log(`COORDS: [${Math.round(bx)},${Math.round(by)}] | SIZE: ${Math.round(bw)}x${Math.round(bh)}`, 'info');
     }
@@ -141,7 +139,7 @@ canvasElement.addEventListener('click', (e) => {
 });
 
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: true, minDetectionConfidence: 0.5 });
+pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.5 });
 
 async function initModels() {
   log("initializing long-range engine...");
@@ -155,42 +153,10 @@ async function initModels() {
   log("pose core: online");
 }
 
+// Глобальная переменная для хранения результатов скелета, чтобы не рисовать дважды
+let currentPoseResults = null;
 pose.onResults((results) => {
-  if (!results.poseLandmarks || !currentDetectionBox) return;
-  const { x, y, w, h } = currentDetectionBox;
-  const landmarks = results.poseLandmarks;
-
-  if (results.segmentationMask) {
-    canvasCtx.save();
-    offscreenCanvas.width = canvasElement.width;
-    offscreenCanvas.height = canvasElement.height;
-    offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
-    offscreenCtx.drawImage(results.segmentationMask, x, y, w, h);
-    offscreenCtx.globalCompositeOperation = 'source-in';
-    offscreenCtx.fillStyle = 'rgba(0, 255, 65, 0.2)';
-    offscreenCtx.fillRect(0,0, offscreenCanvas.width, offscreenCanvas.height);
-    canvasCtx.drawImage(offscreenCanvas, 0, 0);
-    canvasCtx.restore();
-  }
-
-  const adj = landmarks.map(lp => ({
-    x: (lp.x * w + x) / canvasElement.width,
-    y: (lp.y * h + y) / canvasElement.height
-  }));
-
-  drawConnectors(canvasCtx, adj, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 1.5});
-  drawLandmarks(canvasCtx, adj, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 0.5, radius: 1});
-
-  const nose = adj[0];
-  const lE = adj[7], rE = adj[8];
-  if(nose && lE && rE){
-    const dist = Math.sqrt(Math.pow((rE.x - lE.x)*canvasElement.width, 2) + Math.pow((rE.y - lE.y)*canvasElement.height, 2));
-    canvasCtx.beginPath();
-    canvasCtx.ellipse(nose.x * canvasElement.width, (nose.y * canvasElement.height) - (dist), dist * 0.8, dist * 1.1, 0, 0, Math.PI * 2);
-    canvasCtx.strokeStyle = '#00ff41';
-    canvasCtx.lineWidth = 1;
-    canvasCtx.stroke();
-  }
+  currentPoseResults = results;
 });
 
 async function draw() {
@@ -200,25 +166,27 @@ async function draw() {
 
   canvasElement.width = vw;
   canvasElement.height = vh;
+  
+  // Отправляем весь кадр в Pose один раз за итерацию (убираем дублирование из цикла)
+  await pose.send({image: videoElement});
+
   canvasCtx.drawImage(videoElement, 0, 0, vw, vh);
 
-  // Сетка (визуальный эффект сканирования)
+  // Сетка
   canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.05)';
   for(let i=0; i<vw; i+=vw/10) { canvasCtx.beginPath(); canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,vh); canvasCtx.stroke(); }
   for(let i=0; i<vh; i+=vh/10) { canvasCtx.beginPath(); canvasCtx.moveTo(0,i); canvasCtx.lineTo(vw,i); canvasCtx.stroke(); }
 
-  // МНОГОУРОВНЕВОЕ ОБНАРУЖЕНИЕ (Multi-Scale)
-  // 1. Общий план
+  // Обнаружение объектов
   const fullScan = await objectDetector.detect(videoElement, 30, 0.35);
   
-  // 2. Зум-сканирование центральной области (увеличивает "дальность" мелких объектов)
+  // Зум-сканирование
   const zoomCanvas = document.createElement('canvas');
   zoomCanvas.width = 640; zoomCanvas.height = 640;
   const zCtx = zoomCanvas.getContext('2d');
   zCtx.drawImage(videoElement, vw*0.25, vh*0.25, vw*0.5, vh*0.5, 0, 0, 640, 640);
   const zoomScan = await objectDetector.detect(zoomCanvas, 20, 0.3);
   
-  // Корректировка координат зум-скана
   const correctedZoom = zoomScan.map(o => ({
     ...o,
     bbox: [
@@ -229,36 +197,30 @@ async function draw() {
     ]
   }));
 
-  // Объединение результатов
   lastDetectedObjects = [...fullScan, ...correctedZoom];
   document.getElementById('b-obj').innerText = lastDetectedObjects.length + " TARGETS";
+
+  // Отрисовка скелета ОДИН РАЗ (если найден человек)
+  if (currentPoseResults && currentPoseResults.poseLandmarks) {
+     drawConnectors(canvasCtx, currentPoseResults.poseLandmarks, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
+     drawLandmarks(canvasCtx, currentPoseResults.poseLandmarks, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 2});
+  }
 
   for (const o of lastDetectedObjects) {
     const [bx, by, bw, bh] = o.bbox;
     const targetColor = getObjectColor(o.class);
     
-    // Отрисовка рамки с "уголками"
+    // Отрисовка рамки (ТОЛЩЕ)
     canvasCtx.strokeStyle = targetColor;
-    canvasCtx.lineWidth = 1;
-    canvasCtx.globalAlpha = 0.6;
-    
-    // Рамка объекта
+    canvasCtx.lineWidth = 3; // Увеличено
+    canvasCtx.globalAlpha = 0.8;
     canvasCtx.strokeRect(bx, by, bw, bh);
     
-    // Текст данных
+    // Текст данных (БОЛЬШЕ ШРИФТ)
     canvasCtx.fillStyle = targetColor;
     canvasCtx.globalAlpha = 1;
-    canvasCtx.font = '10px Share Tech Mono';
-    canvasCtx.fillText(`${o.class.toUpperCase()} [${Math.round(o.score*100)}%]`, bx, by > 15 ? by - 5 : by + 10);
-
-    // Работа с людьми (скелет)
-    if(o.class === 'person' && o.score > 0.5) {
-      currentDetectionBox = { x: bx, y: by, w: bw, h: bh };
-      const poseCanvas = document.createElement('canvas');
-      poseCanvas.width = bw; poseCanvas.height = bh;
-      poseCanvas.getContext('2d').drawImage(videoElement, bx, by, bw, bh, 0, 0, bw, bh);
-      await pose.send({image: poseCanvas});
-    }
+    canvasCtx.font = 'bold 16px Share Tech Mono'; // Увеличено
+    canvasCtx.fillText(`${o.class.toUpperCase()} [${Math.round(o.score*100)}%]`, bx, by > 20 ? by - 8 : by + 20);
 
     if(frameCount % 120 === 0) log(`OBJECT_LOG: ${o.class.toUpperCase()} | DIST_FNT: ${Math.round(1500/bw)}m`, 'obj');
   }
@@ -280,8 +242,8 @@ function startApp() {
 
   const camera = new Camera(videoElement, {
     onFrame: async () => { await draw(); },
-    width: { ideal: 1920 },
-    height: { ideal: 1080 },
+    width: { ideal: 1280 },
+    height: { ideal: 720 },
     facingMode: isMobile ? "environment" : "user"
   });
   camera.start();
