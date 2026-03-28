@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE</title>
+<title>myEYE v4.0 PRO</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
@@ -39,7 +39,7 @@ letter-spacing:.3em;padding:13px 42px;cursor:pointer;transition:all .2s;}
 #app{position:fixed;inset:0;display:flex;flex-direction:column;}
 #vp{position:relative;flex:1 1 auto;overflow:hidden;background:#000;}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
-filter:brightness(.55) contrast(1.38) saturate(.88);}
+filter:brightness(.65) contrast(1.2) saturate(1.1);}
 canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
 
 #vp::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
@@ -82,7 +82,7 @@ border:1px solid var(--border);background:var(--panel);color:var(--g2);}
 font-family:'Share Tech Mono',monospace;font-size:8px;padding:4px 10px;
 cursor:pointer;letter-spacing:.1em;transition:0.2s;}
 .ctrl-btn:hover{border-color:var(--b);color:var(--b);}
-.ctrl-btn.active{border-color:var(--g);color:var(--g);background:rgba(0,255,65,0.05);}
+.ctrl-btn.active{border-color:var(--g);color:var(--g);background:rgba(0,255,65,0.15);box-shadow:0 0 10px var(--g3);}
 
 #statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;
 display:flex;gap:1px;pointer-events:none;}
@@ -112,7 +112,7 @@ border-top:1px solid var(--border);padding-top:6px;}
 border-top:1px solid var(--border);padding:7px 14px;overflow:hidden;z-index:20;}
 #term-hdr{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:.28em;
 color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
-#term-hdr::before{content:'';+flex:1;height:1px;background:var(--g3);}
+#term-hdr::before{content:'';flex:1;height:1px;background:var(--g3);}
 #term-lines{font-size:9px;line-height:1.72;}
 .tl{opacity:0;animation:si .18s forwards;}
 .tok{color:var(--g);}.twarn{color:var(--o);}.talert{color:var(--r);}.tinfo{color:var(--b);}.ttap{color:var(--y);}
@@ -130,10 +130,10 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">created by bortin</div>
+  <div id="boot-sub">advanced neural vision // v4.0 PRO</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="initCamera()">open</button>
+  <button id="btn-start" onclick="initCamera()">open system</button>
 </div>
 
 <div id="app" style="display:none;">
@@ -145,24 +145,23 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
     <div id="xhair"></div><div id="radar"></div>
     
     <div id="controls-row">
-      <button id="night-btn" class="ctrl-btn" onclick="toggleNight()">☾ NIGHT</button>
-      <button id="model-btn" class="ctrl-btn" onclick="switchModel()">◈ LITE</button>
+      <button id="model-btn" class="ctrl-btn" onclick="switchModel()">◈ CORE: LITE</button>
     </div>
 
     <div id="topbar">
-      <div id="sys-id">myEYE</div>
+      <div id="sys-id">myEYE PRO</div>
       <div id="badges">
         <div class="badge hi" id="b-fps">-- FPS</div>
         <div class="badge hi" id="b-obj">0 OBJ</div>
         <div class="badge" id="b-mode">SCAN</div>
-        <div class="badge" id="b-rng">STD</div>
+        <div class="badge" id="b-rng">DEEP</div>
       </div>
     </div>
 
     <div id="statbar">
-      <div class="sc">FARTHEST<span id="s-dist">---</span></div>
+      <div class="sc">MAX RANGE<span id="s-dist">---</span></div>
       <div class="sc">THREATS<span id="s-thr">0</span></div>
-      <div class="sc">CONF AVG<span id="s-conf">---%</span></div>
+      <div class="sc">ANPR_LINK<span id="s-anpr">OFF</span></div>
       <div class="sc">TRACKED<span id="s-trk">0</span></div>
     </div>
 
@@ -175,7 +174,7 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
   </div>
 
   <div id="terminal">
-    <div id="term-hdr"><span>NEURAL_FEED // TAP BOX → OBJECT REPORT</span></div>
+    <div id="term-hdr"><span>NEURAL_FEED // SYSTEM_ACTIVE</span></div>
     <div id="term-lines"></div>
   </div>
 </div>
@@ -196,8 +195,7 @@ const CFG={
   FOCAL:950, 
   CONF:0.12,  
   MAX_DET:60,
-  SKIP:1, 
-  SMOOTH:0.2, 
+  SMOOTH:0.25, 
   TTL:35,    
   IOU:0.20
 };
@@ -209,27 +207,13 @@ const OBJ_H={
 };
 
 const THREAT=new Set(['person','car','truck','bus','motorcycle']);
-
 const COL={
   person:'#ffff00', car:'#ff2244', truck:'#ff2244', bus:'#ff4466', motorcycle:'#ff6600',
   'cell phone':'#88aaff', bottle:'#88ff88', backpack:'#00ffff', _d:'#00ff41'
 };
 
-const DESC={
-  person:'Биологический объект. Оценка траектории активна.',
-  car:'Транспортное средство. Классификация: Гражданское.',
-  truck:'Тяжелая техника. Зона повышенной опасности.',
-  'cell phone':'Мобильное устройство связи. Анализ данных...',
-  backpack:'Внешний модуль хранения / Груз.',
-  _d:'Объект идентифицирован. Данные загружены в кэш.'
-};
-
-function getAlias(cls) {
-  return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase();
-}
-
+function getAlias(cls) { return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase(); }
 function getCol(c){return COL[c]||COL._d;}
-function getDesc(c){return DESC[c]||DESC._d;}
 
 function dist(bbox,cls){
   const rh=OBJ_H[cls]||OBJ_H.default;
@@ -247,6 +231,15 @@ function iou(a,b){
   const iw=Math.min(a[0]+a[2],b[0]+b[2])-ix,ih=Math.min(a[1]+a[3],b[1]+b[3])-iy;
   if(iw<=0||ih<=0) return 0;
   return (iw*ih)/(a[2]*a[3]+b[2]*b[3]-iw*ih);
+}
+
+// Эмуляция ANPR (Распознавание знаков)
+function simulateANPR(id) {
+  const regions = ['77', '99', '178', '50', '190', '125'];
+  const chars = 'ABEKMHOPCTXY';
+  const r = (n) => Math.floor(Math.random() * n);
+  const plate = `${chars[r(12)]}${r(10)}${r(10)}${r(10)}${chars[r(12)]}${chars[r(12)]} | ${regions[r(regions.length)]}`;
+  return plate;
 }
 
 class Tracker{
@@ -270,10 +263,14 @@ class Tracker{
         best.score=best.score+(p.score-best.score)*CFG.SMOOTH;
         best.age=0; best.seen=true;
         p._tid=best.id;
+        p._plate=best.plate;
       }else{
         const id=this.nid++;
-        this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,seen:true,born:Date.now()};
+        let plate = null;
+        if(p.class === 'car' || p.class === 'truck') plate = simulateANPR(id);
+        this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,seen:true,plate};
         p._tid=id;
+        p._plate=plate;
       }
     }
     return Object.values(this.tracks).filter(t=>t.age<2);
@@ -285,14 +282,13 @@ const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
 const termEl=document.getElementById('term-lines');
 let model=null, running=false, lastPred=[], lastFpsT=0, fpsCnt=0;
-let termQ=[], logThr={}, nightMode=false, selTid=null;
-let currentModelType = 'lite_mobilenet_v2'; // Дефолт
+let termQ=[], logThr={}, currentModelType = 'lite_mobilenet_v2', selTid=null;
 const tracker=new Tracker();
 
 async function bootSeq(){
   const bootLog=document.getElementById('boot-log');
   const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"INIT VISION_OS v3.1..."],[300,"MEMORY_SYNC: LOCAL_ALIASES"],[600,"MODEL: COCO-SSD LITE"],[900,"ZOOM_CORRECTION: ACTIVE"],[1200,"UI: TERMINAL READY"]];
+  const BOOT=[[0,"KERNEL_INIT..."],[200,"LOAD_LIBS: TFJS/COCO-SSD"],[400,"ANPR_MODULE: STANDBY"],[600,"MODEL_CACHE: CHECKING"],[800,"SYNC_USER_PRESETS"],[1000,"SYSTEM_READY"]];
   for(let i=0;i<BOOT.length;i++){
     await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
     const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
@@ -304,27 +300,23 @@ async function bootSeq(){
 
 async function switchModel() {
   const btn = document.getElementById('model-btn');
-  running = false; // Пауза рендера
-  
+  running = false;
   if (currentModelType === 'lite_mobilenet_v2') {
     currentModelType = 'mobilenet_v2';
-    btn.textContent = '◈ HD_CORE';
+    btn.textContent = '◈ CORE: HD_PRO';
     btn.classList.add('active');
-    log('SWITCHING TO HD_CORE (ACCURACY++)', 'warn');
+    log('HD_CORE ACTIVATED: DEEP SCAN ENABLED', 'warn');
+    document.getElementById('s-anpr').textContent = 'ACTIVE';
+    document.getElementById('s-anpr').style.color = 'var(--g)';
   } else {
     currentModelType = 'lite_mobilenet_v2';
-    btn.textContent = '◈ LITE';
+    btn.textContent = '◈ CORE: LITE';
     btn.classList.remove('active');
-    log('SWITCHING TO LITE (SPEED++)', 'info');
+    log('LITE_CORE: PERFORMANCE MODE', 'info');
+    document.getElementById('s-anpr').textContent = 'OFF';
+    document.getElementById('s-anpr').style.color = 'var(--g2)';
   }
-
-  // Визуальный эффект загрузки
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle = 'rgba(0,255,65,0.1)';
-  ctx.fillRect(0,0,canvas.width,canvas.height);
-  
   model = await cocoSsd.load({base: currentModelType});
-  log('NEURAL_CORE REBOOT COMPLETE', 'ok');
   running = true;
 }
 
@@ -337,83 +329,62 @@ async function initCamera(){
       document.getElementById('boot').style.display='none';
       document.getElementById('app').style.display='flex';
       running=true;
-      log("VISION_OS v3.1 ONLINE",'ok');
+      log("NEURAL FEED ONLINE",'ok');
       requestAnimationFrame(renderLoop);
     };
-  } catch(e) { log("ERR: CAMERA ACCESS DENIED",'alert'); }
+  } catch(e) { log("ACCESS_DENIED",'alert'); }
 }
 
 function log(txt,type='ok'){
-  termQ.push({txt,type});
-  if(termQ.length>5) termQ.shift();
+  termQ.push({txt,type}); if(termQ.length>5) termQ.shift();
   termEl.innerHTML='';
   termQ.forEach(q=>{
-    const d=document.createElement('div');
-    d.className='tl t'+q.type; d.textContent='> '+q.txt;
+    const d=document.createElement('div'); d.className='tl t'+q.type; d.textContent='> '+q.txt;
     termEl.appendChild(d);
   });
 }
 
-function canLog(cls, id){
-  const now=Date.now();
-  const key=cls+id;
-  if(!logThr[key]||now-logThr[key]>8000){logThr[key]=now;return true;}
+function canLog(cls, id, plate){
+  const now=Date.now(); const key=cls+id;
+  if(!logThr[key]||now-logThr[key]>10000){
+    logThr[key]=now;
+    if(plate) log(`ANPR: [${plate}] IDENTIFIED`, 'info');
+    return true;
+  }
   return false;
 }
 
-function toggleNight(){
-  nightMode=!nightMode;
-  video.style.filter=nightMode?'brightness(.4) contrast(2.2) saturate(0) sepia(.9) hue-rotate(80deg)':'brightness(.55) contrast(1.38) saturate(.88)';
-  log('NIGHT_MODE: '+(nightMode?'ON':'OFF'),nightMode?'warn':'ok');
-}
-
-function drawASCII(x, y, w, h, color) {
-  const chars = "01$#@!^X&%*".split("");
-  const fontSize = 14; 
-  ctx.font = `bold ${fontSize}px 'Share Tech Mono'`;
-  ctx.fillStyle = color;
-  for (let _y = y + fontSize; _y < y + h; _y += fontSize * 0.9) {
-    for (let _x = x; _x < x + w; _x += fontSize * 0.6) {
-      if (Math.random() > 0.15) {
-        const char = chars[Math.floor(Math.random() * chars.length)];
-        ctx.globalAlpha = 0.3 + Math.random() * 0.4;
-        ctx.fillText(char, _x, _y);
-      }
-    }
+// Визуалка 2-го режима (HD)
+function drawDeepScan(x, y, w, h, col) {
+  ctx.save();
+  ctx.strokeStyle = hexA(col, 0.3);
+  ctx.lineWidth = 1;
+  // Сетка внутри объекта
+  for(let i=1; i<4; i++) {
+    ctx.beginPath();
+    ctx.moveTo(x + (w/4)*i, y); ctx.lineTo(x + (w/4)*i, y+h);
+    ctx.moveTo(x, y + (h/4)*i); ctx.lineTo(x+w, y + (h/4)*i);
+    ctx.stroke();
   }
-  ctx.globalAlpha = 1.0;
-}
-
-function drawEnvironment() {
-  const w = canvas.width;
-  const h = canvas.height;
-  const horizon = h * 0.50; 
-  const color = nightMode ? '#00ccff' : 'rgba(0, 255, 65, 0.2)';
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = hexA(color, 0.5);
+  // Перекрестие
   ctx.beginPath();
-  const scanY = horizon + Math.sin(Date.now()*0.002) * 5; 
-  ctx.moveTo(w*0.05, scanY); ctx.lineTo(w*0.95, scanY);
+  ctx.arc(x+w/2, y+h/2, 5, 0, Math.PI*2);
   ctx.stroke();
+  ctx.restore();
 }
 
 async function renderLoop(now){
   if(!running) return requestAnimationFrame(renderLoop);
   fpsCnt++;
-  if(now-lastFpsT>1000){
-    document.getElementById('b-fps').textContent=fpsCnt+' FPS';
-    fpsCnt=0;lastFpsT=now;
-  }
+  if(now-lastFpsT>1000){ document.getElementById('b-fps').textContent=fpsCnt+' FPS'; fpsCnt=0; lastFpsT=now; }
 
   if(video.readyState === 4){
-    canvas.width=video.videoWidth;
-    canvas.height=video.videoHeight;
+    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
     const raw=await model.detect(video,CFG.MAX_DET,CFG.CONF);
     lastPred=tracker.update(raw);
   }
   
   ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawEnvironment(); 
   draw(); 
   updateHUD();
   requestAnimationFrame(renderLoop);
@@ -425,68 +396,57 @@ function draw(){
     const col=getCol(p.cls);
     const d=dist(p.sm, p.cls);
     const isSel = p.id === selTid;
-    const name = getAlias(p.cls);
-    
-    if(nightMode) {
-      drawASCII(x, y, w, h, col);
-    }
+    const isHD = currentModelType === 'mobilenet_v2';
 
-    ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = hexA(col, 0.4);
-    ctx.lineWidth = 1;
-    const cX = canvas.width/2;
-    const cY = canvas.height * 0.50; 
-    
+    if(isHD) drawDeepScan(x,y,w,h,col);
+
+    // Линии к горизонту
+    ctx.setLineDash([2, 4]);
+    ctx.strokeStyle = hexA(col, 0.2);
     ctx.beginPath();
-    ctx.moveTo(cX, cY); ctx.lineTo(x, y); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x+w, y); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x, y+h); 
-    ctx.moveTo(cX, cY); ctx.lineTo(x+w, y+h); 
+    ctx.moveTo(canvas.width/2, canvas.height/2); ctx.lineTo(x+w/2, y+h/2);
     ctx.stroke();
     ctx.setLineDash([]);
 
-    ctx.strokeStyle=col;
-    ctx.lineWidth=isSel ? 4 : 1.5;
+    // Рамка
+    ctx.strokeStyle=col; ctx.lineWidth=isSel ? 3 : 1;
     ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.03);
+    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.05);
     ctx.fillRect(x,y,w,h);
 
-    const s=Math.min(15, w*0.2);
-    ctx.lineWidth=3;
-    ctx.beginPath();
-    ctx.moveTo(x,y+s);ctx.lineTo(x,y);ctx.lineTo(x+s,y);
-    ctx.moveTo(x+w-s,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+s);
-    ctx.moveTo(x,y+h-s);ctx.lineTo(x,y+h);ctx.lineTo(x+s,y+h);
-    ctx.stroke();
-
-    ctx.fillStyle='rgba(0,0,0,0.85)';
-    ctx.fillRect(x, y-28, Math.max(80, w*0.6), 28);
+    // Подпись
+    ctx.fillStyle='rgba(0,0,0,0.7)';
+    ctx.fillRect(x, y-30, Math.max(100, w*0.5), 30);
     ctx.fillStyle=col;
     ctx.font="bold 10px 'Share Tech Mono'";
-    ctx.fillText(`${name} #${p.id}`, x+5, y-16);
-    ctx.font="8px 'Share Tech Mono'";
+    ctx.fillText(`${getAlias(p.cls)} #${p.id}`, x+5, y-18);
+    ctx.font="9px 'Share Tech Mono'";
     ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+5, y-6);
+
+    // Плашка номера (ANPR)
+    if(p.plate && (isHD || isSel)) {
+      ctx.fillStyle=col;
+      ctx.fillRect(x, y+h, 110, 15);
+      ctx.fillStyle='#000';
+      ctx.font="bold 10px 'Orbitron'";
+      ctx.fillText(p.plate, x+5, y+h+12);
+    }
   });
 }
 
 function updateHUD(){
   const total=lastPred.length;
   document.getElementById('b-obj').textContent=total+' OBJ';
-  let thr=0,maxD=0,sumConf=0;
-  
+  let thr=0,maxD=0;
   lastPred.forEach(p=>{
     const d=dist(p.sm, p.cls);
-    sumConf += p.score;
     if(d>maxD && d<999) maxD=d;
     if(THREAT.has(p.cls)) thr++;
-    
-    if(canLog(p.cls, p.id)){
-      log(`${getAlias(p.cls)} #${p.id} -- ${d}m`, THREAT.has(p.cls)?'warn':'info');
+    if(canLog(p.cls, p.id, p.plate)) {
+       log(`${getAlias(p.cls)} DETECTED`, THREAT.has(p.cls)?'warn':'ok');
     }
   });
-
   document.getElementById('s-thr').textContent=thr;
-  document.getElementById('s-conf').textContent=total>0 ? Math.round((sumConf/total)*100)+'%' : '---';
   document.getElementById('s-dist').textContent=maxD>0 ? Math.round(maxD)+'m' : '---';
   document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
 }
@@ -495,54 +455,41 @@ function handleTap(e){
   const rect=canvas.getBoundingClientRect();
   const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
   const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
-  
-  const hit=lastPred.find(p=>{
-    const [x,y,w,h]=p.sm;
-    return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h;
-  });
+  const hit=lastPred.find(p=>{ const [x,y,w,h]=p.sm; return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h; });
 
   if(hit){
     selTid=hit.id;
-    const d=dist(hit.sm, hit.cls);
     const titleEl = document.getElementById('info-title');
     titleEl.textContent=getAlias(hit.cls);
     titleEl.dataset.cls = hit.cls; 
     titleEl.style.color=getCol(hit.cls);
     
     document.getElementById('info-grid').innerHTML=`
-      <div class="ik">ID ТРЕКА</div><div class="iv">#${hit.id}</div>
-      <div class="ik">СИСТЕМА</div><div class="iv">${hit.cls.toUpperCase()}</div>
-      <div class="ik">ДИСТАНЦИЯ</div><div class="iv">${d}m</div>
-      <div class="ik">СИГНАЛ</div><div class="iv">${Math.round(hit.score*100)}%</div>
+      <div class="ik">TARGET_ID</div><div class="iv">#${hit.id}</div>
+      <div class="ik">DISTANCE</div><div class="iv">${dist(hit.sm, hit.cls)}m</div>
+      <div class="ik">SIG_STRENGTH</div><div class="iv">${Math.round(hit.score*100)}%</div>
+      <div class="ik">DATA_TAG</div><div class="iv" style="color:var(--y)">${hit.plate || 'NONE'}</div>
     `;
-    document.getElementById('info-desc').textContent=getDesc(hit.cls);
+    let desc = `Объект типа ${hit.cls.toUpperCase()} зафиксирован в секторе. `;
+    if(hit.plate) desc += `Модуль ANPR расшифровал идентификатор: [${hit.plate}]. Статус: Наблюдение.`;
+    document.getElementById('info-desc').textContent=desc;
     document.getElementById('info-panel').classList.add('open');
-    log(`OTЧЕТ #${hit.id} -- ТАП ПО ИМЕНИ ДЛЯ КОРРЕКЦИИ`, 'tap');
-  } else {
-    closeInfo();
-  }
+  } else { closeInfo(); }
 }
 
 function renameObject() {
   const titleEl = document.getElementById('info-title');
   const cls = titleEl.dataset.cls;
-  const oldAlias = titleEl.textContent;
-  const newAlias = prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" В:`, oldAlias);
-  
-  if (newAlias !== null && newAlias.trim() !== "") {
-    USER_MEM[cls] = newAlias.trim().toUpperCase();
+  const newAlias = prompt(`ИЗМЕНИТЬ МЕТКУ ДЛЯ "${cls.toUpperCase()}":`, titleEl.textContent);
+  if (newAlias) {
+    USER_MEM[cls] = newAlias.toUpperCase();
     localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
-    log(`СОХРАНЕНИЕ В КЭШ... ПЕРЕЗАПУСК`, 'warn');
-    setTimeout(() => location.reload(), 800);
+    location.reload();
   }
 }
 
 canvas.addEventListener('click',handleTap);
-function closeInfo(){
-  selTid=null;
-  document.getElementById('info-panel').classList.remove('open');
-}
-
+function closeInfo(){ selTid=null; document.getElementById('info-panel').classList.remove('open'); }
 bootSeq();
 </script>
 </body>
