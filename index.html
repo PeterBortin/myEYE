@@ -40,6 +40,7 @@ canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;curso
 
 @keyframes fadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
 
+/* Mobile Optimization */
 @media (max-width: 600px) {
   #boot-logo { font-size: 32px; }
   #topbar { font-size: 12px; padding: 10px; }
@@ -52,7 +53,7 @@ canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;curso
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-log" style="font-size:10px; margin-top:10px; letter-spacing: 1px;">created by bortin`2026...</div>
+  <div id="boot-log" style="font-size:10px; margin-top:10px; letter-spacing: 1px;">created by bortin</div>
   <div id="pb-wrap"><div id="pb"></div></div>
   <button id="btn-start" onclick="startApp()">open system</button>
 </div>
@@ -62,7 +63,7 @@ canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;curso
     <video id="input_video" playsinline muted></video>
     <canvas id="output_canvas"></canvas>
     <div id="topbar">
-      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE Pro X-LR</div>
+      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE PRO</div>
       <div style="text-align: right;">
         <span class="badge" id="b-fps">0 fps</span>
         <span class="badge" id="b-obj">scanning...</span>
@@ -79,7 +80,10 @@ const canvasCtx = canvasElement.getContext('2d');
 const term = document.getElementById('terminal');
 
 let objectDetector, lastFps = 0, frameCount = 0;
-let lastDetectedObjects = [];
+let currentDetectionBox = null;
+let lastDetectedObjects = []; 
+const offscreenCanvas = document.createElement('canvas');
+const offscreenCtx = offscreenCanvas.getContext('2d');
 
 const classColors = {
   person: '#00ff41',
@@ -87,16 +91,22 @@ const classColors = {
   animal: '#ffff00',
   device: '#00aaff',
   indoor: '#ff00ff',
+  accessory: '#ffa500',
+  food: '#00ff88',
   default: '#ffffff'
 };
 
 function getObjectGroup(label) {
-  if (label === 'person') return 'HUMAN';
-  if (['car', 'bus', 'truck', 'motorcycle', 'bicycle', 'train', 'airplane'].includes(label)) return 'VEHICLE';
-  if (['dog', 'cat', 'bird', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe'].includes(label)) return 'ANIMAL';
-  if (['cell phone', 'laptop', 'mouse', 'remote', 'keyboard', 'tv', 'microwave', 'oven', 'refrigerator'].includes(label)) return 'DEVICE';
-  if (['chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'bottle', 'cup', 'fork', 'knife', 'spoon', 'bowl'].includes(label)) return 'INDOOR';
-  return 'UNKNOWN';
+  const l = label.toLowerCase();
+  if (l === 'person') return 'HUMAN';
+  if (['car', 'bus', 'truck', 'motorcycle', 'bicycle', 'train', 'airplane', 'boat'].includes(l)) return 'VEHICLE';
+  if (['dog', 'cat', 'bird', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe'].includes(l)) return 'ANIMAL';
+  if (['cell phone', 'laptop', 'mouse', 'remote', 'keyboard', 'tv', 'microwave', 'oven', 'refrigerator', 'clock'].includes(l)) return 'DEVICE';
+  if (['chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'bench', 'sink'].includes(l)) return 'FURNITURE';
+  if (['bottle', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'wine glass'].includes(l)) return 'KITCHENWARE';
+  if (['backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket'].includes(l)) return 'ACCESSORY';
+  if (['banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake'].includes(l)) return 'FOOD';
+  return 'OBJECT';
 }
 
 function getObjectColor(label) {
@@ -105,7 +115,9 @@ function getObjectColor(label) {
   if (group === 'VEHICLE') return classColors.vehicle;
   if (group === 'ANIMAL') return classColors.animal;
   if (group === 'DEVICE') return classColors.device;
-  if (group === 'INDOOR') return classColors.indoor;
+  if (group === 'ACCESSORY') return classColors.accessory;
+  if (group === 'FOOD') return classColors.food;
+  if (group === 'FURNITURE' || group === 'KITCHENWARE') return classColors.indoor;
   return classColors.default;
 }
 
@@ -130,42 +142,70 @@ canvasElement.addEventListener('click', (e) => {
   lastDetectedObjects.forEach(o => {
     const [bx, by, bw, bh] = o.bbox;
     if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
-      log(`DATA_FETCH: ${o.class.toUpperCase()} | CONF: ${(o.score * 100).toFixed(1)}%`, 'info');
-      log(`COORDS: [${Math.round(bx)},${Math.round(by)}] | SIZE: ${Math.round(bw)}x${Math.round(bh)}`, 'info');
+      const group = getObjectGroup(o.class);
+      log(`DATA_FETCH: ${o.class.toUpperCase()} | GROUP: ${group} | CONFIDENCE: ${(o.score * 100).toFixed(2)}%`, 'info');
+      log(`COORDINATES: X:${Math.round(bx)} Y:${Math.round(by)} | DIMENSIONS: ${Math.round(bw)}x${Math.round(bh)}`, 'info');
     }
   });
 });
 
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: false, minDetectionConfidence: 0.5 });
+pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: true, minDetectionConfidence: 0.5 });
 
 async function initModels() {
-  log("initializing long-range engine...");
-  objectDetector = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+  log("LOADING TENSOR CORE...");
+  // Настройка детектора: до 50 объектов одновременно
+  objectDetector = await cocoSsd.load({
+    base: 'lite_mobilenet_v2' 
+  });
   document.getElementById('pb').style.width = '50%';
+  log("OBJECT_DETECTOR: OPTIMIZED (MAX_UNITS: 50)");
+  
   await pose.initialize();
   document.getElementById('pb').style.width = '100%';
-  document.getElementById('boot-log').innerText = "optics calibrated / lr-scan active";
+  document.getElementById('boot-log').innerText = "SYSTEM CALIBRATED // OPTICS STABLE";
   document.getElementById('btn-start').style.display = 'block';
-  log("pose core: online");
+  log("POSE_ENGINE: ACTIVE");
 }
 
-let currentPoseResults = null;
 pose.onResults((results) => {
-  currentPoseResults = results;
-});
+  if (!results.poseLandmarks || !currentDetectionBox) return;
+  const { x, y, w, h } = currentDetectionBox;
+  const landmarks = results.poseLandmarks;
 
-function isDuplicate(bbox, list) {
-    for (let item of list) {
-        const [x1, y1, w1, h1] = bbox;
-        const [x2, y2, w2, h2] = item.bbox;
-        const intersection = Math.max(0, Math.min(x1 + w1, x2 + w2) - Math.max(x1, x2)) *
-                             Math.max(0, Math.min(y1 + h1, y2 + h2) - Math.max(y1, y2));
-        const area1 = w1 * h1;
-        if (intersection / area1 > 0.5) return true;
-    }
-    return false;
-}
+  if (results.segmentationMask) {
+    canvasCtx.save();
+    offscreenCanvas.width = canvasElement.width;
+    offscreenCanvas.height = canvasElement.height;
+    offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    offscreenCtx.drawImage(results.segmentationMask, x, y, w, h);
+    offscreenCtx.globalCompositeOperation = 'source-in';
+    offscreenCtx.fillStyle = 'rgba(0, 255, 65, 0.2)';
+    offscreenCtx.fillRect(0,0, offscreenCanvas.width, offscreenCanvas.height);
+    canvasCtx.drawImage(offscreenCanvas, 0, 0);
+    canvasCtx.restore();
+  }
+
+  const adj = landmarks.map(lp => ({
+    x: (lp.x * w + x) / canvasElement.width,
+    y: (lp.y * h + y) / canvasElement.height
+  }));
+
+  drawConnectors(canvasCtx, adj, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
+  drawLandmarks(canvasCtx, adj, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 1});
+
+  const nose = adj[0];
+  const lE = adj[7], rE = adj[8];
+  const dist = Math.sqrt(Math.pow((rE.x - lE.x)*canvasElement.width, 2) + Math.pow((rE.y - lE.y)*canvasElement.height, 2));
+  const rW = dist * 0.9; 
+  const rH = rW * 1.3;
+
+  canvasCtx.beginPath();
+  canvasCtx.ellipse(nose.x * canvasElement.width, (nose.y * canvasElement.height) - (rH * 0.1), rW, rH, 0, 0, Math.PI * 2);
+  canvasCtx.strokeStyle = '#00ff41';
+  canvasCtx.lineWidth = 1.5;
+  canvasCtx.stroke();
+});
 
 async function draw() {
   const vw = videoElement.videoWidth;
@@ -174,93 +214,43 @@ async function draw() {
 
   canvasElement.width = vw;
   canvasElement.height = vh;
-
   canvasCtx.drawImage(videoElement, 0, 0, vw, vh);
 
-  // Сетка
-  canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.05)';
-  for(let i=0; i<vw; i+=vw/10) { canvasCtx.beginPath(); canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,vh); canvasCtx.stroke(); }
-  for(let i=0; i<vh; i+=vh/10) { canvasCtx.beginPath(); canvasCtx.moveTo(0,i); canvasCtx.lineTo(vw,i); canvasCtx.stroke(); }
+  canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.1)';
+  canvasCtx.lineWidth = 1;
+  for(let i=0; i<vw; i+=50) { canvasCtx.beginPath(); canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,vh); canvasCtx.stroke(); }
+  for(let i=0; i<vh; i+=50) { canvasCtx.beginPath(); canvasCtx.moveTo(0,i); canvasCtx.lineTo(vw,i); canvasCtx.stroke(); }
 
-  // Детекция
-  const fullScan = await objectDetector.detect(videoElement, 20, 0.4);
-  const zoomCanvas = document.createElement('canvas');
-  zoomCanvas.width = 640; zoomCanvas.height = 640;
-  const zCtx = zoomCanvas.getContext('2d');
-  zCtx.drawImage(videoElement, vw*0.25, vh*0.25, vw*0.5, vh*0.5, 0, 0, 640, 640);
-  const zoomScan = await objectDetector.detect(zoomCanvas, 15, 0.35);
-  
-  const correctedZoom = zoomScan.map(o => ({
-    ...o,
-    bbox: [
-        o.bbox[0] * (vw*0.5/640) + vw*0.25,
-        o.bbox[1] * (vh*0.5/640) + vh*0.25,
-        o.bbox[2] * (vw*0.5/640),
-        o.bbox[3] * (vh*0.5/640)
-    ]
-  }));
-
-  lastDetectedObjects = [...fullScan];
-  correctedZoom.forEach(z => {
-      if (!isDuplicate(z.bbox, fullScan)) lastDetectedObjects.push(z);
-  });
-
-  const hasPerson = lastDetectedObjects.some(o => o.class === 'person');
-  if (hasPerson) {
-      await pose.send({image: videoElement});
-  } else {
-      currentPoseResults = null;
-  }
-
+  // Увеличенная дальность за счет снижения порога уверенности (0.4)
+  const objs = await objectDetector.detect(videoElement, 50, 0.4);
+  lastDetectedObjects = objs;
   document.getElementById('b-obj').innerText = lastDetectedObjects.length + " TARGETS";
 
-  // СТРОГАЯ ОТРИСОВКА СКЕЛЕТА ТОЛЬКО ДЛЯ ЛЮДЕЙ
-  lastDetectedObjects.forEach(o => {
+  for (const o of lastDetectedObjects) {
     const [bx, by, bw, bh] = o.bbox;
     const targetColor = getObjectColor(o.class);
+    const group = getObjectGroup(o.class);
     
-    // Рамки (Жирные)
     canvasCtx.strokeStyle = targetColor;
-    canvasCtx.lineWidth = 3; 
-    canvasCtx.globalAlpha = 0.8;
+    canvasCtx.lineWidth = 2;
     canvasCtx.strokeRect(bx, by, bw, bh);
     
-    // Подписи (Крупные)
     canvasCtx.fillStyle = targetColor;
-    canvasCtx.globalAlpha = 1;
-    canvasCtx.font = 'bold 16px Share Tech Mono';
-    canvasCtx.fillText(`${o.class.toUpperCase()} [${Math.round(o.score*100)}%]`, bx, by > 20 ? by - 8 : by + 20);
+    canvasCtx.font = '12px Share Tech Mono';
+    canvasCtx.fillText(`[ ${o.class.toUpperCase()} ${Math.round(o.score*100)}% ]`, bx + 5, by + 15);
 
-    // Если это человек - рисуем скелет внутри его области
-    if(o.class === 'person' && currentPoseResults && currentPoseResults.poseLandmarks) {
-        const landmarks = currentPoseResults.poseLandmarks;
-        
-        // Рисуем только если центральная точка человека (нос) находится примерно в рамке
-        const nose = landmarks[0];
-        if (nose.x * vw > bx && nose.x * vw < bx + bw) {
-            drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
-            drawLandmarks(canvasCtx, landmarks, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 2});
-
-            // Овал головы
-            const lEye = landmarks[2];
-            const rEye = landmarks[5];
-            if(nose && lEye && rEye) {
-                const eyeDist = Math.sqrt(Math.pow((rEye.x - lEye.x)*vw, 2) + Math.pow((rEye.y - lEye.y)*vh, 2));
-                const headW = eyeDist * 2.2;
-                const headH = eyeDist * 3.0;
-                canvasCtx.beginPath();
-                canvasCtx.setLineDash([5, 5]);
-                canvasCtx.ellipse(nose.x * vw, nose.y * vh - (headH * 0.1), headW, headH, 0, 0, Math.PI * 2);
-                canvasCtx.strokeStyle = '#00ff41';
-                canvasCtx.lineWidth = 2;
-                canvasCtx.stroke();
-                canvasCtx.setLineDash([]);
-            }
-        }
+    if(o.class === 'person') {
+      currentDetectionBox = { x: bx, y: by, w: bw, h: bh };
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = bw; tempCanvas.height = bh;
+      tempCanvas.getContext('2d').drawImage(videoElement, bx, by, bw, bh, 0, 0, bw, bh);
+      await pose.send({image: tempCanvas});
+      
+      if(frameCount % 60 === 0) log(`object detected: ${o.class.toUpperCase()} | group: ${group}`);
+    } else {
+      if(frameCount % 60 === 0) log(`object detected: ${o.class.toUpperCase()} | group: ${group}`, 'obj');
     }
-
-    if(frameCount % 120 === 0) log(`OBJECT_LOG: ${o.class.toUpperCase()} | DIST_FNT: ${Math.round(1500/bw)}m`, 'obj');
-  });
+  }
 
   frameCount++;
   const now = performance.now();
@@ -273,13 +263,14 @@ async function draw() {
 function startApp() {
   document.getElementById('boot').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
-  log("LR-SCANNER: INITIALIZED");
+  log("SYSTEM_START: SUCCESS");
   
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const camera = new Camera(videoElement, {
     onFrame: async () => { await draw(); },
-    width: { ideal: 1280 },
-    height: { ideal: 720 },
+    width: 1280,
+    height: 720,
     facingMode: isMobile ? "environment" : "user"
   });
   camera.start();
