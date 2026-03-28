@@ -2,160 +2,180 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>TERMINATOR_VISION v14.0</title>
-    
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
-
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Фильтр цифрового зрения</title>
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
-        #container { position: relative; width: 100vw; height: 100vh; }
-        video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; filter: brightness(0.2) contrast(1.5); }
-        canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 5; }
-        
-        #hud {
-            position: absolute; top: 20px; left: 20px; z-index: 10;
-            color: #00ff41; font-size: 12px; text-shadow: 0 0 5px #00ff41;
-            pointer-events: none; line-height: 1.4;
+        /* Mobile-first стили */
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000;
+            overflow: hidden; /* Скрыть прокрутку */
+            font-family: monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
         }
-        #boot-screen {
-            position: fixed; inset: 0; background: #000; z-index: 100;
-            display: flex; flex-direction: column; justify-content: center; align-items: center;
-            color: #00ff41; letter-spacing: 2px;
+
+        #camera-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
-        button {
-            background: none; border: 1px solid #00ff41; color: #00ff41;
-            padding: 15px 30px; cursor: pointer; font-family: inherit; margin-top: 20px;
+
+        #video-feed {
+            /* Скрыть оригинальное видео, оно нужно только для захвата кадров */
+            display: none;
+        }
+
+        #output-canvas {
+            max-width: 100%;
+            max-height: 100%;
+            display: block;
+        }
+
+        #permission-button {
+            background-color: #33ff33; /* Ярко-зеленый для запроса */
+            color: #000;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            border-radius: 5px;
+            z-index: 10;
+        }
+
+        /* Визуализация CRT-сетки (image_4, image_5) */
+        #output-canvas::after {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: 
+                linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.2) 50%),
+                linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+            background-size: 100% 4px, 3px 100%;
+            pointer-events: none;
+            z-index: 1;
         }
     </style>
 </head>
 <body>
 
-<div id="boot-screen">
-    <div id="status-text">SYSTEM: READY_FOR_SCAN</div>
-    <button onclick="startSystem()">INITIALIZE VISION</button>
-</div>
+    <button id="permission-button">Разрешить доступ к камере</button>
 
-<div id="container">
-    <div id="hud">
-        CORE: ACTIVE<br>
-        SCAN_MODE: SYMBOLIC_DECONSTRUCTION<br>
-        <div id="log"></div>
+    <div id="camera-container">
+        <video id="video-feed" playsinline></video>
+        <canvas id="output-canvas"></canvas>
     </div>
-    <video id="video" playsinline muted autoplay></video>
-    <canvas id="canvas"></canvas>
-</div>
 
-<script>
-    const video = document.getElementById('video');
-    const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d');
-    const log = document.getElementById('log');
-    
-    let cocoModel, bpModel;
-    const SYMBOLS = "01$#@%&*+=:-. ".split("");
+    <script>
+        const video = document.getElementById('video-feed');
+        const canvas = document.getElementById('output-canvas');
+        const ctx = canvas.getContext('2d');
+        const button = document.getElementById('permission-button');
 
-    async function startSystem() {
-        document.getElementById('status-text').innerText = "LOADING NEURAL_NETS...";
-        try {
-            // Инициализация моделей
-            [cocoModel, bpModel] = await Promise.all([
-                cocoSsd.load(),
-                bodyPix.load({
-                    architecture: 'MobileNetV1',
-                    outputStride: 16,
-                    multiplier: 0.5
-                })
-            ]);
+        button.addEventListener('click', () => {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                const constraints = {
+                    video: {
+                        facingMode: 'user', // Использовать фронтальную камеру для селфи (как в image_0)
+                        width: { ideal: 640 }, // Оптимальное разрешение для производительности фильтра
+                        height: { ideal: 480 }
+                    },
+                    audio: false
+                };
 
-            const stream = await navigator.mediaDevices.getUserMedia({
-                video: { facingMode: 'environment' }
-            });
-            video.srcObject = stream;
-            
-            video.onloadedmetadata = () => {
+                navigator.mediaDevices.getUserMedia(constraints)
+                    .then(stream => {
+                        video.srcObject = stream;
+                        video.play();
+                        button.style.display = 'none'; // Скрыть кнопку после разрешения
+                        requestAnimationFrame(processVideoFrame);
+                    })
+                    .catch(error => {
+                        console.error("Ошибка доступа к камере: ", error);
+                        alert('Доступ к камере отклонен. Включите доступ в настройках браузера.');
+                    });
+            } else {
+                alert('Webcam api не поддерживается в этом браузере.');
+            }
+        });
+
+        function processVideoFrame() {
+            if (video.paused || video.ended) {
+                return;
+            }
+
+            // Установка размера холста в соответствии с видеопотоком
+            if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
                 canvas.width = video.videoWidth;
                 canvas.height = video.videoHeight;
-                document.getElementById('boot-screen').style.display = 'none';
-                render();
-            };
-        } catch (err) {
-            alert("INIT_ERROR: " + err);
-        }
-    }
+            }
 
-    async function render() {
-        // Очищаем и рисуем текущий кадр видео как фон
-        ctx.fillStyle = "#000";
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            // Настройка холста перед рисованием
+            ctx.filter = 'grayscale(100%)'; // Применим базовое ч/б (как в примерах)
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        try {
-            // 1. Детекция объектов (машины, предметы и т.д.)
-            const objects = await cocoModel.detect(video, 5, 0.4);
-            
-            // 2. Сегментация людей (для символьного силуэта)
-            const segmentation = await bpModel.segmentPerson(video, {
-                internalResolution: 'low', // Важно для скорости
-                segmentationThreshold: 0.6
-            });
+            // Получение данных пикселей
+            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+            const data = imageData.data;
 
-            // РИСУЕМ СИМВОЛЬНЫЙ СИЛУЭТ (МАТРИЦА)
-            drawSymbolicMask(segmentation);
+            // Сброс фильтра для ручного рендеринга
+            ctx.filter = 'none';
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // Очистить, чтобы перерисовать
 
-            // РИСУЕМ РАМКИ ДЛЯ ОСТАЛЬНЫХ ОБЪЕКТОВ
-            objects.forEach(obj => {
-                if (obj.class !== 'person') { // Людей мы уже "отрисовали" символами
-                    drawObjectUI(obj);
-                }
-            });
+            // Сетка для точечной визуализации (по аналогии с image_4, image_2)
+            const step = 8; // Размер точечного пикселя
 
-        } catch (e) {
-            console.error(e);
-        }
+            // Настройка общего тона (изумрудно-голубой, как в image_3)
+            const tintR = 100;
+            const tintG = 255;
+            const tintB = 220;
 
-        requestAnimationFrame(render);
-    }
+            for (let y = 0; y < canvas.height; y += step) {
+                for (let x = 0; x < canvas.width; x += step) {
+                    const index = (y * canvas.width + x) * 4;
+                    const r = data[index];
+                    const g = data[index + 1];
+                    const b = data[index + 2];
+                    const brightness = (r + g + b) / 3;
 
-    function drawSymbolicMask(seg) {
-        const step = 10; // Шаг сетки (чем меньше, тем плотнее символы)
-        ctx.font = "bold 10px Courier New";
-        ctx.fillStyle = "#00ff41";
+                    // Определение того, насколько яркий пиксель
+                    const radius = (brightness / 255) * step / 1.5;
 
-        for (let y = 0; y < seg.height; y += step) {
-            for (let x = 0; x < seg.width; x += step) {
-                const index = y * seg.width + x;
-                // Если нейросеть говорит, что это человек (1)
-                if (seg.data[index] === 1) {
-                    const char = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
-                    // Добавляем эффект "цифрового шума" через прозрачность
-                    ctx.globalAlpha = Math.random() * 0.7 + 0.3;
-                    ctx.fillText(char, x, y);
+                    if (radius > 1) { // Рисовать только если есть яркость
+                        ctx.beginPath();
+                        ctx.arc(x, y, radius, 0, Math.PI * 2);
+
+                        // Применение тонирования к яркости (как в image_3)
+                        const tintFactor = brightness / 255;
+                        const finalR = tintR * tintFactor;
+                        const finalG = tintG * tintFactor;
+                        const finalB = tintB * tintFactor;
+
+                        ctx.fillStyle = `rgb(${finalR}, ${finalG}, ${finalB})`;
+                        ctx.fill();
+                    }
                 }
             }
-        }
-        ctx.globalAlpha = 1.0;
-    }
 
-    function drawObjectUI(obj) {
-        const [x, y, w, h] = obj.bbox;
-        ctx.strokeStyle = "#ff0000"; // Красный для тех, кто не человек
-        ctx.lineWidth = 1;
-        ctx.setLineDash([4, 4]);
-        ctx.strokeRect(x, y, w, h);
-        
-        ctx.fillStyle = "#ff0000";
-        ctx.font = "10px Courier New";
-        ctx.fillText(`ID: ${obj.class.toUpperCase()}`, x, y - 5);
-        
-        // Маленький терминал слева
-        if (Math.random() > 0.9) {
-            const line = `> TARGET: ${obj.class} DIST: ${Math.round(2000/w)}m`;
-            log.innerHTML = line + "<br>" + log.innerHTML.split("<br>").slice(0, 5).join("<br>");
+            // Добавление горизонтальных глитч-полос (по аналогии с image_1, image_5)
+            if (Math.random() < 0.05) { // 5% шанс на кадр
+                const stripY = Math.random() * canvas.height;
+                const stripH = Math.random() * 20 + 5;
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, stripY, canvas.width, stripH);
+            }
+
+            // CRT скан-линии (как в image_4) - реализуются через CSS pseudo-element
+            requestAnimationFrame(processVideoFrame);
         }
-    }
-</script>
+    </script>
 </body>
 </html>
