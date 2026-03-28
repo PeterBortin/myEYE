@@ -55,13 +55,6 @@ animation:scanroll 10s linear infinite;}
 #hc-bl{bottom:0;left:0;}#hc-bl::before{bottom:0;left:0;}#hc-bl::after{bottom:0;left:0;}
 #hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;}#hc-br::after{bottom:0;right:0;}
 
-#xhair{position:absolute;top:50%;left:50%;z-index:8;pointer-events:none;
-width:22px;height:22px;margin:-11px;}
-#xhair::before{content:'';position:absolute;top:10px;left:0;width:22px;height:2px;
-background:rgba(0,255,65,.3);}
-#xhair::after{content:'';position:absolute;left:10px;top:0;width:2px;height:22px;
-background:rgba(0,255,65,.3);}
-
 #topbar{position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
 display:flex;align-items:center;justify-content:space-between;padding:10px 14px;}
 #sys-id{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
@@ -72,27 +65,23 @@ border:1px solid var(--border);background:var(--panel);color:var(--g2);}
 .badge.hi{border-color:var(--g);color:var(--g);}
 .badge.warn{border-color:var(--y);color:var(--y);}
 
-#statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;
-display:flex;gap:1px;pointer-events:none;}
-.sc{flex:1;padding:5px 5px;background:var(--panel);
-border-top:1px solid var(--border);font-size:7px;
-letter-spacing:.07em;color:var(--g2);text-align:center;}
-.sc span{display:block;color:var(--g);font-size:10px;font-weight:bold;}
-
 #info-panel{position:absolute;bottom:0;left:0;right:0;z-index:25;
-background:rgba(2,8,4,.97);border-top:2px solid var(--g);
-padding:12px 16px 10px;transform:translateY(100%);
-transition:transform .28s cubic-bezier(.22,1,.36,1);pointer-events:none;}
+background:rgba(2,8,4,.98);border-top:3px solid var(--g);
+padding:18px 20px;transform:translateY(100%);
+transition:transform .35s cubic-bezier(0.16, 1, 0.3, 1);pointer-events:none;
+box-shadow: 0 -20px 50px rgba(0,0,0,0.9);}
 #info-panel.open{transform:translateY(0);pointer-events:all;}
-#info-close{position:absolute;top:10px;right:14px;background:none;
+#info-close{position:absolute;top:15px;right:20px;background:none;
 border:1px solid var(--g);color:var(--g);font-family:'Share Tech Mono',monospace;
-font-size:9px;padding:3px 10px;cursor:pointer;letter-spacing:.1em;}
-#info-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--r);margin-bottom:8px;display:inline-block;}
-#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:9px;}
-.ik{color:var(--g2);}.iv{color:var(--g);}
-#info-desc{margin-top:8px;font-size:10px;color:var(--g);line-height:1.6;
-border-top:1px solid var(--border);padding-top:6px;}
+font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:.1em;}
+#info-title{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;
+letter-spacing:.15em;color:var(--r);margin-bottom:12px;display:inline-block;
+text-transform:uppercase;text-shadow: 0 0 10px rgba(255,0,0,0.3);}
+#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;font-size:10px;
+border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px;}
+.ik{color:var(--g2);text-transform:uppercase;}.iv{color:var(--g);font-weight:bold;}
+#info-desc{font-size:11px;color:var(--g);line-height:1.6;letter-spacing:0.02em;}
+.desc-section{margin-top:10px;padding-top:10px;border-top:1px dashed var(--g3);display:flex;flex-direction:column;gap:4px;}
 
 #terminal{flex:0 0 auto;height:120px;background:var(--bg);
 border-top:1px solid var(--border);padding:7px 14px;overflow:hidden;z-index:20;}
@@ -126,7 +115,6 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
     <canvas id="canvas"></canvas>
     <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
     <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-    <div id="xhair"></div>
     
     <div id="topbar">
       <div id="sys-id">myEYE PRO</div>
@@ -136,13 +124,6 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
         <div class="badge hi" id="b-obj">0 OBJ</div>
         <div class="badge warn" id="b-mode">ANPR_ACTIVE</div>
       </div>
-    </div>
-
-    <div id="statbar">
-      <div class="sc">DISTANCE<span id="s-dist">---</span></div>
-      <div class="sc">THREATS<span id="s-thr">0</span></div>
-      <div class="sc">ANPR_LINK<span id="s-anpr">ONLINE</span></div>
-      <div class="sc">TRACKED<span id="s-trk">0</span></div>
     </div>
 
     <div id="info-panel">
@@ -166,13 +147,12 @@ const DEFAULT_ALIASES = {
   'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК'
 };
 
-const CFG={ FOCAL:950, CONF:0.15, MAX_DET:20, SMOOTH:0.22, TTL:40 };
+const CFG={ FOCAL:950, CONF:0.18, MAX_DET:15, SMOOTH:0.12, TTL:45 };
 const OBJ_H={ person:1.75, car:1.5, truck:2.8, bus:3.2, default:1.0 };
 const THREAT=new Set(['person','car','truck','bus']);
 
-// Эмуляция ANPR (Распознавание UA номеров)
 function generateUAPlate() {
-  const regions = ['KA', 'AA', 'BC', 'BH', 'AI', 'AE'];
+  const regions = ['KA', 'AA', 'BC', 'BH', 'AI', 'AE', 'BT', 'BK'];
   const chars = 'ABCEHIKMOPTX';
   const r = (n) => Math.floor(Math.random() * n);
   return `${regions[r(regions.length)]} ${r(10)}${r(10)}${r(10)}${r(10)} ${chars[r(12)]}${chars[r(12)]}`;
@@ -181,25 +161,27 @@ function generateUAPlate() {
 class Tracker {
   constructor() { this.tracks = {}; this.nid = 1; }
   update(preds) {
+    const now = Date.now();
     for (const k in this.tracks) {
       this.tracks[k].age++;
       if (this.tracks[k].age > CFG.TTL) delete this.tracks[k];
     }
     preds.forEach(p => {
-      let best = null, maxIou = 0.2;
+      let best = null, maxIou = 0.25;
       for (const id in this.tracks) {
         if (this.tracks[id].cls !== p.class) continue;
         const s = this.getIou(this.tracks[id].sm, p.bbox);
         if (s > maxIou) { maxIou = s; best = this.tracks[id]; }
       }
       if (best) {
+        // Ультра-плавная интерполяция
         best.sm = best.sm.map((v, i) => v + (p.bbox[i] - v) * CFG.SMOOTH);
         best.score = p.score; best.age = 0;
         p._tid = best.id; p._plate = best.plate;
       } else {
         const id = this.nid++;
         const plate = (p.class === 'car' || p.class === 'truck') ? generateUAPlate() : null;
-        this.tracks[id] = { id, cls: p.class, sm: [...p.bbox], score: p.score, age: 0, plate };
+        this.tracks[id] = { id, cls: p.class, sm: [...p.bbox], score: p.score, age: 0, plate, tStart: now };
         p._tid = id; p._plate = plate;
       }
     });
@@ -224,9 +206,9 @@ const tracker = new Tracker();
 async function bootSeq() {
   const bootLog = document.getElementById('boot-log');
   const pbEl = document.getElementById('pb');
-  const steps = ["LOAD_FUSION_CORE...", "MOUNT_SSD_MODELS...", "ANPR_INIT: UA_LOCAL", "THREAD_POOL: ACTIVE", "SYSTEM_READY"];
+  const steps = ["INITIALIZING FUSION CORE...", "LIFTING NEURAL WEIGHTS...", "SYNCING ANPR_UA MODULE...", "OPTIMIZING INTERPOLATION...", "LINK ESTABLISHED"];
   for (let i = 0; i < steps.length; i++) {
-    await new Promise(r => setTimeout(r, 200));
+    await new Promise(r => setTimeout(r, 250));
     const d = document.createElement('div'); d.className = 'bl'; d.textContent = '> ' + steps[i];
     bootLog.appendChild(d); pbEl.style.width = ((i + 1) / steps.length * 100) + '%';
   }
@@ -243,39 +225,19 @@ async function initCamera() {
       document.getElementById('boot').style.display = 'none';
       document.getElementById('app').style.display = 'flex';
       running = true;
-      log("FUSION ENGINE ONLINE", 'tinfo');
+      log("NEURAL FEED ENCRYPTED", 'tinfo');
       requestAnimationFrame(renderLoop);
     };
-  } catch (e) { log("CAMERA_ERROR", 'tinfo'); }
+  } catch (e) { log("HARDWARE_FAILURE", 'tinfo'); }
 }
 
 function log(txt, type = 'tok') {
-  termQ.push({ txt, type }); if (termQ.length > 6) termQ.shift();
+  termQ.push({ txt, type }); if (termQ.length > 5) termQ.shift();
   termEl.innerHTML = '';
   termQ.forEach(q => {
     const d = document.createElement('div'); d.className = 'tl ' + q.type; d.textContent = '> ' + q.txt;
     termEl.appendChild(d);
   });
-}
-
-function updateHUD() {
-  const total = lastPred.length;
-  document.getElementById('b-obj').textContent = total + ' OBJ';
-  let thr = 0, minDist = 999;
-  lastPred.forEach(p => {
-    const d = +(CFG.FOCAL * (OBJ_H[p.cls] || OBJ_H.default) / Math.max(p.sm[2], p.sm[3])).toFixed(1);
-    if (d < minDist) minDist = d;
-    if (THREAT.has(p.cls)) thr++;
-    const key = p.cls + p.id;
-    if (!logThr[key] || Date.now() - logThr[key] > 8000) {
-      log(`${DEFAULT_ALIASES[p.cls] || p.cls.toUpperCase()} DETECTED`);
-      if (p._plate) log(`ANPR: [${p._plate}] IDENTIFIED`, 'tplate');
-      logThr[key] = Date.now();
-    }
-  });
-  document.getElementById('s-thr').textContent = thr;
-  document.getElementById('s-dist').textContent = total > 0 ? minDist + 'm' : '---';
-  document.getElementById('s-trk').textContent = Object.keys(tracker.tracks).length;
 }
 
 async function renderLoop(now) {
@@ -288,7 +250,8 @@ async function renderLoop(now) {
     lastPred = tracker.update(raw);
   }
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  draw(); updateHUD();
+  draw();
+  updateHUD();
   requestAnimationFrame(renderLoop);
 }
 
@@ -298,40 +261,60 @@ function draw() {
     const isSel = p.id === selTid;
     const col = isSel ? '#ff2244' : '#00ff41';
     
-    // Сетка HD Scan (Fusion Core)
-    ctx.strokeStyle = `rgba(0, 255, 65, 0.15)`;
+    // Сетка объекта (внутренняя)
+    ctx.strokeStyle = `rgba(0, 255, 65, 0.1)`;
     ctx.lineWidth = 1;
-    for (let i = 1; i < 4; i++) {
-      ctx.beginPath(); ctx.moveTo(x + (w/4)*i, y); ctx.lineTo(x + (w/4)*i, y+h); ctx.stroke();
-      ctx.beginPath(); ctx.moveTo(x, y + (h/4)*i); ctx.lineTo(x+w, y + (h/4)*i); ctx.stroke();
-    }
+    ctx.beginPath();
+    ctx.moveTo(x + w/2, y); ctx.lineTo(x + w/2, y+h);
+    ctx.moveTo(x, y + h/2); ctx.lineTo(x+w, y + h/2);
+    ctx.stroke();
 
-    // Рамка объекта
-    ctx.strokeStyle = col; ctx.lineWidth = isSel ? 3 : 1;
+    // Основная рамка
+    ctx.strokeStyle = col; ctx.lineWidth = isSel ? 3 : 1.5;
     ctx.strokeRect(x, y, w, h);
 
-    // Угловые маркеры
-    const s = 15;
-    ctx.lineWidth = 3;
+    // Угловые захваты
+    const s = Math.min(w, h) * 0.2;
+    ctx.lineWidth = 4;
     ctx.beginPath();
     ctx.moveTo(x, y+s); ctx.lineTo(x, y); ctx.lineTo(x+s, y);
     ctx.moveTo(x+w-s, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+s);
+    ctx.moveTo(x, y+h-s); ctx.lineTo(x, y+h); ctx.lineTo(x+s, y+h);
+    ctx.moveTo(x+w-s, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+h-s);
     ctx.stroke();
 
-    // Плашка данных
-    ctx.fillStyle = 'rgba(0,0,0,0.7)';
-    ctx.fillRect(x, y-25, 120, 25);
+    // Заголовок (увеличен)
+    ctx.fillStyle = 'rgba(0,0,0,0.8)';
+    const title = (DEFAULT_ALIASES[p.cls] || p.cls).toUpperCase();
+    const tag = `#${p.id}`;
+    ctx.font = "bold 15px 'Orbitron'";
+    const tw = ctx.measureText(title).width;
+    ctx.fillRect(x, y-30, tw + 60, 30);
     ctx.fillStyle = col;
-    ctx.font = "bold 10px 'Share Tech Mono'";
-    ctx.fillText(`${DEFAULT_ALIASES[p.cls] || p.cls.toUpperCase()} #${p.id}`, x+5, y-10);
+    ctx.fillText(title, x+8, y-9);
+    ctx.font = "11px 'Share Tech Mono'";
+    ctx.fillStyle = '#fff';
+    ctx.fillText(tag, x + tw + 15, y-10);
 
-    // Номерной знак (ANPR)
-    if (p._plate) {
-      ctx.fillStyle = '#00ff41';
-      ctx.fillRect(x, y+h, 110, 16);
+    // Номерной знак
+    if (p.plate) {
+      ctx.fillStyle = col;
+      ctx.fillRect(x, y+h, 120, 18);
       ctx.fillStyle = '#000';
-      ctx.font = "bold 10px 'Orbitron'";
-      ctx.fillText(p._plate, x+5, y+h+12);
+      ctx.font = "bold 12px 'Orbitron'";
+      ctx.fillText(p.plate, x+5, y+h+14);
+    }
+  });
+}
+
+function updateHUD() {
+  document.getElementById('b-obj').textContent = lastPred.length + ' OBJ';
+  lastPred.forEach(p => {
+    const key = p.cls + p.id;
+    if (!logThr[key] || Date.now() - logThr[key] > 10000) {
+      log(`${DEFAULT_ALIASES[p.cls] || p.cls.toUpperCase()} ACQUIRED`);
+      if (p.plate) log(`PLATE DETECTED: ${p.plate}`, 'tplate');
+      logThr[key] = Date.now();
     }
   });
 }
@@ -345,14 +328,26 @@ function handleTap(e) {
   if (hit) {
     selTid = hit.id;
     const dist = +(CFG.FOCAL * (OBJ_H[hit.cls] || OBJ_H.default) / Math.max(hit.sm[2], hit.sm[3])).toFixed(1);
+    const lifeTime = Math.floor((Date.now() - hit.tStart)/1000);
+    
     document.getElementById('info-title').textContent = DEFAULT_ALIASES[hit.cls] || hit.cls.toUpperCase();
     document.getElementById('info-grid').innerHTML = `
-      <div class="ik">TARGET_ID</div><div class="iv">#${hit.id}</div>
-      <div class="ik">DISTANCE</div><div class="iv">${dist}m</div>
-      <div class="ik">SIG_STRENGTH</div><div class="iv">${Math.round(hit.score*100)}%</div>
-      <div class="ik">DATA_TAG</div><div class="iv" style="color:var(--y)">${hit._plate || 'NONE'}</div>
+      <div class="ik">TARGET_INDEX</div><div class="iv">#00${hit.id}</div>
+      <div class="ik">EST_DISTANCE</div><div class="iv">${dist} m</div>
+      <div class="ik">AI_CONFIDENCE</div><div class="iv">${Math.round(hit.score*100)}%</div>
+      <div class="ik">TRACK_TIME</div><div class="iv">${lifeTime}s</div>
+      <div class="ik">ANPR_TAG</div><div class="iv" style="color:var(--y)">${hit.plate || 'NO_DATA'}</div>
+      <div class="ik">THREAT_LVL</div><div class="iv" style="color:${THREAT.has(hit.cls)?'var(--r)':'var(--g)'}">${THREAT.has(hit.cls)?'HIGH':'LOW'}</div>
     `;
-    document.getElementById('info-desc').textContent = `Объект типа ${hit.cls.toUpperCase()} зафиксирован в секторе. Модуль ANPR расшифровал идентификатор: [${hit._plate || 'N/A'}]. Статус: Наблюдение.`;
+    
+    document.getElementById('info-desc').innerHTML = `
+      <span>Анализ объекта завершен. Визуальные характеристики соответствуют классу <b>${hit.cls.toUpperCase()}</b>.</span>
+      <div class="desc-section">
+        <span class="iv">> ПРОВЕРКА ПО БАЗЕ: ЧИСТО</span>
+        <span class="iv">> ПОВЕДЕНИЕ: СТАБИЛЬНОЕ</span>
+        <span class="iv">> ИДЕНТИФИКАТОР: ${hit.plate || 'ОТСУТСТВУЕТ'}</span>
+      </div>
+    `;
     document.getElementById('info-panel').classList.add('open');
   } else { closeInfo(); }
 }
