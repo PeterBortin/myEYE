@@ -10,344 +10,219 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 <style>
 :root{
-  --g:#00ff41;--g2:#00cc33;--g3:#003a12;
-  --y:#ffff00;--o:#ff9900;--r:#ff2244;--b:#00aaff;
-  --bg:#020804;--panel:rgba(2,8,4,.94);--border:rgba(0,255,65,.22);
+  --g:#00ff41; --y:#ffff00; --r:#ff2244; --b:#00aaff; --p:#cc00ff;
+  --bg:#000; --panel:rgba(2,8,4,.98); --border:rgba(0,255,65,.22);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body,html{width:100%;height:100%;background:#000;overflow:hidden;
   font-family:'Share Tech Mono',monospace;color:var(--g);
-  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
+  user-select:none;-webkit-user-select:none;}
 
-/* BOOT */
 #boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;
 flex-direction:column;justify-content:center;align-items:center;}
-#boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;
-font-size:clamp(30px,8vw,54px);letter-spacing:.18em;color:var(--g);
-text-shadow:0 0 30px var(--g),0 0 60px #004400;animation:gpulse 2s ease-in-out infinite;}
-#boot-sub{font-size:9px;letter-spacing:.45em;color:var(--g2);margin:6px 0 32px;}
-#boot-log{width:min(360px,86vw);font-size:9.5px;color:var(--g2);min-height:115px;line-height:1.9;}
-#boot-log .bl{opacity:0;animation:fi .22s forwards;}
-#pb-wrap{width:min(360px,86vw);height:2px;background:#0a1a0a;margin-top:18px;}
-#pb{height:100%;width:0;background:var(--g);box-shadow:0 0 8px var(--g);transition:width .3s;}
-#btn-start{margin-top:28px;display:none;background:none;border:1px solid var(--g);
-color:var(--g);font-family:'Orbitron',sans-serif;font-size:11px;
-letter-spacing:.3em;padding:13px 42px;cursor:pointer;transition:all .2s;}
-#btn-start:hover,#btn-start:active{background:var(--g);color:#000;box-shadow:0 0 20px var(--g);}
+#boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:40px;color:var(--g);text-shadow:0 0 20px var(--g);}
+#pb-wrap{width:260px;height:2px;background:#111;margin-top:20px;}
+#pb{height:100%;width:0;background:var(--g);transition:width .2s;}
+#btn-start{margin-top:30px;display:none;background:none;border:1px solid var(--g);color:var(--g);padding:10px 30px;cursor:pointer;font-family:'Orbitron';}
 
-/* LAYOUT */
-#app{position:fixed;inset:0;display:flex;flex-direction:column;}
-#vp{position:relative;flex:1 1 auto;overflow:hidden;background:#000;}
-video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;
-filter:brightness(.65) contrast(1.2) saturate(1.1);}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;visibility:hidden;}
+#vp{position:relative;flex:1;overflow:hidden;}
+video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;filter:brightness(0.7);}
 canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
 
-#vp::after{content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
-background:repeating-linear-gradient(0deg,transparent,transparent 3px,
-rgba(0,255,65,.016) 3px,rgba(0,255,65,.016) 4px);
-animation:scanroll 10s linear infinite;}
+#aim-dot{position:absolute;top:50%;left:50%;width:8px;height:8px;background:var(--r);border-radius:50%;transform:translate(-50%,-50%);z-index:10;box-shadow:0 0 15px var(--r);border:2px solid #fff;}
 
-/* Центральная точка */
-#aim-dot{position:absolute;top:50%;left:50%;width:6px;height:6px;background:var(--r);
-border-radius:50%;transform:translate(-50%,-50%);z-index:12;box-shadow:0 0 10px var(--r);}
-
-.hc{position:absolute;width:52px;height:52px;z-index:10;pointer-events:none;}
-.hc::before,.hc::after{content:'';position:absolute;background:var(--g);box-shadow:0 0 5px var(--g);}
-.hc::before{width:2px;height:20px;}.hc::after{width:20px;height:2px;}
-#hc-tl{top:0;left:0;}#hc-tl::before{top:0;left:0;}#hc-tl::after{top:0;left:0;}
-#hc-tr{top:0;right:0;}#hc-tr::before{top:0;right:0;}#hc-tr::after{top:0;right:0;}
-#hc-bl{bottom:0;left:0;}#hc-bl::before{bottom:0;left:0;}#hc-bl::after{bottom:0;left:0;}
-#hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;}#hc-br::after{bottom:0;right:0;}
-
-#topbar{position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
-display:flex;align-items:center;justify-content:space-between;padding:10px 14px;}
-#sys-id{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--g);text-shadow:0 0 12px var(--g);}
-#badges{display:flex;gap:5px;}
-.badge{font-size:8px;letter-spacing:.12em;padding:3px 8px;
-border:1px solid var(--border);background:var(--panel);color:var(--g2);}
-.badge.hi{border-color:var(--g);color:var(--g);}
-.badge.warn{border-color:var(--y);color:var(--y);}
-
-#info-panel{position:absolute;bottom:0;left:0;right:0;z-index:25;
-background:rgba(2,8,4,.98);border-top:3px solid var(--g);
-padding:18px 20px;transform:translateY(100%);
-transition:transform .3s cubic-bezier(0.1, 0.7, 0.1, 1);pointer-events:none;
-box-shadow: 0 -20px 50px rgba(0,0,0,0.9);}
+#info-panel{position:absolute;bottom:0;left:0;right:0;z-index:100;background:var(--panel);border-top:4px solid var(--g);padding:20px;transform:translateY(100%);transition:transform 0.3s;}
 #info-panel.open{transform:translateY(0);pointer-events:all;}
-#info-close{position:absolute;top:15px;right:20px;background:none;
-border:1px solid var(--g);color:var(--g);font-family:'Share Tech Mono',monospace;
-font-size:10px;padding:5px 12px;cursor:pointer;letter-spacing:.1em;}
-#info-title{font-family:'Orbitron',sans-serif;font-size:18px;font-weight:900;
-letter-spacing:.15em;color:var(--r);margin-bottom:12px;display:inline-block;
-text-transform:uppercase;text-shadow: 0 0 10px rgba(255,0,0,0.3);}
-#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 20px;font-size:10px;
-border-bottom:1px solid var(--border);padding-bottom:12px;margin-bottom:12px;}
-.ik{color:var(--g2);text-transform:uppercase;}.iv{color:var(--g);font-weight:bold;}
-#info-desc{font-size:11px;color:var(--g);line-height:1.6;letter-spacing:0.02em;}
-.desc-section{margin-top:10px;padding-top:10px;border-top:1px dashed var(--g3);display:flex;flex-direction:column;gap:4px;}
+#info-title{font-family:'Orbitron';font-size:24px;color:var(--r);margin-bottom:10px;text-transform:uppercase;}
+#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;font-size:12px;border-bottom:1px solid #333;padding-bottom:10px;}
+#info-desc{margin-top:10px;font-size:13px;line-height:1.4;}
 
-#terminal{flex:0 0 auto;height:120px;background:var(--bg);
-border-top:1px solid var(--border);padding:7px 14px;overflow:hidden;z-index:20;}
-#term-hdr{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:.28em;
-color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
-#term-hdr::before{content:'';flex:1;height:1px;background:var(--g3);}
-#term-lines{font-size:9px;line-height:1.72;}
-.tl{opacity:0;animation:si .18s forwards;}
-.tok{color:var(--o);}.tinfo{color:var(--b);}.tplate{color:var(--b);font-weight:bold;}
-
-@keyframes gpulse{0%,100%{text-shadow:0 0 20px var(--g),0 0 40px #003300;}
-50%{text-shadow:0 0 45px var(--g),0 0 90px #00aa44;}}
-@keyframes fi{to{opacity:1;}}
-@keyframes si{from{opacity:0;transform:translateX(-5px);}to{opacity:.93;transform:none;}}
-@keyframes scanroll{from{background-position:0 0;}to{background-position:0 120px;}}
+#terminal{height:100px;background:#050505;border-top:1px solid #222;padding:10px;font-size:10px;color:var(--g2);overflow:hidden;}
+.tl{margin-bottom:2px;opacity:0.8;}
 </style>
 </head>
 <body>
 
 <div id="boot">
-  <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">FUSION NEURAL CORE // v4.0 PRO</div>
-  <div id="boot-log"></div>
+  <div id="boot-logo">myEYE PRO</div>
   <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="initCamera()">open system</button>
+  <button id="btn-start" onclick="initCamera()">INITIALIZE SYSTEM</button>
 </div>
 
-<div id="app" style="display:none;">
+<div id="app">
   <div id="vp">
     <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
     <div id="aim-dot"></div>
-    <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
-    <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-    
-    <div id="topbar">
-      <div id="sys-id">myEYE PRO</div>
-      <div id="badges">
-        <div class="badge hi" id="b-core">CORE: FUSION_HD</div>
-        <div class="badge hi" id="b-fps">-- FPS</div>
-        <div class="badge hi" id="b-obj">0 OBJ</div>
-        <div class="badge warn" id="b-mode">FUSION_ULTRA</div>
-      </div>
-    </div>
-
     <div id="info-panel">
-      <button id="info-close" onclick="closeInfo()">✕ CLOSE</button>
-      <div id="info-title">---</div>
+      <div id="info-title">TARGET_DATA</div>
       <div id="info-grid"></div>
       <div id="info-desc"></div>
+      <button onclick="closeInfo()" style="margin-top:15px;background:none;border:1px solid #666;color:#666;padding:5px 10px;">CLOSE</button>
     </div>
   </div>
-
-  <div id="terminal">
-    <div id="term-hdr"><span>NEURAL_FEED // SYSTEM_ACTIVE</span></div>
-    <div id="term-lines"></div>
-  </div>
+  <div id="terminal" id="term-lines"></div>
 </div>
 
 <script>
-const DEFAULT_ALIASES = {
-  person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
-  motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', dog: 'ПЕС', cat: 'КОТ',
-  'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК'
+const ALIASES = {
+  person: {n: 'СУБЪЕКТ', c: '#00ff41'}, // Зеленый
+  car: {n: 'АВТОМОБИЛЬ', c: '#ffff00'}, // Желтый
+  truck: {n: 'ГРУЗОВИК', c: '#ffff00'},
+  bus: {n: 'АВТОБУС', c: '#ffff00'},
+  bicycle: {n: 'ВЕЛОСИПЕД', c: '#00aaff'}, // Голубой
+  dog: {n: 'ОБЪЕКТ_БИО', c: '#cc00ff'}, // Фиолетовый
+  cat: {n: 'ОБЪЕКТ_БИО', c: '#cc00ff'},
+  cell_phone: {n: 'ТЕРМИНАЛ', c: '#ff9900'},
+  default: {n: 'ОБЪЕКТ', c: '#ffffff'}
 };
 
-const CFG={ FOCAL:950, CONF:0.2, MAX_DET:12, SMOOTH:0.35, TTL:35 };
-const OBJ_H={ person:1.75, car:1.5, truck:2.8, bus:3.2, default:1.0 };
-const THREAT=new Set(['person','car','truck','bus']);
-
-function generateOCR() {
-  const codes = ['ZONE_A', 'SEC_4', 'ID_RX', 'LVL_9', 'UA_51', 'NET_88'];
-  const r = (n) => Math.floor(Math.random() * n);
-  return `${codes[r(codes.length)]}-${Math.random().toString(36).substring(2,5).toUpperCase()}`;
-}
-
-class Tracker {
-  constructor() { this.tracks = {}; this.nid = 1; }
-  update(preds) {
-    const now = Date.now();
-    for (const k in this.tracks) {
-      this.tracks[k].age++;
-      if (this.tracks[k].age > CFG.TTL) delete this.tracks[k];
-    }
-    preds.forEach(p => {
-      let best = null, maxIou = 0.3;
-      for (const id in this.tracks) {
-        if (this.tracks[id].cls !== p.class) continue;
-        const s = this.getIou(this.tracks[id].sm, p.bbox);
-        if (s > maxIou) { maxIou = s; best = this.tracks[id]; }
-      }
-      if (best) {
-        best.sm = best.sm.map((v, i) => v + (p.bbox[i] - v) * CFG.SMOOTH);
-        best.score = p.score; best.age = 0;
-        p._tid = best.id; p._ocr = best.ocr;
-      } else {
-        const id = this.nid++;
-        const ocr = generateOCR();
-        this.tracks[id] = { id, cls: p.class, sm: [...p.bbox], score: p.score, age: 0, ocr, tStart: now };
-        p._tid = id; p._ocr = ocr;
-      }
-    });
-    return Object.values(this.tracks).filter(t => t.age < 2);
-  }
-  getIou(a, b) {
-    const ix = Math.max(a[0], b[0]), iy = Math.max(a[1], b[1]);
-    const iw = Math.min(a[0] + a[2], b[0] + b[2]) - ix, ih = Math.min(a[1] + a[3], b[1] + b[3]) - iy;
-    if (iw <= 0 || ih <= 0) return 0;
-    return (iw * ih) / (a[2] * a[3] + b[2] * b[3] - iw * ih);
-  }
-}
-
-const video = document.getElementById('video');
-const canvas = document.getElementById('canvas');
-const ctx = canvas.getContext('2d');
-const termEl = document.getElementById('term-lines');
-let model = null, running = false, lastPred = [], lastFpsT = 0, fpsCnt = 0;
-let termQ = [], logThr = {}, selTid = null;
-const tracker = new Tracker();
+const CFG = { CONF: 0.3, SMOOTH: 0.15 }; // Уменьшен SMOOTH для более быстрой реакции рамок
+let model, lastPreds = [], tracks = {}, selId = null;
 
 async function bootSeq() {
-  const bootLog = document.getElementById('boot-log');
-  const pbEl = document.getElementById('pb');
-  const steps = ["BOOTING FUSION...", "TF_JS CORE LOADED", "OCR_ENHANCEMENT: ON", "SYNCING INTERPOLATOR", "READY"];
-  for (let i = 0; i < steps.length; i++) {
-    await new Promise(r => setTimeout(r, 150));
-    const d = document.createElement('div'); d.className = 'bl'; d.textContent = '> ' + steps[i];
-    bootLog.appendChild(d); pbEl.style.width = ((i + 1) / steps.length * 100) + '%';
-  }
+  const pb = document.getElementById('pb');
   model = await cocoSsd.load({ base: 'mobilenet_v2' });
+  pb.style.width = '100%';
   document.getElementById('btn-start').style.display = 'block';
 }
 
 async function initCamera() {
-  try {
-    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } });
-    video.srcObject = s;
-    video.onloadedmetadata = () => {
-      video.play();
-      document.getElementById('boot').style.display = 'none';
-      document.getElementById('app').style.display = 'flex';
-      running = true;
-      log("SYSTEM_LIVE", 'tinfo');
-      requestAnimationFrame(renderLoop);
-    };
-  } catch (e) { log("CAMERA_ERROR", 'tinfo'); }
+  const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+  video.srcObject = stream;
+  video.onloadedmetadata = () => {
+    video.play();
+    document.getElementById('boot').style.display = 'none';
+    document.getElementById('app').style.visibility = 'visible';
+    detectLoop(); // Цикл нейросети
+    renderLoop(); // Цикл отрисовки
+  };
 }
 
-function log(txt, type = 'tok') {
-  termQ.push({ txt, type }); if (termQ.length > 5) termQ.shift();
-  termEl.innerHTML = '';
-  termQ.forEach(q => {
-    const d = document.createElement('div'); d.className = 'tl ' + q.type; d.textContent = '> ' + q.txt;
-    termEl.appendChild(d);
+// Тяжелый цикл детекции (работает медленнее отрисовки)
+async function detectLoop() {
+  if (video.readyState === 4) {
+    const predictions = await model.detect(video, 10, CFG.CONF);
+    processTracks(predictions);
+  }
+  setTimeout(detectLoop, 60); // ~15 FPS для нейросети достаточно
+}
+
+function processTracks(preds) {
+  const now = Date.now();
+  preds.forEach(p => {
+    let id = p.class; // В данном примере упрощенный трекинг по классу
+    if (!tracks[id]) {
+      tracks[id] = { pos: p.bbox, cls: p.class, ocr: generatePlate(p.class), score: p.score };
+    } else {
+      tracks[id].targetPos = p.bbox; // Обновляем целевую позицию
+      tracks[id].score = p.score;
+    }
+    tracks[id].lastSeen = now;
   });
 }
 
-async function renderLoop(now) {
-  if (!running) return requestAnimationFrame(renderLoop);
-  fpsCnt++;
-  if (now - lastFpsT > 1000) { document.getElementById('b-fps').textContent = fpsCnt + ' FPS'; fpsCnt = 0; lastFpsT = now; }
-  
-  if (video.readyState === 4 && fpsCnt % 2 === 0) { // Оптимизация детекции
-    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-    const raw = await model.detect(video, CFG.MAX_DET, CFG.CONF);
-    lastPred = tracker.update(raw);
-  }
+// Легкий цикл отрисовки (60 FPS для плавности)
+function renderLoop() {
+  const ctx = canvas.getContext('2d');
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
   
   ctx.clearRect(0, 0, canvas.width, canvas.height);
-  draw();
-  updateHUD();
+  const now = Date.now();
+
+  for (let id in tracks) {
+    let t = tracks[id];
+    if (now - t.lastSeen > 1000) { delete tracks[id]; continue; }
+
+    // Интерполяция позиции (Lerp) для плавности
+    if (t.targetPos) {
+      for (let i = 0; i < 4; i++) {
+        t.pos[i] += (t.targetPos[i] - t.pos[i]) * CFG.SMOOTH;
+      }
+    }
+
+    drawObject(ctx, t, id === selId);
+  }
   requestAnimationFrame(renderLoop);
 }
 
-function draw() {
-  const cx = canvas.width / 2;
-  const cy = canvas.height / 2;
+function drawObject(ctx, t, isSel) {
+  const [x, y, w, h] = t.pos;
+  const info = ALIASES[t.cls] || ALIASES.default;
+  const color = isSel ? '#ff2244' : info.c;
 
-  lastPred.forEach(p => {
-    const [x, y, w, h] = p.sm;
-    const isSel = p.id === selTid;
-    const col = isSel ? '#ff2244' : '#00ff41';
-    
-    // Пунктиры от центра к объектам
-    ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = isSel ? 'rgba(255,34,68,0.4)' : 'rgba(0,255,65,0.15)';
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.lineTo(x + w/2, y + h/2);
-    ctx.stroke();
-    ctx.setLineDash([]);
+  // Отрисовка пунктира к центру
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = isSel ? color : 'rgba(255,255,255,0.2)';
+  ctx.beginPath();
+  ctx.moveTo(canvas.width/2, canvas.height/2);
+  ctx.lineTo(x + w/2, y + h/2);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
-    // Рамка
-    ctx.strokeStyle = col; 
-    ctx.lineWidth = isSel ? 3 : 2;
-    ctx.strokeRect(x, y, w, h);
+  // Рамка
+  ctx.strokeStyle = color;
+  ctx.lineWidth = isSel ? 4 : 2;
+  ctx.strokeRect(x, y, w, h);
 
-    // Углы
-    const s = 20;
-    ctx.lineWidth = 4;
-    ctx.beginPath();
-    ctx.moveTo(x, y+s); ctx.lineTo(x, y); ctx.lineTo(x+s, y);
-    ctx.moveTo(x+w-s, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+s);
-    ctx.moveTo(x, y+h-s); ctx.lineTo(x, y+h); ctx.lineTo(x+s, y+h);
-    ctx.moveTo(x+w-s, y+h); ctx.lineTo(x+w, y+h); ctx.lineTo(x+w, y+h-s);
-    ctx.stroke();
+  // Тайтл (Крупный)
+  ctx.fillStyle = color;
+  ctx.font = "bold 22px Orbitron";
+  ctx.fillRect(x, y - 35, ctx.measureText(info.n).width + 20, 35);
+  ctx.fillStyle = "#000";
+  ctx.fillText(info.n, x + 10, y - 10);
 
-    // Заголовок (увеличен)
-    ctx.fillStyle = 'rgba(0,0,0,0.85)';
-    const title = (DEFAULT_ALIASES[p.cls] || p.cls).toUpperCase();
-    ctx.font = "bold 18px 'Orbitron'";
-    const tw = ctx.measureText(title).width;
-    ctx.fillRect(x, y-35, tw + 20, 35);
-    ctx.fillStyle = col;
-    ctx.fillText(title, x+10, y-10);
-
-    // OCR Метка в кадре
-    ctx.fillStyle = '#000';
-    ctx.fillRect(x, y+h, 100, 20);
-    ctx.fillStyle = '#fff';
-    ctx.font = "10px 'Share Tech Mono'";
-    ctx.fillText(p._ocr || 'SCANNING...', x+5, y+h+14);
-  });
+  // Номер/OCR (если авто)
+  if (t.ocr) {
+    ctx.fillStyle = "rgba(0,0,0,0.8)";
+    ctx.fillRect(x, y + h, w, 25);
+    ctx.fillStyle = "#fff";
+    ctx.font = "14px Share Tech Mono";
+    ctx.fillText(t.ocr, x + 5, y + h + 18);
+  }
 }
 
-function updateHUD() {
-  document.getElementById('b-obj').textContent = lastPred.length + ' OBJ';
+function generatePlate(cls) {
+  if (!['car', 'truck', 'bus'].includes(cls)) return "SCANNING_TEXT...";
+  const r = (l) => l[Math.floor(Math.random() * l.length)];
+  const letters = "ABCEHIKMOPTX";
+  const nums = "0123456789";
+  return `${r(letters)}${r(letters)} ${r(nums)}${r(nums)}${r(nums)}${r(nums)} ${r(letters)}${r(letters)}`;
 }
 
-function handleTap(e) {
+// Клик для выбора объекта
+canvas.addEventListener('click', (e) => {
   const rect = canvas.getBoundingClientRect();
-  const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
-  const tx = (e.clientX - rect.left) * sx, ty = (e.clientY - rect.top) * sy;
-  const hit = lastPred.find(p => { const [x,y,w,h]=p.sm; return tx>=x&&tx<=x+w&&ty>=y&&ty<=y+h; });
+  const tx = (e.clientX - rect.left) * (canvas.width / rect.width);
+  const ty = (e.clientY - rect.top) * (canvas.height / rect.height);
 
-  if (hit) {
-    selTid = hit.id;
-    const dist = +(CFG.FOCAL * (OBJ_H[hit.cls] || OBJ_H.default) / Math.max(hit.sm[2], hit.sm[3])).toFixed(1);
-    
-    document.getElementById('info-title').textContent = DEFAULT_ALIASES[hit.cls] || hit.cls.toUpperCase();
-    document.getElementById('info-grid').innerHTML = `
-      <div class="ik">TARGET_ID</div><div class="iv">#00${hit.id}</div>
-      <div class="ik">RANGE</div><div class="iv">${dist}m</div>
-      <div class="ik">OCR_STREAM</div><div class="iv" style="color:var(--y)">${hit.ocr}</div>
-      <div class="ik">THREAT</div><div class="iv">${THREAT.has(hit.cls)?'DETECTED':'NONE'}</div>
-    `;
-    
-    // Расширенное описание с OCR-данными
-    document.getElementById('info-desc').innerHTML = `
-      <span>Интеллектуальный захват цели подтвержден. В секторе обнаружен объект: <b>${hit.cls.toUpperCase()}</b>.</span>
-      <div class="desc-section">
-        <span class="iv">> РАСШИФРОВАННЫЙ ТЕКСТ (OCR): ${hit.ocr}</span>
-        <span class="iv">> СТАТУС: АКТИВНОЕ СЛЕЖЕНИЕ</span>
-        <span class="iv">> ПРЕДУПРЕЖДЕНИЕ: ВНЕШНИЙ КОНТУР СТАБИЛЕН</span>
-      </div>
-    `;
-    document.getElementById('info-panel').classList.add('open');
-  } else { closeInfo(); }
+  for (let id in tracks) {
+    const [x, y, w, h] = tracks[id].pos;
+    if (tx > x && tx < x + w && ty > y && ty < y + h) {
+      showInfo(id, tracks[id]);
+      return;
+    }
+  }
+  closeInfo();
+});
+
+function showInfo(id, t) {
+  selId = id;
+  const info = ALIASES[t.cls] || ALIASES.default;
+  document.getElementById('info-title').textContent = info.n;
+  document.getElementById('info-grid').innerHTML = `
+    <div>ID: #00${id.toUpperCase()}</div><div>CONF: ${Math.round(t.score*100)}%</div>
+    <div>OCR_DATA: ${t.ocr}</div><div>STATUS: TRACKING</div>
+  `;
+  document.getElementById('info-desc').innerHTML = `Объект классифицирован как <b>${t.cls}</b>. Анализ поведения в норме. Код захвата: ${generateOCR()}.`;
+  document.getElementById('info-panel').classList.add('open');
 }
 
-canvas.addEventListener('click', handleTap);
-function closeInfo() { selTid = null; document.getElementById('info-panel').classList.remove('open'); }
+function generateOCR() { return Math.random().toString(36).substring(2,8).toUpperCase(); }
+function closeInfo() { selId = null; document.getElementById('info-panel').classList.remove('open'); }
+
 bootSeq();
 </script>
 </body>
