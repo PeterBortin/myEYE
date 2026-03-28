@@ -3,52 +3,55 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE v4.0 PRO | FUSION CORE</title>
+<title>myEYE v4.0 PRO | FUSION</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
 <style>
 :root{
-  --g:#00ff41; --y:#ffff00; --r:#ff2244; --b:#00aaff; --p:#cc00ff;
-  --bg:#020804; --panel:rgba(2,8,4,.98); --border:rgba(0,255,65,.22);
+  --g:#00ff41;--g2:#00cc33;--g3:#003a12;
+  --y:#ffff00;--o:#ff9900;--r:#ff2244;--b:#00aaff;--p:#cc00ff;
+  --bg:#020804;--panel:rgba(2,8,4,.96);--border:rgba(0,255,65,.22);
 }
 *{margin:0;padding:0;box-sizing:border-box;}
 body,html{width:100%;height:100%;background:#000;overflow:hidden;
   font-family:'Share Tech Mono',monospace;color:var(--g);
-  user-select:none;-webkit-user-select:none;}
+  user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;}
 
-/* BOOT */
-#boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;
-flex-direction:column;justify-content:center;align-items:center;}
+/* BOOT & UI ELEMENTS */
+#boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;flex-direction:column;justify-content:center;align-items:center;}
 #boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:42px;color:var(--g);text-shadow:0 0 20px var(--g);}
-#pb-wrap{width:280px;height:2px;background:#0a1a0a;margin-top:20px;position:relative;}
-#pb{height:100%;width:0;background:var(--g);box-shadow:0 0 10px var(--g);transition:width .3s;}
-#btn-start{margin-top:35px;display:none;background:none;border:1px solid var(--g);color:var(--g);
-font-family:'Orbitron';font-size:12px;letter-spacing:4px;padding:15px 40px;cursor:pointer;transition:.3s;}
-#btn-start:hover{background:var(--g);color:#000;}
+#pb-wrap{width:280px;height:2px;background:#0a1a0a;margin-top:20px;}
+#pb{height:100%;width:0;background:var(--g);transition:width .3s;}
+#btn-start{margin-top:35px;display:none;background:none;border:1px solid var(--g);color:var(--g);font-family:'Orbitron';padding:15px 40px;cursor:pointer;}
 
-/* APP */
 #app{position:fixed;inset:0;display:flex;flex-direction:column;visibility:hidden;}
 #vp{position:relative;flex:1;overflow:hidden;background:#000;}
 video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:1;filter:brightness(.6) contrast(1.2);}
 canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;}
 
-#aim-dot{position:absolute;top:50%;left:50%;width:10px;height:10px;background:var(--r);
-border-radius:50%;transform:translate(-50%,-50%);z-index:10;box-shadow:0 0 15px var(--r);border:2px solid #fff;}
+/* HUD DECORATIONS */
+#xhair{position:absolute;top:50%;left:50%;z-index:8;width:30px;height:30px;margin:-15px;pointer-events:none;}
+#xhair::before{content:'';position:absolute;top:14px;left:0;width:30px;height:2px;background:rgba(0,255,65,.4);}
+#xhair::after{content:'';position:absolute;left:14px;top:0;width:2px;height:30px;background:rgba(0,255,65,.4);}
+#aim-dot{position:absolute;top:50%;left:50%;width:4px;height:4px;background:var(--r);border-radius:50%;transform:translate(-50%,-50%);z-index:9;box-shadow:0 0 10px var(--r);}
 
-#info-panel{position:absolute;bottom:0;left:0;right:0;z-index:100;background:var(--panel);
-border-top:3px solid var(--g);padding:20px;transform:translateY(100%);transition:transform 0.4s cubic-bezier(0.1, 0.9, 0.2, 1);}
+#topbar{position:absolute;top:0;left:0;right:0;z-index:15;display:flex;justify-content:space-between;padding:12px;pointer-events:none;}
+.badge{font-size:9px;padding:3px 8px;border:1px solid var(--border);background:var(--panel);color:var(--g2);margin-left:5px;}
+
+#statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;display:flex;background:var(--panel);border-top:1px solid var(--border);pointer-events:none;}
+.sc{flex:1;padding:8px;font-size:8px;text-align:center;border-right:1px solid var(--border);}
+.sc span{display:block;color:var(--g);font-size:12px;font-weight:bold;}
+
+#info-panel{position:absolute;bottom:0;left:0;right:0;z-index:100;background:var(--panel);border-top:2px solid var(--g);padding:18px;transform:translateY(100%);transition:0.3s;}
 #info-panel.open{transform:translateY(0);pointer-events:all;}
-#info-title{font-family:'Orbitron';font-size:26px;font-weight:900;color:var(--r);margin-bottom:12px;text-transform:uppercase;}
-#info-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px 20px;font-size:11px;border-bottom:1px solid var(--border);padding-bottom:12px;}
-.ik{color:#666;} .iv{color:var(--g);font-weight:bold;}
 
-#terminal{height:120px;background:#050505;border-top:1px solid var(--border);padding:10px 20px;overflow:hidden;}
-.tl{font-size:10px;margin-bottom:4px;opacity:0.8;animation:fadein .2s forwards;}
-@keyframes fadein{from{opacity:0;transform:translateX(-10px);}to{opacity:1;transform:none;}}
+#terminal{height:100px;background:#050505;border-top:1px solid var(--border);padding:10px;overflow:hidden;font-size:10px;}
+.tl{margin-bottom:3px;opacity:0.8;animation:fi .2s forwards;}
+@keyframes fi{from{opacity:0;transform:translateX(-5px);}to{opacity:1;transform:none;}}
 
-.night-mode video { filter: brightness(0.4) contrast(2) saturate(0) sepia(1) hue-rotate(90deg) !important; }
+#night-btn{position:absolute;top:50px;left:12px;z-index:20;background:rgba(0,0,0,0.5);border:1px solid var(--border);color:var(--g);font-size:10px;padding:5px 10px;cursor:pointer;}
 </style>
 </head>
 <body>
@@ -56,19 +59,35 @@ border-top:3px solid var(--g);padding:20px;transform:translateY(100%);transition
 <div id="boot">
   <div id="boot-logo">myEYE PRO</div>
   <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="initCamera()">INITIALIZE SYSTEM</button>
+  <button id="btn-start" onclick="initCamera()">INITIALIZE LINK</button>
 </div>
 
 <div id="app">
   <div id="vp">
     <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
+    <div id="xhair"></div>
     <div id="aim-dot"></div>
+    <button id="night-btn" onclick="toggleNight()">NIGHT_MODE: OFF</button>
     
+    <div id="topbar">
+      <div style="font-family:'Orbitron';font-weight:bold;letter-spacing:2px;">FUSION_OS 4.0</div>
+      <div id="badges">
+        <span class="badge" id="b-fps">0 FPS</span>
+        <span class="badge" id="b-obj">0 OBJ</span>
+      </div>
+    </div>
+
+    <div id="statbar">
+      <div class="sc">THREATS<span id="s-thr">0</span></div>
+      <div class="sc">MAX_DIST<span id="s-dist">0m</span></div>
+      <div class="sc">TRACKING<span id="s-trk">0</span></div>
+    </div>
+
     <div id="info-panel">
-      <div id="info-title">TARGET_LOCKED</div>
-      <div id="info-grid"></div>
-      <button onclick="closeInfo()" style="margin-top:15px;background:none;border:1px solid var(--g);color:var(--g);padding:8px 20px;font-family:'Orbitron';cursor:pointer;">DISMISS</button>
+      <div id="info-title" style="font-family:'Orbitron';font-size:18px;margin-bottom:10px;color:var(--r)">TARGET_LOCKED</div>
+      <div id="info-grid" style="display:grid;grid-template-columns:1fr 1fr;font-size:11px;gap:5px;"></div>
+      <button onclick="closeInfo()" style="margin-top:15px;background:none;border:1px solid var(--g);color:var(--g);padding:5px 15px;font-family:'Orbitron';cursor:pointer;">RELEASE</button>
     </div>
   </div>
   <div id="terminal"></div>
@@ -76,24 +95,21 @@ border-top:3px solid var(--g);padding:20px;transform:translateY(100%);transition
 
 <script>
 const GROUPS = {
-  person: {n: 'СУБЪЕКТ', c: '#00ff41', h: 1.75}, 
-  car: {n: 'АВТОМОБИЛЬ', c: '#ffff00', h: 1.5},
-  truck: {n: 'ГРУЗОВИК', c: '#ff4400', h: 2.8},
-  bus: {n: 'АВТОБУС', c: '#ffff00', h: 3.2},
-  bicycle: {n: 'ВЕЛОСИПЕД', c: '#00aaff', h: 1.0},
-  dog: {n: 'БИО_ОБЪЕКТ', c: '#cc00ff', h: 0.5},
-  cat: {n: 'БИО_ОБЪЕКТ', c: '#cc00ff', h: 0.3},
-  cell_phone: {n: 'ТЕРМИНАЛ', c: '#00aaff', h: 0.15},
-  default: {n: 'ОБЪЕКТ', c: '#ffffff', h: 1.0}
+  person: {n: 'СУБЪЕКТ', c: '#00ff41', h: 1.75, d: 'Биологический объект. Оценка опасности: Низкая.'}, 
+  car: {n: 'АВТОМОБИЛЬ', c: '#ffff00', h: 1.5, d: 'Гражданский транспорт. Анализ траектории...'},
+  truck: {n: 'ГРУЗОВИК', c: '#ff4400', h: 2.8, d: 'Тяжелая техника. Зона повышенного риска.'},
+  cell_phone: {n: 'ТЕРМИНАЛ', c: '#00aaff', h: 0.15, d: 'Устройство связи. Попытка перехвата данных.'},
+  dog: {n: 'БИО_ОБЪЕКТ', c: '#cc00ff', h: 0.5, d: 'Неидентифицированная форма жизни.'},
+  default: {n: 'ОБЪЕКТ', c: '#ffffff', h: 1.0, d: 'Данные отсутствуют.'}
 };
 
-const CFG = { CONF: 0.25, LERP: 0.18, FOCAL: 900 };
-let model, tracks = {}, selId = null, videoWidth, videoHeight;
+const CFG = { CONF: 0.22, LERP: 0.2, FOCAL: 950, TTL: 30 };
+let model, tracks = {}, selId = null, videoWidth, videoHeight, nightMode = false, fpsCnt = 0, lastFpsT = Date.now();
 
 async function bootSeq() {
   const pb = document.getElementById('pb');
-  pb.style.width = '30%';
-  model = await cocoSsd.load({ base: 'mobilenet_v2' });
+  pb.style.width = '40%';
+  model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
   pb.style.width = '100%';
   document.getElementById('btn-start').style.display = 'block';
 }
@@ -107,121 +123,150 @@ async function initCamera() {
     videoHeight = video.videoHeight;
     document.getElementById('boot').style.display = 'none';
     document.getElementById('app').style.visibility = 'visible';
-    detectLoop(); 
+    detectLoop();
     renderLoop();
-    log("SYSTEM ONLINE: FUSION CORE ACTIVE", "var(--g)");
+    log("SYSTEM ONLINE: NEURAL_LINK ESTABLISHED", "#00ff41");
   };
 }
 
 async function detectLoop() {
   if (video.readyState === 4) {
-    const preds = await model.detect(video, 8, CFG.CONF);
+    const preds = await model.detect(video, 10, CFG.CONF);
     updateTracks(preds);
   }
-  setTimeout(detectLoop, 60); 
+  setTimeout(detectLoop, 60);
 }
 
 function updateTracks(preds) {
   const now = Date.now();
-  preds.forEach(p => {
-    let id = p.class; // В этой версии ID привязан к классу для простоты
+  // Помечаем старые треки
+  for(let id in tracks) tracks[id].active = false;
+
+  preds.forEach((p, index) => {
+    let id = p.class + "_" + (index % 5); // Простой ID для демо
     if (!tracks[id]) {
-      tracks[id] = { pos: [...p.bbox], target: [...p.bbox], cls: p.class, ocr: genOCR(p.class), score: p.score, last: now };
+      tracks[id] = { pos: [...p.bbox], target: [...p.bbox], cls: p.class, ocr: genOCR(p.class), last: now, active: true };
     } else {
       tracks[id].target = [...p.bbox];
-      tracks[id].score = p.score;
       tracks[id].last = now;
+      tracks[id].active = true;
     }
   });
+}
+
+function genOCR(cls) {
+  if (['car', 'truck', 'bus'].includes(cls)) {
+    const r = (s) => s[Math.floor(Math.random() * s.length)];
+    return `${r("ABCEHKMOPTX")}${Math.floor(Math.random()*999)}${r("ABCEHKMOPTX")}${r("ABCEHKMOPTX")}`;
+  }
+  return "IDX_" + Math.random().toString(36).substring(7).toUpperCase();
 }
 
 function renderLoop() {
   const ctx = canvas.getContext('2d');
   canvas.width = window.innerWidth;
   canvas.height = window.innerHeight;
-  
   ctx.clearRect(0, 0, canvas.width, canvas.height);
+  
   const now = Date.now();
+  fpsCnt++;
+  if(now - lastFpsT > 1000) {
+    document.getElementById('b-fps').textContent = fpsCnt + " FPS";
+    fpsCnt = 0; lastFpsT = now;
+  }
+
+  let threats = 0, maxD = 0;
 
   for (let id in tracks) {
     let t = tracks[id];
-    if (now - t.last > 1000) { delete tracks[id]; continue; }
+    if (now - t.last > 1500) { delete tracks[id]; continue; }
 
-    // Плавная интерполяция (Lerp)
     for(let i=0; i<4; i++) t.pos[i] += (t.target[i] - t.pos[i]) * CFG.LERP;
 
-    drawUI(ctx, t, id === selId);
+    const info = GROUPS[t.cls] || GROUPS.default;
+    const dist = (CFG.FOCAL * info.h / t.pos[3]).toFixed(1);
+    if(dist > maxD) maxD = dist;
+    if(['car','person','truck'].includes(t.cls)) threats++;
+
+    drawUI(ctx, t, id === selId, dist);
   }
+
+  document.getElementById('s-thr').textContent = threats;
+  document.getElementById('s-dist').textContent = maxD + "m";
+  document.getElementById('s-trk').textContent = Object.keys(tracks).length;
+  document.getElementById('b-obj').textContent = Object.keys(tracks).length + " OBJ";
+
   requestAnimationFrame(renderLoop);
 }
 
-function drawUI(ctx, t, isSel) {
-  const scaleX = canvas.width / videoWidth;
-  const scaleY = canvas.height / videoHeight;
+function drawUI(ctx, t, isSel, dist) {
+  const sx = canvas.width / videoWidth, sy = canvas.height / videoHeight;
   const [vx, vy, vw, vh] = t.pos;
-  const x = vx * scaleX, y = vy * scaleY, w = vw * scaleX, h = vh * scaleY;
-
+  const x = vx * sx, y = vy * sy, w = vw * sx, h = vh * sy;
   const info = GROUPS[t.cls] || GROUPS.default;
   const color = isSel ? '#ff2244' : info.c;
 
-  // Линия к прицелу
-  ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = isSel ? color : "rgba(255,255,255,0.15)";
+  // Линии связи с прицелом
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = isSel ? color : "rgba(0,255,65,0.15)";
   ctx.beginPath();
   ctx.moveTo(canvas.width/2, canvas.height/2);
   ctx.lineTo(x + w/2, y + h/2);
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Рамка
+  // Рамка (Corners)
   ctx.strokeStyle = color;
-  ctx.lineWidth = isSel ? 5 : 2;
-  ctx.strokeRect(x, y, w, h);
+  ctx.lineWidth = isSel ? 3 : 1.5;
+  const s = 15;
+  ctx.beginPath();
+  ctx.moveTo(x,y+s); ctx.lineTo(x,y); ctx.lineTo(x+s,y);
+  ctx.moveTo(x+w-s,y); ctx.lineTo(x+w,y); ctx.lineTo(x+w,y+s);
+  ctx.moveTo(x,y+h-s); ctx.lineTo(x,y+h); ctx.lineTo(x+s,y+h);
+  ctx.moveTo(x+w-s,y+h); ctx.lineTo(x+w,y+h); ctx.lineTo(x+w,y+h-s);
+  ctx.stroke();
 
-  // ОГРОМНЫЙ ТАЙТЛ
+  // Night Mode ASCII fill
+  if(nightMode) {
+    ctx.fillStyle = color;
+    ctx.font = "10px monospace";
+    ctx.globalAlpha = 0.2;
+    for(let i=0; i<w; i+=12) for(let j=0; j<h; j+=12) ctx.fillText(Math.random()>0.5?"1":"0", x+i, y+j);
+    ctx.globalAlpha = 1.0;
+  }
+
+  // Тайтл (Меньше, как просили)
   ctx.fillStyle = color;
-  ctx.font = "bold 24px 'Orbitron'";
-  const txt = info.n.toUpperCase();
-  const tw = ctx.measureText(txt).width;
-  ctx.fillRect(x, y - 40, tw + 20, 40);
-  ctx.fillStyle = "#000";
-  ctx.fillText(txt, x + 10, y - 12);
-
-  // OCR Поле
-  ctx.fillStyle = "rgba(0,0,0,0.7)";
-  ctx.fillRect(x, y + h, w, 28);
-  ctx.fillStyle = "#fff";
-  ctx.font = "14px 'Share Tech Mono'";
-  ctx.fillText(t.ocr, x + 10, y + h + 18);
+  ctx.font = "bold 14px 'Share Tech Mono'";
+  ctx.fillText(`${info.n} [${dist}m]`, x, y - 10);
+  ctx.font = "9px 'Share Tech Mono'";
+  ctx.fillText(t.ocr, x, y + h + 12);
 }
 
-function genOCR(cls) {
-  if (['car', 'truck', 'bus'].includes(cls)) {
-    const letters = "ABCEHIKMOPTX";
-    const r = (set) => set[Math.floor(Math.random() * set.length)];
-    return `PLATE: ${r(letters)}${r(letters)} ${Math.floor(1000 + Math.random()*8999)} ${r(letters)}`;
-  }
-  return "DATA: " + Math.random().toString(36).substring(7).toUpperCase();
+function toggleNight() {
+  nightMode = !nightMode;
+  const btn = document.getElementById('night-btn');
+  btn.textContent = "NIGHT_MODE: " + (nightMode ? "ON" : "OFF");
+  video.style.filter = nightMode ? "brightness(0.4) contrast(2) saturate(0) sepia(1) hue-rotate(90deg)" : "brightness(.6) contrast(1.2)";
+  log("SWITCHING OPTICS...", nightMode ? "var(--b)" : "var(--g)");
 }
 
 function log(m, c) {
   const t = document.getElementById('terminal');
   const d = document.createElement('div');
-  d.className = 'tl';
-  d.style.color = c || '#666';
-  d.innerHTML = `> ${m}`;
+  d.className = 'tl'; d.style.color = c || '#666';
+  d.innerHTML = `> ${new Date().toLocaleTimeString()} | ${m}`;
   t.prepend(d);
 }
 
 canvas.addEventListener('click', (e) => {
   const tx = e.clientX, ty = e.clientY;
-  const scaleX = canvas.width / videoWidth;
-  const scaleY = canvas.height / videoHeight;
+  const sx = canvas.width / videoWidth, sy = canvas.height / videoHeight;
 
   for (let id in tracks) {
     const [vx, vy, vw, vh] = tracks[id].pos;
-    const x = vx * scaleX, y = vy * scaleY, w = vw * scaleX, h = vh * scaleY;
-    if (tx > x && tx < x + w && ty > y && ty < ty + h) {
+    const x = vx * sx, y = vy * sy, w = vw * sx, h = vh * sy;
+    if (tx > x && tx < x + w && ty > y && ty < y + h) {
       selId = id;
       openInfo(id, tracks[id]);
       return;
@@ -232,16 +277,16 @@ canvas.addEventListener('click', (e) => {
 
 function openInfo(id, t) {
   const info = GROUPS[t.cls] || GROUPS.default;
-  const dist = (CFG.FOCAL * info.h / (t.pos[3])).toFixed(1);
+  const dist = (CFG.FOCAL * info.h / t.pos[3]).toFixed(1);
   document.getElementById('info-title').textContent = info.n;
+  document.getElementById('info-title').style.color = info.c;
   document.getElementById('info-grid').innerHTML = `
-    <div class="ik">ID_REF</div><div class="iv">#${id.toUpperCase()}</div>
-    <div class="ik">DISTANCE</div><div class="iv">${dist}m</div>
-    <div class="ik">OCR_STREAM</div><div class="iv">${t.ocr}</div>
-    <div class="ik">PROBABILITY</div><div class="iv">${(t.score*100).toFixed(1)}%</div>
+    <div style="color:#666">REF_ID:</div><div style="color:var(--g)">#${id.toUpperCase()}</div>
+    <div style="color:#666">RANGE:</div><div style="color:var(--g)">${dist}m</div>
+    <div style="color:#666">DATA:</div><div style="color:var(--g)">${t.ocr}</div>
+    <div style="color:#666">DESC:</div><div style="color:var(--g2)">${info.d}</div>
   `;
   document.getElementById('info-panel').classList.add('open');
-  log(`LOCKED ON ${info.n}`, "var(--r)");
 }
 
 function closeInfo() { selId = null; document.getElementById('info-panel').classList.remove('open'); }
