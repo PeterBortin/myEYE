@@ -1,4 +1,161 @@
-<!DOCTYPE html>
+<!DOCTYPE html><!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Digital Vision Pro</title>
+    <style>
+        body { margin: 0; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
+        #ui {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            pointer-events: none; z-index: 10; display: none;
+            border: 20px solid rgba(0, 255, 100, 0.1); box-sizing: border-box;
+        }
+        .label { position: absolute; color: #0f6; font-size: 12px; text-shadow: 0 0 5px #0f6; }
+        #btn {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            padding: 20px; background: none; border: 1px solid #0f6; color: #0f6;
+            cursor: pointer; z-index: 20; text-transform: uppercase;
+        }
+        canvas { display: block; width: 100vw; height: 100vh; object-fit: cover; }
+    </style>
+</head>
+<body>
+
+    <button id="btn">Инициализировать протокол CV</button>
+    
+    <div id="ui">
+        <div class="label" style="top:30px; left:30px;">STATUS: SCANNING...</div>
+        <div class="label" style="top:30px; right:30px;">REC ●</div>
+        <div class="label" style="bottom:30px; left:30px;" id="data">ISO: 800 | BW: 40MHz</div>
+    </div>
+
+    <!-- Подключаем Three.js из CDN -->
+    <script type="importmap">
+        { "imports": { "three": "https://unpkg.com/three@0.160.0/build/three.module.js" } }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        const btn = document.getElementById('btn');
+        const ui = document.getElementById('ui');
+        let video, scene, camera, renderer, material;
+
+        btn.addEventListener('click', async () => {
+            btn.style.display = 'none';
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: "environment", width: 640, height: 480 },
+                    audio: false
+                });
+                
+                initScene(stream);
+                ui.style.display = 'block';
+            } catch (err) {
+                console.error(err);
+                alert("Ошибка доступа: " + err.message);
+                btn.style.display = 'block';
+            }
+        });
+
+        function initScene(stream) {
+            video = document.createElement('video');
+            video.srcObject = stream;
+            video.play();
+
+            scene = new THREE.Scene();
+            camera = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
+            renderer = new THREE.WebGLRenderer({ antialias: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            document.body.appendChild(renderer.domElement);
+
+            const texture = new THREE.VideoTexture(video);
+
+            // КАСТОМНЫЙ ШЕЙДЕР (Комбинируем все эффекты с ваших фото)
+            const shaderCode = {
+                vertex: `
+                    varying vec2 vUv;
+                    void main() {
+                        vUv = uv;
+                        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+                    }
+                `,
+                fragment: `
+                    uniform sampler2D tDiffuse;
+                    uniform float time;
+                    varying vec2 vUv;
+
+                    void main() {
+                        vec2 uv = vUv;
+                        
+                        // 1. Глитч-смещение (image_5)
+                        float shift = sin(time * 10.0 + uv.y * 20.0) * 0.005 * step(0.9, sin(time * 5.0));
+                        uv.x += shift;
+
+                        // 2. Эффект точек/пикселизации (image_2)
+                        float dots = 150.0; 
+                        vec2 gridUv = floor(uv * dots) / dots;
+                        vec4 color = texture2D(tDiffuse, gridUv);
+
+                        // 3. Расчет яркости
+                        float brightness = (color.r + color.g + color.b) / 3.0;
+
+                        // 4. Стилизация под изумрудный/синий (image_3)
+                        vec3 digitalTint = vec3(0.0, 1.0, 0.7); 
+                        if(brightness < 0.2) color.rgb *= 0.1; // Глубокие тени
+
+                        // 5. Скан-линии (image_4)
+                        float scanline = sin(uv.y * 400.0 + time * 5.0) * 0.1;
+                        
+                        // Итоговый микс
+                        vec3 finalColor = color.rgb * digitalTint + scanline;
+                        
+                        // Добавляем шум
+                        float noise = fract(sin(dot(uv, vec2(12.9898,78.233)*time)) * 43758.5453);
+                        finalColor += noise * 0.05;
+
+                        gl_FragColor = vec4(finalColor * brightness * 1.5, 1.0);
+                    }
+                `
+            };
+
+            material = new THREE.ShaderMaterial({
+                uniforms: {
+                    tDiffuse: { value: texture },
+                    time: { value: 0 }
+                },
+                vertexShader: shaderCode.vertex,
+                fragmentShader: shaderCode.fragment
+            });
+
+            const mesh = new THREE.Mesh(new THREE.PlaneGeometry(2, 2), material);
+            scene.add(mesh);
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        function onWindowResize() {
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (material) {
+                material.uniforms.time.value += 0.05;
+            }
+            renderer.render(scene, camera);
+            
+            // Динамические данные в UI
+            if(Math.random() > 0.9) {
+                document.getElementById('data').innerText = `ISO: ${Math.floor(Math.random()*1200)} | BW: ${ (Math.random()*100).toFixed(2) }MHz`;
+            }
+        }
+    </script>
+</body>
+</html>
+
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
