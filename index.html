@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE PRO</title>
+<title>myEYE</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose"></script>
@@ -13,36 +13,49 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
 <style>
-:root{ --g:#00ff41; --panel:rgba(2,8,4,.8); --blue:#00aaff; }
+:root{ --g:#00ff41; --panel:rgba(2,8,4,.8); --blue:#00aaff; --red: #ff3333; }
 *{margin:0;padding:0;box-sizing:border-box;}
-body,html{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Share Tech Mono',monospace;color:var(--g);}
+body,html{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Share Tech Mono',monospace;color:var(--g); -webkit-tap-highlight-color: transparent;}
 
-#boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px;}
+#boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px;text-align:center;}
 #boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:42px;color:var(--g);text-shadow:0 0 15px var(--g);letter-spacing:5px;}
-#pb-wrap{width:100%;max-width:300px;height:2px;background:#111;margin-top:20px;position:relative;}
-#pb{height:100%;width:0;background:var(--g);transition:width .3s;}
-#btn-start{margin-top:40px;display:none;background:none;border:1px solid var(--g);color:var(--g);padding:15px 50px;cursor:pointer;font-family:'Orbitron';text-transform:uppercase;}
+#pb-wrap{width:100%;max-width:300px;height:2px;background:#111;margin-top:20px;position:relative;overflow:hidden;}
+#pb{height:100%;width:0;background:var(--g);transition:width .3s;box-shadow: 0 0 10px var(--g);}
+#btn-start{margin-top:40px;display:none;background:none;border:1px solid var(--g);color:var(--g);padding:15px 50px;cursor:pointer;font-family:'Orbitron';text-transform:uppercase;letter-spacing:2px;transition: 0.3s;}
+#btn-start:active{background:var(--g);color:#000;}
 
 #app{position:fixed;inset:0;display:none;flex-direction:column;background:#000;}
-#vp{position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#000;}
-video{position:absolute;width:1px;height:1px;opacity:0;}
-canvas{width:100%;height:100%;object-fit:cover;z-index:2;}
+#vp{position:relative;flex:1;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;}
+video{display:none;}
+canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;cursor: crosshair;}
 
-#topbar{position:absolute;top:0;left:0;right:0;z-index:15;display:grid;grid-template-columns: 1fr auto; padding:15px;pointer-events:none;}
-.badge{font-size:10px;padding:4px 8px;border:1px solid rgba(0,255,65,.3);background:var(--panel);margin-left:5px;}
+#topbar{position:absolute;top:0;left:0;right:0;z-index:15;display:grid;grid-template-columns: 1fr auto; gap:10px; padding:15px;pointer-events:none;background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);}
+.badge{font-size:10px;padding:4px 8px;border:1px solid rgba(0,255,65,.3);background:var(--panel);display:inline-block;margin-left:5px; backdrop-filter: blur(4px);}
 
 #terminal{height:120px;background:rgba(0,0,0,0.9);border-top:1px solid rgba(0,255,65,0.3);padding:10px;font-size:10px;overflow:hidden;display:flex;flex-direction:column-reverse;z-index:20;}
-.tl{color:var(--g);margin-bottom:3px;}
+.tl{color:var(--g);margin-bottom:3px;font-family:'Share Tech Mono';text-transform:uppercase;opacity:0.9;animation: fadeIn 0.2s ease-out;}
 .tl span {color: #888; margin-right: 8px;}
+.tl.obj {color: var(--blue);}
+.tl.info {color: #fff; background: rgba(0, 170, 255, 0.2); padding: 2px 5px; border-left: 2px solid var(--blue);}
+
+@keyframes fadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
+
+/* Mobile Optimization */
+@media (max-width: 600px) {
+  #boot-logo { font-size: 32px; }
+  #topbar { font-size: 12px; padding: 10px; }
+  .badge { font-size: 9px; padding: 3px 6px; }
+  #terminal { height: 100px; padding: 5px; }
+}
 </style>
 </head>
 <body>
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-log" style="font-size:10px; margin-top:10px;">SYSTEM CALIBRATING...</div>
+  <div id="boot-log" style="font-size:10px; margin-top:10px; letter-spacing: 1px;">created by bortin</div>
   <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="startApp()">INITIALIZE SYSTEM</button>
+  <button id="btn-start" onclick="startApp()">scan</button>
 </div>
 
 <div id="app">
@@ -50,10 +63,10 @@ canvas{width:100%;height:100%;object-fit:cover;z-index:2;}
     <video id="input_video" playsinline muted></video>
     <canvas id="output_canvas"></canvas>
     <div id="topbar">
-      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE HUD v3.0</div>
-      <div>
-        <span class="badge" id="b-fps">0 FPS</span>
-        <span class="badge" id="b-obj">0 TARGETS</span>
+      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE Pro</div>
+      <div style="text-align: right;">
+        <span class="badge" id="b-fps">0 fps</span>
+        <span class="badge" id="b-obj">scanning...</span>
       </div>
     </div>
   </div>
@@ -67,86 +80,178 @@ const canvasCtx = canvasElement.getContext('2d');
 const term = document.getElementById('terminal');
 
 let objectDetector, lastFps = 0, frameCount = 0;
-let currentPersonBox = null;
+let currentDetectionBox = null;
+let lastDetectedObjects = []; 
+const offscreenCanvas = document.createElement('canvas');
+const offscreenCtx = offscreenCanvas.getContext('2d');
 
-function log(msg) {
-  const line = document.createElement('div');
-  line.className = 'tl';
-  const ts = new Date().toLocaleTimeString();
-  line.innerHTML = `<span>[${ts}]</span> > ${msg}`;
-  term.prepend(line);
-  if (term.childNodes.length > 10) term.lastChild.remove();
+const classColors = {
+  person: '#00ff41',
+  vehicle: '#ff3333',
+  animal: '#ffff00',
+  device: '#00aaff',
+  indoor: '#ff00ff',
+  accessory: '#ffa500',
+  food: '#00ff88',
+  default: '#ffffff'
+};
+
+function getObjectGroup(label) {
+  const l = label.toLowerCase();
+  if (l === 'person') return 'HUMAN';
+  if (['car', 'bus', 'truck', 'motorcycle', 'bicycle', 'train', 'airplane', 'boat'].includes(l)) return 'VEHICLE';
+  if (['dog', 'cat', 'bird', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe'].includes(l)) return 'ANIMAL';
+  if (['cell phone', 'laptop', 'mouse', 'remote', 'keyboard', 'tv', 'microwave', 'oven', 'refrigerator', 'clock'].includes(l)) return 'DEVICE';
+  if (['chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'bench', 'sink'].includes(l)) return 'FURNITURE';
+  if (['bottle', 'cup', 'fork', 'knife', 'spoon', 'bowl', 'wine glass'].includes(l)) return 'KITCHENWARE';
+  if (['backpack', 'umbrella', 'handbag', 'tie', 'suitcase', 'frisbee', 'skis', 'snowboard', 'sports ball', 'kite', 'baseball bat', 'baseball glove', 'skateboard', 'surfboard', 'tennis racket'].includes(l)) return 'ACCESSORY';
+  if (['banana', 'apple', 'sandwich', 'orange', 'broccoli', 'carrot', 'hot dog', 'pizza', 'donut', 'cake'].includes(l)) return 'FOOD';
+  return 'OBJECT';
 }
 
-const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
-pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfidence: 0.5 });
+function getObjectColor(label) {
+  const group = getObjectGroup(label);
+  if (group === 'HUMAN') return classColors.person;
+  if (group === 'VEHICLE') return classColors.vehicle;
+  if (group === 'ANIMAL') return classColors.animal;
+  if (group === 'DEVICE') return classColors.device;
+  if (group === 'ACCESSORY') return classColors.accessory;
+  if (group === 'FOOD') return classColors.food;
+  if (group === 'FURNITURE' || group === 'KITCHENWARE') return classColors.indoor;
+  return classColors.default;
+}
 
-pose.onResults((results) => {
-  if (!results.poseLandmarks || !currentPersonBox) return;
-  const { x, y, w, h } = currentPersonBox;
-  
-  const adjLandmarks = results.poseLandmarks.map(lp => ({
-    x: (lp.x * w + x) / canvasElement.width,
-    y: (lp.y * h + y) / canvasElement.height,
-    visibility: lp.visibility
-  }));
+function log(msg, type = '') {
+  const line = document.createElement('div');
+  line.className = `tl ${type}`;
+  const now = new Date();
+  const dateStr = `${now.getDate().toString().padStart(2,'0')}.${(now.getMonth()+1).toString().padStart(2,'0')}.${now.getFullYear()}`;
+  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  line.innerHTML = `<span>[${ts}, ${dateStr}]</span> > ${msg}`;
+  term.prepend(line);
+  if (term.childNodes.length > 15) term.lastChild.remove();
+}
 
-  drawConnectors(canvasCtx, adjLandmarks, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
-  drawLandmarks(canvasCtx, adjLandmarks, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 2});
+canvasElement.addEventListener('click', (e) => {
+  const rect = canvasElement.getBoundingClientRect();
+  const scaleX = canvasElement.width / rect.width;
+  const scaleY = canvasElement.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+
+  lastDetectedObjects.forEach(o => {
+    const [bx, by, bw, bh] = o.bbox;
+    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+      const group = getObjectGroup(o.class);
+      log(`DATA_FETCH: ${o.class.toUpperCase()} | GROUP: ${group} | CONFIDENCE: ${(o.score * 100).toFixed(2)}%`, 'info');
+      log(`COORDINATES: X:${Math.round(bx)} Y:${Math.round(by)} | DIMENSIONS: ${Math.round(bw)}x${Math.round(bh)}`, 'info');
+    }
+  });
 });
 
+const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
+pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: true, minDetectionConfidence: 0.5 });
+
 async function initModels() {
-  try {
-    objectDetector = await cocoSsd.load();
-    document.getElementById('pb').style.width = '50%';
-    await pose.initialize();
-    document.getElementById('pb').style.width = '100%';
-    document.getElementById('boot-log').innerText = "SYSTEM READY";
-    document.getElementById('btn-start').style.display = 'block';
-  } catch (e) {
-    document.getElementById('boot-log').innerText = "INIT ERROR: " + e.message;
-  }
+  log("LOADING TENSOR CORE...");
+  // Настройка детектора: до 50 объектов одновременно
+  objectDetector = await cocoSsd.load({
+    base: 'lite_mobilenet_v2' 
+  });
+  document.getElementById('pb').style.width = '50%';
+  log("OBJECT_DETECTOR: OPTIMIZED (MAX_UNITS: 50)");
+  
+  await pose.initialize();
+  document.getElementById('pb').style.width = '100%';
+  document.getElementById('boot-log').innerText = "SYSTEM CALIBRATED // OPTICS STABLE";
+  document.getElementById('btn-start').style.display = 'block';
+  log("POSE_ENGINE: ACTIVE");
 }
 
-async function processFrame() {
-  if (videoElement.readyState < 2) return;
+pose.onResults((results) => {
+  if (!results.poseLandmarks || !currentDetectionBox) return;
+  const { x, y, w, h } = currentDetectionBox;
+  const landmarks = results.poseLandmarks;
 
-  canvasElement.width = videoElement.videoWidth;
-  canvasElement.height = videoElement.videoHeight;
-  
-  // 1. Рисуем видео
-  canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+  if (results.segmentationMask) {
+    canvasCtx.save();
+    offscreenCanvas.width = canvasElement.width;
+    offscreenCanvas.height = canvasElement.height;
+    offscreenCtx.clearRect(0, 0, offscreenCanvas.width, offscreenCanvas.height);
+    offscreenCtx.drawImage(results.segmentationMask, x, y, w, h);
+    offscreenCtx.globalCompositeOperation = 'source-in';
+    offscreenCtx.fillStyle = 'rgba(0, 255, 65, 0.2)';
+    offscreenCtx.fillRect(0,0, offscreenCanvas.width, offscreenCanvas.height);
+    canvasCtx.drawImage(offscreenCanvas, 0, 0);
+    canvasCtx.restore();
+  }
 
-  // 2. Сетка
-  canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.2)';
+  const adj = landmarks.map(lp => ({
+    x: (lp.x * w + x) / canvasElement.width,
+    y: (lp.y * h + y) / canvasElement.height
+  }));
+
+  drawConnectors(canvasCtx, adj, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
+  drawLandmarks(canvasCtx, adj, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 1});
+
+  const nose = adj[0];
+  const lE = adj[7], rE = adj[8];
+  const dist = Math.sqrt(Math.pow((rE.x - lE.x)*canvasElement.width, 2) + Math.pow((rE.y - lE.y)*canvasElement.height, 2));
+  const rW = dist * 0.9; 
+  const rH = rW * 1.3;
+
   canvasCtx.beginPath();
-  for(let i=50; i<canvasElement.width; i+=50) { canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,canvasElement.height); }
-  for(let i=50; i<canvasElement.height; i+=50) { canvasCtx.moveTo(0,i); canvasCtx.lineTo(canvasElement.width,i); }
+  canvasCtx.ellipse(nose.x * canvasElement.width, (nose.y * canvasElement.height) - (rH * 0.1), rW, rH, 0, 0, Math.PI * 2);
+  canvasCtx.strokeStyle = '#00ff41';
+  canvasCtx.lineWidth = 1.5;
   canvasCtx.stroke();
+});
 
-  // 3. Объекты
-  const detections = await objectDetector.detect(videoElement, 10, 0.4);
-  document.getElementById('b-obj').innerText = detections.length + " TARGETS";
+async function draw() {
+  const vw = videoElement.videoWidth;
+  const vh = videoElement.videoHeight;
+  if(vw === 0) return;
 
-  for (const o of detections) {
+  canvasElement.width = vw;
+  canvasElement.height = vh;
+  canvasCtx.drawImage(videoElement, 0, 0, vw, vh);
+
+  canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.1)';
+  canvasCtx.lineWidth = 1;
+  for(let i=0; i<vw; i+=50) { canvasCtx.beginPath(); canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,vh); canvasCtx.stroke(); }
+  for(let i=0; i<vh; i+=50) { canvasCtx.beginPath(); canvasCtx.moveTo(0,i); canvasCtx.lineTo(vw,i); canvasCtx.stroke(); }
+
+  // Увеличенная дальность за счет снижения порога уверенности (0.4)
+  const objs = await objectDetector.detect(videoElement, 50, 0.4);
+  lastDetectedObjects = objs;
+  document.getElementById('b-obj').innerText = lastDetectedObjects.length + " TARGETS";
+
+  for (const o of lastDetectedObjects) {
     const [bx, by, bw, bh] = o.bbox;
-    canvasCtx.strokeStyle = o.class === 'person' ? '#00ff41' : '#00aaff';
+    const targetColor = getObjectColor(o.class);
+    const group = getObjectGroup(o.class);
+    
+    canvasCtx.strokeStyle = targetColor;
     canvasCtx.lineWidth = 2;
     canvasCtx.strokeRect(bx, by, bw, bh);
     
-    canvasCtx.fillStyle = canvasCtx.strokeStyle;
-    canvasCtx.fillText(o.class.toUpperCase(), bx, by - 5);
+    canvasCtx.fillStyle = targetColor;
+    canvasCtx.font = '12px Share Tech Mono';
+    canvasCtx.fillText(`[ ${o.class.toUpperCase()} ${Math.round(o.score*100)}% ]`, bx + 5, by + 15);
 
     if(o.class === 'person') {
-      currentPersonBox = { x: bx, y: by, w: bw, h: bh };
-      const crop = document.createElement('canvas');
-      crop.width = bw; crop.height = bh;
-      crop.getContext('2d').drawImage(videoElement, bx, by, bw, bh, 0, 0, bw, bh);
-      await pose.send({image: crop});
+      currentDetectionBox = { x: bx, y: by, w: bw, h: bh };
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = bw; tempCanvas.height = bh;
+      tempCanvas.getContext('2d').drawImage(videoElement, bx, by, bw, bh, 0, 0, bw, bh);
+      await pose.send({image: tempCanvas});
+      
+      if(frameCount % 60 === 0) log(`object detected: ${o.class.toUpperCase()} | group: ${group}`);
+    } else {
+      if(frameCount % 60 === 0) log(`object detected: ${o.class.toUpperCase()} | group: ${group}`, 'obj');
     }
   }
 
-  // FPS
   frameCount++;
   const now = performance.now();
   if (now - lastFps > 1000) {
@@ -158,16 +263,17 @@ async function processFrame() {
 function startApp() {
   document.getElementById('boot').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
+  log("SYSTEM_START: SUCCESS");
   
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
   const camera = new Camera(videoElement, {
-    onFrame: async () => {
-      await processFrame();
-    },
+    onFrame: async () => { await draw(); },
     width: 1280,
-    height: 720
+    height: 720,
+    facingMode: isMobile ? "environment" : "user"
   });
-  
-  camera.start().then(() => log("CAMERA_ACTIVE"));
+  camera.start();
 }
 
 initModels();
