@@ -210,19 +210,13 @@ function startApp() {
   document.getElementById('app').style.display = 'flex';
   log("SYSTEM_START: SUCCESS");
   
-  // Выбор камеры: 'environment' для мобильных (основная), 'user' для фронтальной
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  const constraints = {
-    video: { 
-      facingMode: isMobile ? "environment" : "user",
-      width: { ideal: 1280 },
-      height: { ideal: 720 }
-    }
-  };
 
   const camera = new Camera(videoElement, {
     onFrame: async () => { await draw(); },
-    width: 1280, height: 720,
+    width: 1280,
+    height: 720,
+    // Принудительно используем environment (основная камера) для мобильных
     facingMode: isMobile ? "environment" : "user"
   });
   camera.start();
