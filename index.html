@@ -143,7 +143,6 @@ async function initModels() {
   log("initializing long-range engine...");
   objectDetector = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
   document.getElementById('pb').style.width = '50%';
-  
   await pose.initialize();
   document.getElementById('pb').style.width = '100%';
   document.getElementById('boot-log').innerText = "optics calibrated / lr-scan active";
@@ -156,7 +155,6 @@ pose.onResults((results) => {
   currentPoseResults = results;
 });
 
-// Простая функция пересечения для удаления дубликатов рамок
 function isDuplicate(bbox, list) {
     for (let item of list) {
         const [x1, y1, w1, h1] = bbox;
@@ -176,9 +174,6 @@ async function draw() {
 
   canvasElement.width = vw;
   canvasElement.height = vh;
-  
-  //Pose вызывается один раз на весь кадр
-  await pose.send({image: videoElement});
 
   canvasCtx.drawImage(videoElement, 0, 0, vw, vh);
 
@@ -187,10 +182,8 @@ async function draw() {
   for(let i=0; i<vw; i+=vw/10) { canvasCtx.beginPath(); canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,vh); canvasCtx.stroke(); }
   for(let i=0; i<vh; i+=vh/10) { canvasCtx.beginPath(); canvasCtx.moveTo(0,i); canvasCtx.lineTo(vw,i); canvasCtx.stroke(); }
 
-  // 1. Основной скан
+  // Детекция
   const fullScan = await objectDetector.detect(videoElement, 20, 0.4);
-  
-  // 2. Зум скан
   const zoomCanvas = document.createElement('canvas');
   zoomCanvas.width = 640; zoomCanvas.height = 640;
   const zCtx = zoomCanvas.getContext('2d');
@@ -207,57 +200,67 @@ async function draw() {
     ]
   }));
 
-  // Объединяем, убирая дубликаты (чтобы не было двойных рамок)
   lastDetectedObjects = [...fullScan];
   correctedZoom.forEach(z => {
       if (!isDuplicate(z.bbox, fullScan)) lastDetectedObjects.push(z);
   });
 
-  document.getElementById('b-obj').innerText = lastDetectedObjects.length + " TARGETS";
-
-  // Скелет и Овал головы
-  if (currentPoseResults && currentPoseResults.poseLandmarks) {
-     const landmarks = currentPoseResults.poseLandmarks;
-     drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
-     drawLandmarks(canvasCtx, landmarks, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 2});
-
-     // Овал головы (скалируемый)
-     const nose = landmarks[0];
-     const lEye = landmarks[2]; // Left Eye
-     const rEye = landmarks[5]; // Right Eye
-     
-     if(nose && lEye && rEye) {
-        const eyeDist = Math.sqrt(Math.pow((rEye.x - lEye.x)*vw, 2) + Math.pow((rEye.y - lEye.y)*vh, 2));
-        const headW = eyeDist * 2.5;
-        const headH = eyeDist * 3.2;
-        
-        canvasCtx.beginPath();
-        canvasCtx.ellipse(nose.x * vw, nose.y * vh - (headH * 0.1), headW, headH, 0, 0, Math.PI * 2);
-        canvasCtx.strokeStyle = '#00ff41';
-        canvasCtx.lineWidth = 2;
-        canvasCtx.setLineDash([5, 5]); // Пунктир для головы
-        canvasCtx.stroke();
-        canvasCtx.setLineDash([]);
-     }
+  const hasPerson = lastDetectedObjects.some(o => o.class === 'person');
+  if (hasPerson) {
+      await pose.send({image: videoElement});
+  } else {
+      currentPoseResults = null;
   }
 
-  // Отрисовка рамок
-  for (const o of lastDetectedObjects) {
+  document.getElementById('b-obj').innerText = lastDetectedObjects.length + " TARGETS";
+
+  // СТРОГАЯ ОТРИСОВКА СКЕЛЕТА ТОЛЬКО ДЛЯ ЛЮДЕЙ
+  lastDetectedObjects.forEach(o => {
     const [bx, by, bw, bh] = o.bbox;
     const targetColor = getObjectColor(o.class);
     
+    // Рамки (Жирные)
     canvasCtx.strokeStyle = targetColor;
     canvasCtx.lineWidth = 3; 
     canvasCtx.globalAlpha = 0.8;
     canvasCtx.strokeRect(bx, by, bw, bh);
     
+    // Подписи (Крупные)
     canvasCtx.fillStyle = targetColor;
     canvasCtx.globalAlpha = 1;
     canvasCtx.font = 'bold 16px Share Tech Mono';
     canvasCtx.fillText(`${o.class.toUpperCase()} [${Math.round(o.score*100)}%]`, bx, by > 20 ? by - 8 : by + 20);
 
+    // Если это человек - рисуем скелет внутри его области
+    if(o.class === 'person' && currentPoseResults && currentPoseResults.poseLandmarks) {
+        const landmarks = currentPoseResults.poseLandmarks;
+        
+        // Рисуем только если центральная точка человека (нос) находится примерно в рамке
+        const nose = landmarks[0];
+        if (nose.x * vw > bx && nose.x * vw < bx + bw) {
+            drawConnectors(canvasCtx, landmarks, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
+            drawLandmarks(canvasCtx, landmarks, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 2});
+
+            // Овал головы
+            const lEye = landmarks[2];
+            const rEye = landmarks[5];
+            if(nose && lEye && rEye) {
+                const eyeDist = Math.sqrt(Math.pow((rEye.x - lEye.x)*vw, 2) + Math.pow((rEye.y - lEye.y)*vh, 2));
+                const headW = eyeDist * 2.2;
+                const headH = eyeDist * 3.0;
+                canvasCtx.beginPath();
+                canvasCtx.setLineDash([5, 5]);
+                canvasCtx.ellipse(nose.x * vw, nose.y * vh - (headH * 0.1), headW, headH, 0, 0, Math.PI * 2);
+                canvasCtx.strokeStyle = '#00ff41';
+                canvasCtx.lineWidth = 2;
+                canvasCtx.stroke();
+                canvasCtx.setLineDash([]);
+            }
+        }
+    }
+
     if(frameCount % 120 === 0) log(`OBJECT_LOG: ${o.class.toUpperCase()} | DIST_FNT: ${Math.round(1500/bw)}m`, 'obj');
-  }
+  });
 
   frameCount++;
   const now = performance.now();
@@ -273,7 +276,6 @@ function startApp() {
   log("LR-SCANNER: INITIALIZED");
   
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
   const camera = new Camera(videoElement, {
     onFrame: async () => { await draw(); },
     width: { ideal: 1280 },
