@@ -2,274 +2,143 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
-    <title>myEYE - Vision OS</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@700;900&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VISION_OS v12.0 | NEURAL_SILHOUETTE</title>
     
-    <!-- Подключение библиотек нейросети -->
+    <!-- TensorFlow.js Core -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <!-- Модель для детекции (рамки) -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <!-- Модель для сегментации (силуэты) -->
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
 
     <style>
-        :root {
-            --g: #3dff6e; --g2: #28cc50; --g3: #0d4a1f;
-            --y: #e8e000; --o: #d97700; --r: #cc1133;
-            --bg: #030a04; --panel: rgba(3,10,4,.96); --bord: rgba(61,255,110,.16);
-            --fm: 'Share Tech Mono', monospace; --fh: 'Orbitron', sans-serif;
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        html, body {
-            width: 100%; height: 100%; background: #000; overflow: hidden;
-            font-family: var(--fm); color: var(--g);
-            -webkit-user-select: none; user-select: none;
-            touch-action: manipulation;
-        }
-
-        /* ─── BOOT ─── */
-        #boot {
-            position: fixed; inset: 0; background: #000; z-index: 400;
-            display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 0 24px;
-        }
-        #boot-logo {
-            font-family: var(--fh); font-weight: 900;
-            font-size: clamp(36px, 10vw, 64px); letter-spacing: .22em;
-            color: var(--g); text-shadow: 0 0 24px var(--g), 0 0 60px #002a10;
-            animation: glow 3s ease-in-out infinite;
-        }
-        #boot-sub { font-size: 9px; letter-spacing: .5em; color: var(--g2); margin: 4px 0 28px; }
-        #boot-steps { width: min(360px, 90vw); }
-        .step {
-            display: flex; align-items: center; gap: 10px;
-            font-size: 9.5px; color: var(--g2); line-height: 1;
-            margin-bottom: 11px; opacity: 0; transition: opacity .15s;
-        }
-        .step.vis { opacity: 1; }
-        .step-name { min-width: 170px; font-size: 9px; }
-        .step-bar-wrap { flex: 1; height: 2px; background: #0b1e0e; }
-        .step-bar { height: 100%; width: 0; background: var(--g); box-shadow: 0 0 6px var(--g); transition: width .42s linear; }
-        .step-lbl { font-size: 8px; min-width: 26px; text-align: right; color: var(--g2); }
-        .step-lbl.ok { color: var(--g); }
-        
-        #btn-start {
-            margin-top: 24px; display: none;
-            background: none; border: 1px solid var(--g); color: var(--g);
-            font-family: var(--fh); font-size: 11px; letter-spacing: .28em;
-            padding: 12px 40px; cursor: pointer; position: relative; overflow: hidden;
-        }
-        #btn-start span { position: relative; z-index: 1; }
-
-        /* ─── APP ─── */
-        #app { position: fixed; inset: 0; display: flex; flex-direction: column; }
-        #vp { position: relative; flex: 1; overflow: hidden; background: #000; }
-        video {
-            position: absolute; inset: 0; width: 100%; height: 100%;
-            object-fit: cover; z-index: 1;
-            filter: brightness(.52) contrast(1.4) saturate(.8) sepia(.12) hue-rotate(10deg);
-        }
-        canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; }
-
-        /* HUD & Overlay */
-        #vp::after {
-            content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
-            background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(61,255,110,.01) 3px, rgba(61,255,110,.01) 4px);
-            animation: scan 14s linear infinite;
-        }
-        .hc { position: absolute; width: 30px; height: 30px; z-index: 10; pointer-events: none; border: 2px solid transparent; }
-        #hc-tl { top: 10px; left: 10px; border-top-color: var(--g); border-left-color: var(--g); }
-        #hc-tr { top: 10px; right: 10px; border-top-color: var(--g); border-right-color: var(--g); }
-        #hc-bl { bottom: 10px; left: 10px; border-bottom-color: var(--g); border-left-color: var(--g); }
-        #hc-br { bottom: 10px; right: 10px; border-bottom-color: var(--g); border-right-color: var(--g); }
-
-        #topbar {
-            position: absolute; top: 0; left: 0; right: 0; z-index: 15; padding: 15px;
-            display: flex; justify-content: space-between; align-items: flex-start;
-        }
-        .badge { font-size: 9px; padding: 4px 8px; border: 1px solid var(--bord); background: var(--panel); margin-bottom: 4px; }
-        .badge.thr { color: var(--r); border-color: var(--r); animation: blink .5s infinite; }
-
-        #statbar {
-            position: absolute; bottom: 0; left: 0; right: 0; z-index: 15;
-            display: flex; background: var(--panel); border-top: 1px solid var(--bord);
-        }
-        .sc { flex: 1; padding: 8px; font-size: 8px; text-align: center; color: var(--g2); }
-        .sc span { display: block; font-size: 11px; color: var(--g); font-weight: bold; }
-
-        #terminal { height: 100px; background: var(--bg); border-top: 1px solid var(--bord); padding: 10px; font-size: 10px; overflow: hidden; }
-        .tl { margin-bottom: 4px; }
-        .tok { color: var(--g); } .twarn { color: var(--y); } .talert { color: var(--r); }
-
-        #info-panel {
-            position: absolute; bottom: 0; left: 0; right: 0; z-index: 100;
-            background: var(--panel); border-top: 2px solid var(--g); padding: 20px;
-            transform: translateY(100%); transition: transform .3s;
-        }
-        #info-panel.open { transform: translateY(0); }
-
-        @keyframes glow { 0%,100% { opacity: 0.8; } 50% { opacity: 1; } }
-        @keyframes scan { from { background-position: 0 0; } to { background-position: 0 100%; } }
-        @keyframes blink { 0%,100% { opacity: 1; } 50% { opacity: 0; } }
+        :root { --main: #00ff41; --bg: #050505; }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; color: var(--main); }
+        #viewport { position: relative; width: 100vw; height: 100vh; }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.3) contrast(1.2); z-index: 1; }
+        canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 5; pointer-events: none; }
+        #overlay { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        button { background: none; border: 1px solid var(--main); color: var(--main); padding: 15px 40px; cursor: pointer; letter-spacing: 3px; font-family: inherit; }
+        .hud { position: absolute; top: 10px; left: 10px; z-index: 20; font-size: 10px; background: rgba(0,0,0,0.7); padding: 10px; border-left: 3px solid var(--main); }
     </style>
 </head>
 <body>
 
-<div id="boot">
-    <div id="boot-logo">myEYE</div>
-    <div id="boot-sub">VISION OS v5.0</div>
-    <div id="boot-steps">
-        <div class="step" id="s0"><span class="step-name">CORE_KERNEL</span><div class="step-bar-wrap"><div class="step-bar" id="sb0"></div></div><span class="step-lbl" id="sl0">---</span></div>
-        <div class="step" id="s1"><span class="step-name">COCO-SSD_MODEL</span><div class="step-bar-wrap"><div class="step-bar" id="sb1"></div></div><span class="step-lbl" id="sl1">---</span></div>
-        <div class="step" id="s2"><span class="step-name">OCR_ENGINE</span><div class="step-bar-wrap"><div class="step-bar" id="sb2"></div></div><span class="step-lbl" id="sl2">---</span></div>
-    </div>
-    <button id="btn-start" onclick="initCamera()"><span>■ АКТИВИРОВАТЬ</span></button>
+<div id="overlay">
+    <div style="margin-bottom:20px; font-size:12px; letter-spacing:5px;">SYSTEM_V12: INITIALIZING SEGMENTATION_CORE</div>
+    <button onclick="init()">START NEURAL_SCAN</button>
 </div>
 
-<div id="app" style="display:none">
-    <div id="vp">
-        <video id="video" playsinline muted autoplay></video>
-        <canvas id="canvas"></canvas>
-        <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
-        <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-        
-        <div id="topbar">
-            <div id="sys-id">myEYE_SYS</div>
-            <div id="badges">
-                <div class="badge" id="b-fps">0 FPS</div>
-                <div class="badge" id="b-obj">0 OBJ</div>
-                <div class="badge" id="b-mode">SCAN</div>
-            </div>
-        </div>
-
-        <div id="statbar">
-            <div class="sc">ДИСТАНЦИЯ<span id="s-dist">---</span></div>
-            <div class="sc">УГРОЗЫ<span id="s-thr">0</span></div>
-            <div class="sc">CONF.<span id="s-conf">---</span></div>
-        </div>
-
-        <div id="info-panel">
-            <button onclick="closeInfo()" style="float:right; background:none; border:1px solid var(--r); color:var(--r); padding:4px 8px;">X</button>
-            <h3 id="info-title">ОБЪЕКТ</h3>
-            <div id="info-grid" style="margin: 10px 0; font-size: 11px;"></div>
-            <p id="info-desc" style="font-size: 10px; color: var(--g2);"></p>
-        </div>
-    </div>
-
-    <div id="terminal">
-        <div id="term-lines"></div>
-    </div>
+<div id="viewport">
+    <div class="hud" id="stats">STATUS: STANDBY<br>FPS: 0</div>
+    <video id="video" playsinline muted autoplay></video>
+    <canvas id="canvas"></canvas>
 </div>
 
 <script>
-const CFG = { FOCAL: 950, CONF: 0.4, MAX_DET: 20, SMOOTH: 0.2 };
-const DEF = { person: 'СУБЪЕКТ', car: 'АВТО', knife: 'ОРУЖИЕ', dog: 'БИО-ОБЪЕКТ' };
-const THREATS = ['person', 'knife', 'dog'];
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d', { alpha: false });
+    const stats = document.getElementById('stats');
+    
+    let detector, segmenter;
+    const ASCII = "01$#@%&*+=:-. ".split("");
+    let lastTime = 0;
 
-let model, tracker = [], running = false, selTid = null;
+    async function init() {
+        document.querySelector('button').innerText = "LOADING MODELS...";
+        try {
+            // Загрузка моделей параллельно
+            [detector, segmenter] = await Promise.all([
+                cocoSsd.load(),
+                bodyPix.load({
+                    architecture: 'MobileNetV1',
+                    outputStride: 16,
+                    multiplier: 0.5,
+                    quantBytes: 2
+                })
+            ]);
 
-async function log(txt, type = 'tok') {
-    const el = document.getElementById('term-lines');
-    const d = document.createElement('div');
-    d.className = 'tl ' + type;
-    d.textContent = '> ' + txt;
-    el.prepend(d);
-    if(el.children.length > 5) el.lastChild.remove();
-}
-
-// Инициализация системы
-(async () => {
-    document.getElementById('s0').classList.add('vis');
-    document.getElementById('sb0').style.width = '100%';
-    document.getElementById('sl0').textContent = 'OK';
-
-    try {
-        document.getElementById('s1').classList.add('vis');
-        model = await cocoSsd.load();
-        document.getElementById('sb1').style.width = '100%';
-        document.getElementById('sl1').textContent = 'OK';
-        
-        document.getElementById('s2').classList.add('vis');
-        document.getElementById('sb2').style.width = '100%';
-        document.getElementById('sl2').textContent = 'READY';
-        
-        document.getElementById('btn-start').style.display = 'block';
-    } catch(e) {
-        log("ОШИБКА ЗАГРУЗКИ МОДЕЛИ", "talert");
+            const stream = await navigator.mediaDevices.getUserMedia({
+                video: { facingMode: 'environment' }
+            });
+            video.srcObject = stream;
+            
+            document.getElementById('overlay').style.display = 'none';
+            render();
+        } catch (e) {
+            alert("FATAL_ERROR: " + e.message);
+        }
     }
-})();
 
-async function initCamera() {
-    const v = document.getElementById('video');
-    try {
-        const s = await navigator.mediaDevices.getUserMedia({ 
-            video: { facingMode: 'environment' }, 
-            audio: false 
+    async function render(now) {
+        const fps = Math.round(1000 / (now - lastTime));
+        lastTime = now;
+        stats.innerHTML = `STATUS: ACTIVE_SCAN<br>FPS: ${fps}<br>ENGINE: BODY_PIX_V1`;
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // 1. Детекция объектов (для рамок и типов)
+        const predictions = await detector.detect(video);
+        
+        // 2. Сегментация (для точного силуэта человека)
+        // Мы делаем сегментацию в низком разрешении для скорости
+        const segmentation = await segmenter.segmentPerson(video, {
+            flipHorizontal: false,
+            internalResolution: 'medium',
+            segmentationThreshold: 0.7
         });
-        v.srcObject = s;
-        v.onloadedmetadata = () => {
-            v.play();
-            document.getElementById('boot').style.display = 'none';
-            document.getElementById('app').style.display = 'flex';
-            running = true;
-            loop();
-        };
-    } catch(e) { alert("Нет доступа к камере"); }
-}
 
-function loop() {
-    if(!running) return;
-    detect();
-    requestAnimationFrame(loop);
-}
+        // Очистка и отрисовка кадра
+        ctx.fillStyle = "#000";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-async function detect() {
-    const v = document.getElementById('video');
-    const c = document.getElementById('canvas');
-    const ctx = c.getContext('2d');
-    
-    c.width = v.videoWidth;
-    c.height = v.videoHeight;
-    
-    const predictions = await model.detect(v);
-    ctx.clearRect(0, 0, c.width, c.height);
-    
-    let threatsFound = 0;
-    
-    predictions.forEach(p => {
-        const [x, y, w, h] = p.bbox;
-        const isThreat = THREATS.includes(p.class);
-        if(isThreat) threatsFound++;
+        // ЭФФЕКТ МАТРИЦЫ ПО СИЛУЭТУ
+        drawMatrixSilhouette(segmentation);
 
-        // Отрисовка рамки
-        ctx.strokeStyle = isThreat ? '#cc1133' : '#3dff6e';
-        ctx.lineWidth = 3;
-        ctx.strokeRect(x, y, w, h);
-        
-        // Текст
-        ctx.fillStyle = isThreat ? '#cc1133' : '#3dff6e';
-        ctx.font = "14px Share Tech Mono";
-        ctx.fillText(`${(DEF[p.class] || p.class).toUpperCase()} [${Math.round(p.score*100)}%]`, x, y - 5);
-    });
+        // Отрисовка стандартных рамок COCO-SSD
+        predictions.forEach(p => {
+            const [x, y, w, h] = p.bbox;
+            ctx.strokeStyle = "#00ff41";
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(x, y, w, h);
+            ctx.fillStyle = "#00ff41";
+            ctx.font = "10px Courier New";
+            ctx.fillText(`> ${p.class.toUpperCase()} [${Math.round(p.score*100)}%]`, x, y - 5);
+        });
 
-    // Обновление HUD
-    document.getElementById('b-obj').textContent = predictions.length + ' OBJ';
-    document.getElementById('s-thr').textContent = threatsFound;
-    if(predictions.length > 0) {
-        document.getElementById('s-conf').textContent = Math.round(predictions[0].score * 100) + '%';
+        requestAnimationFrame(render);
     }
-}
 
-function closeInfo() {
-    document.getElementById('info-panel').classList.remove('open');
-}
-
-// Обработка клика по холсту для симуляции выбора
-document.getElementById('canvas').addEventListener('click', () => {
-    log("АНАЛИЗ СЕКТОРА...", "twarn");
-    document.getElementById('info-panel').classList.add('open');
-    document.getElementById('info-title').textContent = "ДАННЫЕ ОБЪЕКТА";
-    document.getElementById('info-grid').innerHTML = "ПОИСК В БАЗЕ ДАННЫХ...";
-});
+    function drawMatrixSilhouette(seg) {
+        const step = 8; // Плотность символов. Чем меньше, тем детальнее.
+        const data = seg.data; // Массив 0 и 1 (1 - это человек)
+        const width = seg.width;
+        
+        ctx.font = "bold 9px Courier New";
+        
+        for (let y = 0; y < canvas.height; y += step) {
+            for (let x = 0; x < canvas.width; x += step) {
+                // Проверяем, попадает ли точка в маску нейросети
+                const index = y * width + x;
+                if (data[index] === 1) {
+                    const char = ASCII[Math.floor(Math.random() * ASCII.length)];
+                    
+                    // Эффект "свечения"
+                    ctx.shadowBlur = 5;
+                    ctx.shadowColor = "#00ff41";
+                    ctx.fillStyle = `rgba(0, 255, 65, ${Math.random() * 0.8 + 0.2})`;
+                    
+                    ctx.fillText(char, x, y);
+                }
+            }
+        }
+        // Сброс тени для производительности
+        ctx.shadowBlur = 0;
+    }
 </script>
 </body>
 </html>
