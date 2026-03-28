@@ -27,7 +27,7 @@ body,html{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Sh
 #app{position:fixed;inset:0;display:none;flex-direction:column;background:#000;}
 #vp{position:relative;flex:1;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;}
 video{display:none;}
-canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;}
+canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;cursor: crosshair;}
 
 #topbar{position:absolute;top:0;left:0;right:0;z-index:15;display:grid;grid-template-columns: 1fr auto; gap:10px; padding:15px;pointer-events:none;background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);}
 .badge{font-size:10px;padding:4px 8px;border:1px solid rgba(0,255,65,.3);background:var(--panel);display:inline-block;margin-left:5px; backdrop-filter: blur(4px);}
@@ -36,6 +36,7 @@ canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;}
 .tl{color:var(--g);margin-bottom:3px;font-family:'Share Tech Mono';text-transform:uppercase;opacity:0.9;animation: fadeIn 0.2s ease-out;}
 .tl span {color: #888; margin-right: 8px;}
 .tl.obj {color: var(--blue);}
+.tl.info {color: #fff; background: rgba(0, 170, 255, 0.2); padding: 2px 5px; border-left: 2px solid var(--blue);}
 
 @keyframes fadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
 
@@ -52,7 +53,7 @@ canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;}
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-log" style="font-size:10px; margin-top:10px; letter-spacing: 1px;">loading...</div>
+  <div id="boot-log" style="font-size:10px; margin-top:10px; letter-spacing: 1px;">created by bortin`2026...</div>
   <div id="pb-wrap"><div id="pb"></div></div>
   <button id="btn-start" onclick="startApp()">open system</button>
 </div>
@@ -62,7 +63,7 @@ canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;}
     <video id="input_video" playsinline muted></video>
     <canvas id="output_canvas"></canvas>
     <div id="topbar">
-      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE</div>
+      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE Pro</div>
       <div style="text-align: right;">
         <span class="badge" id="b-fps">0 fps</span>
         <span class="badge" id="b-obj">scanning...</span>
@@ -80,25 +81,35 @@ const term = document.getElementById('terminal');
 
 let objectDetector, lastFps = 0, frameCount = 0;
 let currentDetectionBox = null;
+let lastDetectedObjects = []; // Хранилище для интерактивности
 const offscreenCanvas = document.createElement('canvas');
 const offscreenCtx = offscreenCanvas.getContext('2d');
 
-// Справочник цветов для различных категорий
 const classColors = {
   person: '#00ff41',
-  vehicle: '#ff3333', // car, bus, truck, motorcycle
-  animal: '#ffff00',  // dog, cat, bird, horse
-  device: '#00aaff',  // cell phone, laptop, tv, mouse
-  indoor: '#ff00ff',  // chair, bed, dining table, bottle
+  vehicle: '#ff3333',
+  animal: '#ffff00',
+  device: '#00aaff',
+  indoor: '#ff00ff',
   default: '#ffffff'
 };
 
+function getObjectGroup(label) {
+  if (label === 'person') return 'HUMAN';
+  if (['car', 'bus', 'truck', 'motorcycle', 'bicycle', 'train', 'airplane'].includes(label)) return 'VEHICLE';
+  if (['dog', 'cat', 'bird', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe'].includes(label)) return 'ANIMAL';
+  if (['cell phone', 'laptop', 'mouse', 'remote', 'keyboard', 'tv', 'microwave', 'oven', 'refrigerator'].includes(label)) return 'DEVICE';
+  if (['chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'bottle', 'cup', 'fork', 'knife', 'spoon', 'bowl'].includes(label)) return 'INDOOR';
+  return 'UNKNOWN';
+}
+
 function getObjectColor(label) {
-  if (label === 'person') return classColors.person;
-  if (['car', 'bus', 'truck', 'motorcycle', 'bicycle', 'train', 'airplane'].includes(label)) return classColors.vehicle;
-  if (['dog', 'cat', 'bird', 'horse', 'sheep', 'cow', 'elephant', 'bear', 'zebra', 'giraffe'].includes(label)) return classColors.animal;
-  if (['cell phone', 'laptop', 'mouse', 'remote', 'keyboard', 'tv', 'microwave', 'oven', 'refrigerator'].includes(label)) return classColors.device;
-  if (['chair', 'couch', 'potted plant', 'bed', 'dining table', 'toilet', 'bottle', 'cup', 'fork', 'knife', 'spoon', 'bowl'].includes(label)) return classColors.indoor;
+  const group = getObjectGroup(label);
+  if (group === 'HUMAN') return classColors.person;
+  if (group === 'VEHICLE') return classColors.vehicle;
+  if (group === 'ANIMAL') return classColors.animal;
+  if (group === 'DEVICE') return classColors.device;
+  if (group === 'INDOOR') return classColors.indoor;
   return classColors.default;
 }
 
@@ -106,31 +117,49 @@ function log(msg, type = '') {
   const line = document.createElement('div');
   line.className = `tl ${type}`;
   const now = new Date();
+  const dateStr = `${now.getDate().toString().padStart(2,'0')}.${(now.getMonth()+1).toString().padStart(2,'0')}.${now.getFullYear()}`;
   const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
-  line.innerHTML = `<span>[${ts}]</span> > ${msg}`;
+  line.innerHTML = `<span>[${ts}, ${dateStr}]</span> > ${msg}`;
   term.prepend(line);
   if (term.childNodes.length > 15) term.lastChild.remove();
 }
+
+// Обработка клика по объекту
+canvasElement.addEventListener('click', (e) => {
+  const rect = canvasElement.getBoundingClientRect();
+  const scaleX = canvasElement.width / rect.width;
+  const scaleY = canvasElement.height / rect.height;
+  const x = (e.clientX - rect.left) * scaleX;
+  const y = (e.clientY - rect.top) * scaleY;
+
+  lastDetectedObjects.forEach(o => {
+    const [bx, by, bw, bh] = o.bbox;
+    if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) {
+      const group = getObjectGroup(o.class);
+      log(`DATA_FETCH: ${o.class.toUpperCase()} | GROUP: ${group} | CONFIDENCE: ${(o.score * 100).toFixed(2)}%`, 'info');
+      log(`COORDINATES: X:${Math.round(bx)} Y:${Math.round(by)} | DIMENSIONS: ${Math.round(bw)}x${Math.round(bh)}`, 'info');
+    }
+  });
+});
 
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
 pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, enableSegmentation: true, minDetectionConfidence: 0.5 });
 
 async function initModels() {
-  log("LOADING TENSOR CORE...");
+  log("loading tensor core...");
   objectDetector = await cocoSsd.load();
   document.getElementById('pb').style.width = '50%';
-  log("OBJECT_DETECTOR: READY");
+  log("loading object detector...");
   
   await pose.initialize();
   document.getElementById('pb').style.width = '100%';
-  document.getElementById('boot-log').innerText = "SYSTEM CALIBRATED // OPTICS STABLE";
+  document.getElementById('boot-log').innerText = "system calibrated / optics stable";
   document.getElementById('btn-start').style.display = 'block';
-  log("POSE_ENGINE: ACTIVE");
+  log("loading pose engine...");
 }
 
 pose.onResults((results) => {
   if (!results.poseLandmarks || !currentDetectionBox) return;
-  
   const { x, y, w, h } = currentDetectionBox;
   const landmarks = results.poseLandmarks;
 
@@ -177,27 +206,24 @@ async function draw() {
   canvasElement.height = vh;
   canvasCtx.drawImage(videoElement, 0, 0, vw, vh);
 
-  // Сетка HUD
   canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.1)';
   canvasCtx.lineWidth = 1;
   for(let i=0; i<vw; i+=50) { canvasCtx.beginPath(); canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,vh); canvasCtx.stroke(); }
   for(let i=0; i<vh; i+=50) { canvasCtx.beginPath(); canvasCtx.moveTo(0,i); canvasCtx.lineTo(vw,i); canvasCtx.stroke(); }
 
-  // Порог обнаружения 0.6 для уменьшения ложных срабатываний
   const objs = await objectDetector.detect(videoElement);
-  const filteredObjs = objs.filter(o => o.score > 0.6);
-  document.getElementById('b-obj').innerText = filteredObjs.length + " TARGETS";
+  lastDetectedObjects = objs.filter(o => o.score > 0.6);
+  document.getElementById('b-obj').innerText = lastDetectedObjects.length + " TARGETS";
 
-  for (const o of filteredObjs) {
+  for (const o of lastDetectedObjects) {
     const [bx, by, bw, bh] = o.bbox;
     const targetColor = getObjectColor(o.class);
+    const group = getObjectGroup(o.class);
     
-    // Рисуем рамку объекта
     canvasCtx.strokeStyle = targetColor;
     canvasCtx.lineWidth = 2;
     canvasCtx.strokeRect(bx, by, bw, bh);
     
-    // Подпись
     canvasCtx.fillStyle = targetColor;
     canvasCtx.font = '12px Share Tech Mono';
     canvasCtx.fillText(`[ ${o.class.toUpperCase()} ${Math.round(o.score*100)}% ]`, bx + 5, by + 15);
@@ -209,9 +235,9 @@ async function draw() {
       tempCanvas.getContext('2d').drawImage(videoElement, bx, by, bw, bh, 0, 0, bw, bh);
       await pose.send({image: tempCanvas});
       
-      if(frameCount % 30 === 0) log(`HUMAN_ID_CONFIRMED: ${Math.round(o.score*100)}%`);
+      if(frameCount % 60 === 0) log(`object detected: ${o.class.toUpperCase()} | group: ${group}`);
     } else {
-      if(frameCount % 60 === 0) log(`OBJ_DETECTED: ${o.class.toUpperCase()}`, 'obj');
+      if(frameCount % 60 === 0) log(`object detected: ${o.class.toUpperCase()} | group: ${group}`, 'obj');
     }
   }
 
