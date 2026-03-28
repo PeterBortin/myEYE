@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE v4.0 PRO</title>
+<title>myEYE v4.0 PRO | FUSION CORE</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
@@ -62,10 +62,6 @@ background:rgba(0,255,65,.3);}
 #xhair::after{content:'';position:absolute;left:10px;top:0;width:2px;height:22px;
 background:rgba(0,255,65,.3);}
 
-#radar{position:absolute;top:50%;left:50%;z-index:7;width:6px;height:6px;margin:-3px;
-border-radius:50%;background:var(--g);pointer-events:none;
-box-shadow:0 0 0 0 rgba(0,255,65,.5);animation:rpulse 4s ease-out infinite;}
-
 #topbar{position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
 display:flex;align-items:center;justify-content:space-between;padding:10px 14px;}
 #sys-id{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
@@ -74,15 +70,7 @@ letter-spacing:.2em;color:var(--g);text-shadow:0 0 12px var(--g);}
 .badge{font-size:8px;letter-spacing:.12em;padding:3px 8px;
 border:1px solid var(--border);background:var(--panel);color:var(--g2);}
 .badge.hi{border-color:var(--g);color:var(--g);}
-.badge.al{border-color:var(--r);color:var(--r);}
-.badge.wn{border-color:var(--o);color:var(--o);}
-
-#controls-row{position:absolute;top:10px;left:100px;z-index:20;display:flex;gap:5px;}
-.ctrl-btn{background:none;border:1px solid var(--border);color:var(--g2);
-font-family:'Share Tech Mono',monospace;font-size:8px;padding:4px 10px;
-cursor:pointer;letter-spacing:.1em;transition:0.2s;}
-.ctrl-btn:hover{border-color:var(--b);color:var(--b);}
-.ctrl-btn.active{border-color:var(--g);color:var(--g);background:rgba(0,255,65,0.15);box-shadow:0 0 10px var(--g3);}
+.badge.warn{border-color:var(--y);color:var(--y);}
 
 #statbar{position:absolute;bottom:0;left:0;right:0;z-index:15;
 display:flex;gap:1px;pointer-events:none;}
@@ -97,40 +85,36 @@ padding:12px 16px 10px;transform:translateY(100%);
 transition:transform .28s cubic-bezier(.22,1,.36,1);pointer-events:none;}
 #info-panel.open{transform:translateY(0);pointer-events:all;}
 #info-close{position:absolute;top:10px;right:14px;background:none;
-border:1px solid var(--g2);color:var(--g2);font-family:'Share Tech Mono',monospace;
+border:1px solid var(--g);color:var(--g);font-family:'Share Tech Mono',monospace;
 font-size:9px;padding:3px 10px;cursor:pointer;letter-spacing:.1em;}
 #info-title{font-family:'Orbitron',sans-serif;font-size:13px;font-weight:700;
-letter-spacing:.2em;color:var(--g);margin-bottom:8px;display:inline-block;
-cursor:pointer;border-bottom:1px dashed transparent;transition:.2s;}
-#info-title:hover{border-bottom-color:var(--g);text-shadow:0 0 10px var(--g);}
+letter-spacing:.2em;color:var(--r);margin-bottom:8px;display:inline-block;}
 #info-grid{display:grid;grid-template-columns:1fr 1fr;gap:3px 12px;font-size:9px;}
 .ik{color:var(--g2);}.iv{color:var(--g);}
-#info-desc{margin-top:8px;font-size:9px;color:var(--g2);line-height:1.6;
+#info-desc{margin-top:8px;font-size:10px;color:var(--g);line-height:1.6;
 border-top:1px solid var(--border);padding-top:6px;}
 
-#terminal{flex:0 0 auto;height:108px;background:var(--bg);
+#terminal{flex:0 0 auto;height:120px;background:var(--bg);
 border-top:1px solid var(--border);padding:7px 14px;overflow:hidden;z-index:20;}
 #term-hdr{font-family:'Orbitron',sans-serif;font-size:7px;letter-spacing:.28em;
 color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 #term-hdr::before{content:'';flex:1;height:1px;background:var(--g3);}
 #term-lines{font-size:9px;line-height:1.72;}
 .tl{opacity:0;animation:si .18s forwards;}
-.tok{color:var(--g);}.twarn{color:var(--o);}.talert{color:var(--r);}.tinfo{color:var(--b);}.ttap{color:var(--y);}
+.tok{color:var(--o);}.tinfo{color:var(--b);}.tplate{color:var(--b);font-weight:bold;}
 
 @keyframes gpulse{0%,100%{text-shadow:0 0 20px var(--g),0 0 40px #003300;}
 50%{text-shadow:0 0 45px var(--g),0 0 90px #00aa44;}}
 @keyframes fi{to{opacity:1;}}
 @keyframes si{from{opacity:0;transform:translateX(-5px);}to{opacity:.93;transform:none;}}
 @keyframes scanroll{from{background-position:0 0;}to{background-position:0 120px;}}
-@keyframes rpulse{0%{box-shadow:0 0 0 0 rgba(0,255,65,.5);}
-70%{box-shadow:0 0 0 70px rgba(0,255,65,0);}100%{box-shadow:0 0 0 0 rgba(0,255,65,0);}}
 </style>
 </head>
 <body>
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-sub">advanced neural vision // v4.0 PRO</div>
+  <div id="boot-sub">FUSION NEURAL CORE // v4.0 PRO</div>
   <div id="boot-log"></div>
   <div id="pb-wrap"><div id="pb"></div></div>
   <button id="btn-start" onclick="initCamera()">open system</button>
@@ -142,32 +126,28 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
     <canvas id="canvas"></canvas>
     <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
     <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-    <div id="xhair"></div><div id="radar"></div>
+    <div id="xhair"></div>
     
-    <div id="controls-row">
-      <button id="model-btn" class="ctrl-btn" onclick="switchModel()">◈ CORE: LITE</button>
-    </div>
-
     <div id="topbar">
       <div id="sys-id">myEYE PRO</div>
       <div id="badges">
+        <div class="badge hi" id="b-core">CORE: FUSION_HD</div>
         <div class="badge hi" id="b-fps">-- FPS</div>
         <div class="badge hi" id="b-obj">0 OBJ</div>
-        <div class="badge" id="b-mode">SCAN</div>
-        <div class="badge" id="b-rng">DEEP</div>
+        <div class="badge warn" id="b-mode">ANPR_ACTIVE</div>
       </div>
     </div>
 
     <div id="statbar">
-      <div class="sc">MAX RANGE<span id="s-dist">---</span></div>
+      <div class="sc">DISTANCE<span id="s-dist">---</span></div>
       <div class="sc">THREATS<span id="s-thr">0</span></div>
-      <div class="sc">ANPR_LINK<span id="s-anpr">OFF</span></div>
+      <div class="sc">ANPR_LINK<span id="s-anpr">ONLINE</span></div>
       <div class="sc">TRACKED<span id="s-trk">0</span></div>
     </div>
 
     <div id="info-panel">
       <button id="info-close" onclick="closeInfo()">✕ CLOSE</button>
-      <div id="info-title" onclick="renameObject()">---</div>
+      <div id="info-title">---</div>
       <div id="info-grid"></div>
       <div id="info-desc"></div>
     </div>
@@ -182,314 +162,203 @@ color:var(--g3);margin-bottom:5px;display:flex;align-items:center;gap:8px;}
 <script>
 const DEFAULT_ALIASES = {
   person: 'СУБЪЕКТ', car: 'АВТОМОБИЛЬ', truck: 'ГРУЗОВИК', bus: 'АВТОБУС',
-  motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', 'fire hydrant': 'ГИДРАНТ',
-  'stop sign': 'СТОП-СИГНАЛ', 'traffic light': 'СВЕТОФОР', dog: 'ПЕС', cat: 'КОТ',
-  'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК', chair: 'КРЕСЛО',
-  tv: 'ЭКРАН', laptop: 'ЛЕПТОП', mouse: 'МАНИПУЛЯТОР', keyboard: 'КЛАВИАТУРА',
-  bench: 'СКАМЬЯ', 'potted plant': 'РАСТЕНИЕ', bird: 'ПТИЦА'
+  motorcycle: 'МОТОЦИКЛ', bicycle: 'ВЕЛОСИПЕД', dog: 'ПЕС', cat: 'КОТ',
+  'cell phone': 'ТЕРМИНАЛ', bottle: 'ЕМКОСТЬ', backpack: 'РЮКЗАК'
 };
 
-let USER_MEM = JSON.parse(localStorage.getItem('myeye_mem') || '{}');
+const CFG={ FOCAL:950, CONF:0.15, MAX_DET:20, SMOOTH:0.22, TTL:40 };
+const OBJ_H={ person:1.75, car:1.5, truck:2.8, bus:3.2, default:1.0 };
+const THREAT=new Set(['person','car','truck','bus']);
 
-const CFG={
-  FOCAL:950, 
-  CONF:0.12,  
-  MAX_DET:60,
-  SMOOTH:0.25, 
-  TTL:35,    
-  IOU:0.20
-};
-
-const OBJ_H={
-  person:1.75, car:1.55, truck:2.9, bus:3.3, motorcycle:1.15, bicycle:1.05,
-  'fire hydrant':0.65, 'stop sign':0.8, 'traffic light':0.45, dog:0.5, cat:0.3,
-  'cell phone':0.15, bottle:0.28, backpack:0.55, chair:0.9, tv:0.6, default:1.0
-};
-
-const THREAT=new Set(['person','car','truck','bus','motorcycle']);
-const COL={
-  person:'#ffff00', car:'#ff2244', truck:'#ff2244', bus:'#ff4466', motorcycle:'#ff6600',
-  'cell phone':'#88aaff', bottle:'#88ff88', backpack:'#00ffff', _d:'#00ff41'
-};
-
-function getAlias(cls) { return USER_MEM[cls] || DEFAULT_ALIASES[cls] || cls.toUpperCase(); }
-function getCol(c){return COL[c]||COL._d;}
-
-function dist(bbox,cls){
-  const rh=OBJ_H[cls]||OBJ_H.default;
-  const px=Math.max(bbox[2],bbox[3]);
-  return px<2?999:Math.min(999,+(CFG.FOCAL*rh/px).toFixed(1));
-}
-
-function hexA(hex,a){
-  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-function iou(a,b){
-  const ix=Math.max(a[0],b[0]),iy=Math.max(a[1],b[1]);
-  const iw=Math.min(a[0]+a[2],b[0]+b[2])-ix,ih=Math.min(a[1]+a[3],b[1]+b[3])-iy;
-  if(iw<=0||ih<=0) return 0;
-  return (iw*ih)/(a[2]*a[3]+b[2]*b[3]-iw*ih);
-}
-
-// Эмуляция ANPR (Распознавание знаков)
-function simulateANPR(id) {
-  const regions = ['77', '99', '178', '50', '190', '125'];
-  const chars = 'ABEKMHOPCTXY';
+// Эмуляция ANPR (Распознавание UA номеров)
+function generateUAPlate() {
+  const regions = ['KA', 'AA', 'BC', 'BH', 'AI', 'AE'];
+  const chars = 'ABCEHIKMOPTX';
   const r = (n) => Math.floor(Math.random() * n);
-  const plate = `${chars[r(12)]}${r(10)}${r(10)}${r(10)}${chars[r(12)]}${chars[r(12)]} | ${regions[r(regions.length)]}`;
-  return plate;
+  return `${regions[r(regions.length)]} ${r(10)}${r(10)}${r(10)}${r(10)} ${chars[r(12)]}${chars[r(12)]}`;
 }
 
-class Tracker{
-  constructor(){this.tracks={};this.nid=1;}
-  update(preds){
-    for(const k in this.tracks){
+class Tracker {
+  constructor() { this.tracks = {}; this.nid = 1; }
+  update(preds) {
+    for (const k in this.tracks) {
       this.tracks[k].age++;
-      this.tracks[k].seen=false;
-      if(this.tracks[k].age>CFG.TTL) delete this.tracks[k];
+      if (this.tracks[k].age > CFG.TTL) delete this.tracks[k];
     }
-    for(const p of preds){
-      let best=null, bs=CFG.IOU;
-      for(const id in this.tracks){
-        const t=this.tracks[id];
-        if(t.cls!==p.class) continue;
-        const s=iou(t.sm,p.bbox);
-        if(s>bs){bs=s;best=t;}
+    preds.forEach(p => {
+      let best = null, maxIou = 0.2;
+      for (const id in this.tracks) {
+        if (this.tracks[id].cls !== p.class) continue;
+        const s = this.getIou(this.tracks[id].sm, p.bbox);
+        if (s > maxIou) { maxIou = s; best = this.tracks[id]; }
       }
-      if(best){
-        best.sm=best.sm.map((v,i)=>v+(p.bbox[i]-v)*CFG.SMOOTH);
-        best.score=best.score+(p.score-best.score)*CFG.SMOOTH;
-        best.age=0; best.seen=true;
-        p._tid=best.id;
-        p._plate=best.plate;
-      }else{
-        const id=this.nid++;
-        let plate = null;
-        if(p.class === 'car' || p.class === 'truck') plate = simulateANPR(id);
-        this.tracks[id]={id,cls:p.class,sm:[...p.bbox],score:p.score,age:0,seen:true,plate};
-        p._tid=id;
-        p._plate=plate;
+      if (best) {
+        best.sm = best.sm.map((v, i) => v + (p.bbox[i] - v) * CFG.SMOOTH);
+        best.score = p.score; best.age = 0;
+        p._tid = best.id; p._plate = best.plate;
+      } else {
+        const id = this.nid++;
+        const plate = (p.class === 'car' || p.class === 'truck') ? generateUAPlate() : null;
+        this.tracks[id] = { id, cls: p.class, sm: [...p.bbox], score: p.score, age: 0, plate };
+        p._tid = id; p._plate = plate;
       }
-    }
-    return Object.values(this.tracks).filter(t=>t.age<2);
+    });
+    return Object.values(this.tracks).filter(t => t.age < 2);
+  }
+  getIou(a, b) {
+    const ix = Math.max(a[0], b[0]), iy = Math.max(a[1], b[1]);
+    const iw = Math.min(a[0] + a[2], b[0] + b[2]) - ix, ih = Math.min(a[1] + a[3], b[1] + b[3]) - iy;
+    if (iw <= 0 || ih <= 0) return 0;
+    return (iw * ih) / (a[2] * a[3] + b[2] * b[3] - iw * ih);
   }
 }
 
-const video=document.getElementById('video');
-const canvas=document.getElementById('canvas');
-const ctx=canvas.getContext('2d');
-const termEl=document.getElementById('term-lines');
-let model=null, running=false, lastPred=[], lastFpsT=0, fpsCnt=0;
-let termQ=[], logThr={}, currentModelType = 'lite_mobilenet_v2', selTid=null;
-const tracker=new Tracker();
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const termEl = document.getElementById('term-lines');
+let model = null, running = false, lastPred = [], lastFpsT = 0, fpsCnt = 0;
+let termQ = [], logThr = {}, selTid = null;
+const tracker = new Tracker();
 
-async function bootSeq(){
-  const bootLog=document.getElementById('boot-log');
-  const pbEl=document.getElementById('pb');
-  const BOOT=[[0,"KERNEL_INIT..."],[200,"LOAD_LIBS: TFJS/COCO-SSD"],[400,"ANPR_MODULE: STANDBY"],[600,"MODEL_CACHE: CHECKING"],[800,"SYNC_USER_PRESETS"],[1000,"SYSTEM_READY"]];
-  for(let i=0;i<BOOT.length;i++){
-    await new Promise(r=>setTimeout(r,BOOT[i][0]-(i?BOOT[i-1][0]:0)));
-    const d=document.createElement('div');d.className='bl';d.textContent='> '+BOOT[i][1];
-    bootLog.appendChild(d);pbEl.style.width=((i+1)/BOOT.length*100)+'%';
+async function bootSeq() {
+  const bootLog = document.getElementById('boot-log');
+  const pbEl = document.getElementById('pb');
+  const steps = ["LOAD_FUSION_CORE...", "MOUNT_SSD_MODELS...", "ANPR_INIT: UA_LOCAL", "THREAD_POOL: ACTIVE", "SYSTEM_READY"];
+  for (let i = 0; i < steps.length; i++) {
+    await new Promise(r => setTimeout(r, 200));
+    const d = document.createElement('div'); d.className = 'bl'; d.textContent = '> ' + steps[i];
+    bootLog.appendChild(d); pbEl.style.width = ((i + 1) / steps.length * 100) + '%';
   }
-  model=await cocoSsd.load({base: currentModelType});
-  document.getElementById('btn-start').style.display='block';
+  model = await cocoSsd.load({ base: 'mobilenet_v2' });
+  document.getElementById('btn-start').style.display = 'block';
 }
 
-async function switchModel() {
-  const btn = document.getElementById('model-btn');
-  running = false;
-  if (currentModelType === 'lite_mobilenet_v2') {
-    currentModelType = 'mobilenet_v2';
-    btn.textContent = '◈ CORE: HD_PRO';
-    btn.classList.add('active');
-    log('HD_CORE ACTIVATED: DEEP SCAN ENABLED', 'warn');
-    document.getElementById('s-anpr').textContent = 'ACTIVE';
-    document.getElementById('s-anpr').style.color = 'var(--g)';
-  } else {
-    currentModelType = 'lite_mobilenet_v2';
-    btn.textContent = '◈ CORE: LITE';
-    btn.classList.remove('active');
-    log('LITE_CORE: PERFORMANCE MODE', 'info');
-    document.getElementById('s-anpr').textContent = 'OFF';
-    document.getElementById('s-anpr').style.color = 'var(--g2)';
-  }
-  model = await cocoSsd.load({base: currentModelType});
-  running = true;
-}
-
-async function initCamera(){
+async function initCamera() {
   try {
-    const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}});
-    video.srcObject=s;
-    video.onloadedmetadata=()=>{
+    const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1920 } } });
+    video.srcObject = s;
+    video.onloadedmetadata = () => {
       video.play();
-      document.getElementById('boot').style.display='none';
-      document.getElementById('app').style.display='flex';
-      running=true;
-      log("NEURAL FEED ONLINE",'ok');
+      document.getElementById('boot').style.display = 'none';
+      document.getElementById('app').style.display = 'flex';
+      running = true;
+      log("FUSION ENGINE ONLINE", 'tinfo');
       requestAnimationFrame(renderLoop);
     };
-  } catch(e) { log("ACCESS_DENIED",'alert'); }
+  } catch (e) { log("CAMERA_ERROR", 'tinfo'); }
 }
 
-function log(txt,type='ok'){
-  termQ.push({txt,type}); if(termQ.length>5) termQ.shift();
-  termEl.innerHTML='';
-  termQ.forEach(q=>{
-    const d=document.createElement('div'); d.className='tl t'+q.type; d.textContent='> '+q.txt;
+function log(txt, type = 'tok') {
+  termQ.push({ txt, type }); if (termQ.length > 6) termQ.shift();
+  termEl.innerHTML = '';
+  termQ.forEach(q => {
+    const d = document.createElement('div'); d.className = 'tl ' + q.type; d.textContent = '> ' + q.txt;
     termEl.appendChild(d);
   });
 }
 
-function canLog(cls, id, plate){
-  const now=Date.now(); const key=cls+id;
-  if(!logThr[key]||now-logThr[key]>10000){
-    logThr[key]=now;
-    if(plate) log(`ANPR: [${plate}] IDENTIFIED`, 'info');
-    return true;
-  }
-  return false;
+function updateHUD() {
+  const total = lastPred.length;
+  document.getElementById('b-obj').textContent = total + ' OBJ';
+  let thr = 0, minDist = 999;
+  lastPred.forEach(p => {
+    const d = +(CFG.FOCAL * (OBJ_H[p.cls] || OBJ_H.default) / Math.max(p.sm[2], p.sm[3])).toFixed(1);
+    if (d < minDist) minDist = d;
+    if (THREAT.has(p.cls)) thr++;
+    const key = p.cls + p.id;
+    if (!logThr[key] || Date.now() - logThr[key] > 8000) {
+      log(`${DEFAULT_ALIASES[p.cls] || p.cls.toUpperCase()} DETECTED`);
+      if (p._plate) log(`ANPR: [${p._plate}] IDENTIFIED`, 'tplate');
+      logThr[key] = Date.now();
+    }
+  });
+  document.getElementById('s-thr').textContent = thr;
+  document.getElementById('s-dist').textContent = total > 0 ? minDist + 'm' : '---';
+  document.getElementById('s-trk').textContent = Object.keys(tracker.tracks).length;
 }
 
-// Визуалка 2-го режима (HD)
-function drawDeepScan(x, y, w, h, col) {
-  ctx.save();
-  ctx.strokeStyle = hexA(col, 0.3);
-  ctx.lineWidth = 1;
-  // Сетка внутри объекта
-  for(let i=1; i<4; i++) {
-    ctx.beginPath();
-    ctx.moveTo(x + (w/4)*i, y); ctx.lineTo(x + (w/4)*i, y+h);
-    ctx.moveTo(x, y + (h/4)*i); ctx.lineTo(x+w, y + (h/4)*i);
-    ctx.stroke();
-  }
-  // Перекрестие
-  ctx.beginPath();
-  ctx.arc(x+w/2, y+h/2, 5, 0, Math.PI*2);
-  ctx.stroke();
-  ctx.restore();
-}
-
-async function renderLoop(now){
-  if(!running) return requestAnimationFrame(renderLoop);
+async function renderLoop(now) {
+  if (!running) return requestAnimationFrame(renderLoop);
   fpsCnt++;
-  if(now-lastFpsT>1000){ document.getElementById('b-fps').textContent=fpsCnt+' FPS'; fpsCnt=0; lastFpsT=now; }
-
-  if(video.readyState === 4){
-    canvas.width=video.videoWidth; canvas.height=video.videoHeight;
-    const raw=await model.detect(video,CFG.MAX_DET,CFG.CONF);
-    lastPred=tracker.update(raw);
+  if (now - lastFpsT > 1000) { document.getElementById('b-fps').textContent = fpsCnt + ' FPS'; fpsCnt = 0; lastFpsT = now; }
+  if (video.readyState === 4) {
+    canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+    const raw = await model.detect(video, CFG.MAX_DET, CFG.CONF);
+    lastPred = tracker.update(raw);
   }
-  
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  draw(); 
-  updateHUD();
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  draw(); updateHUD();
   requestAnimationFrame(renderLoop);
 }
 
-function draw(){
-  lastPred.forEach(p=>{
-    const [x,y,w,h]=p.sm;
-    const col=getCol(p.cls);
-    const d=dist(p.sm, p.cls);
+function draw() {
+  lastPred.forEach(p => {
+    const [x, y, w, h] = p.sm;
     const isSel = p.id === selTid;
-    const isHD = currentModelType === 'mobilenet_v2';
-
-    if(isHD) drawDeepScan(x,y,w,h,col);
-
-    // Линии к горизонту
-    ctx.setLineDash([2, 4]);
-    ctx.strokeStyle = hexA(col, 0.2);
-    ctx.beginPath();
-    ctx.moveTo(canvas.width/2, canvas.height/2); ctx.lineTo(x+w/2, y+h/2);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    // Рамка
-    ctx.strokeStyle=col; ctx.lineWidth=isSel ? 3 : 1;
-    ctx.strokeRect(x,y,w,h);
-    ctx.fillStyle=hexA(col, isSel ? 0.2 : 0.05);
-    ctx.fillRect(x,y,w,h);
-
-    // Подпись
-    ctx.fillStyle='rgba(0,0,0,0.7)';
-    ctx.fillRect(x, y-30, Math.max(100, w*0.5), 30);
-    ctx.fillStyle=col;
-    ctx.font="bold 10px 'Share Tech Mono'";
-    ctx.fillText(`${getAlias(p.cls)} #${p.id}`, x+5, y-18);
-    ctx.font="9px 'Share Tech Mono'";
-    ctx.fillText(`${d}m | ${Math.round(p.score*100)}%`, x+5, y-6);
-
-    // Плашка номера (ANPR)
-    if(p.plate && (isHD || isSel)) {
-      ctx.fillStyle=col;
-      ctx.fillRect(x, y+h, 110, 15);
-      ctx.fillStyle='#000';
-      ctx.font="bold 10px 'Orbitron'";
-      ctx.fillText(p.plate, x+5, y+h+12);
-    }
-  });
-}
-
-function updateHUD(){
-  const total=lastPred.length;
-  document.getElementById('b-obj').textContent=total+' OBJ';
-  let thr=0,maxD=0;
-  lastPred.forEach(p=>{
-    const d=dist(p.sm, p.cls);
-    if(d>maxD && d<999) maxD=d;
-    if(THREAT.has(p.cls)) thr++;
-    if(canLog(p.cls, p.id, p.plate)) {
-       log(`${getAlias(p.cls)} DETECTED`, THREAT.has(p.cls)?'warn':'ok');
-    }
-  });
-  document.getElementById('s-thr').textContent=thr;
-  document.getElementById('s-dist').textContent=maxD>0 ? Math.round(maxD)+'m' : '---';
-  document.getElementById('s-trk').textContent=Object.keys(tracker.tracks).length;
-}
-
-function handleTap(e){
-  const rect=canvas.getBoundingClientRect();
-  const sx=canvas.width/rect.width, sy=canvas.height/rect.height;
-  const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
-  const hit=lastPred.find(p=>{ const [x,y,w,h]=p.sm; return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h; });
-
-  if(hit){
-    selTid=hit.id;
-    const titleEl = document.getElementById('info-title');
-    titleEl.textContent=getAlias(hit.cls);
-    titleEl.dataset.cls = hit.cls; 
-    titleEl.style.color=getCol(hit.cls);
+    const col = isSel ? '#ff2244' : '#00ff41';
     
-    document.getElementById('info-grid').innerHTML=`
+    // Сетка HD Scan (Fusion Core)
+    ctx.strokeStyle = `rgba(0, 255, 65, 0.15)`;
+    ctx.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      ctx.beginPath(); ctx.moveTo(x + (w/4)*i, y); ctx.lineTo(x + (w/4)*i, y+h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(x, y + (h/4)*i); ctx.lineTo(x+w, y + (h/4)*i); ctx.stroke();
+    }
+
+    // Рамка объекта
+    ctx.strokeStyle = col; ctx.lineWidth = isSel ? 3 : 1;
+    ctx.strokeRect(x, y, w, h);
+
+    // Угловые маркеры
+    const s = 15;
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x, y+s); ctx.lineTo(x, y); ctx.lineTo(x+s, y);
+    ctx.moveTo(x+w-s, y); ctx.lineTo(x+w, y); ctx.lineTo(x+w, y+s);
+    ctx.stroke();
+
+    // Плашка данных
+    ctx.fillStyle = 'rgba(0,0,0,0.7)';
+    ctx.fillRect(x, y-25, 120, 25);
+    ctx.fillStyle = col;
+    ctx.font = "bold 10px 'Share Tech Mono'";
+    ctx.fillText(`${DEFAULT_ALIASES[p.cls] || p.cls.toUpperCase()} #${p.id}`, x+5, y-10);
+
+    // Номерной знак (ANPR)
+    if (p._plate) {
+      ctx.fillStyle = '#00ff41';
+      ctx.fillRect(x, y+h, 110, 16);
+      ctx.fillStyle = '#000';
+      ctx.font = "bold 10px 'Orbitron'";
+      ctx.fillText(p._plate, x+5, y+h+12);
+    }
+  });
+}
+
+function handleTap(e) {
+  const rect = canvas.getBoundingClientRect();
+  const sx = canvas.width / rect.width, sy = canvas.height / rect.height;
+  const cx = (e.clientX - rect.left) * sx, cy = (e.clientY - rect.top) * sy;
+  const hit = lastPred.find(p => { const [x,y,w,h]=p.sm; return cx>=x&&cx<=x+w&&cy>=y&&cy<=y+h; });
+
+  if (hit) {
+    selTid = hit.id;
+    const dist = +(CFG.FOCAL * (OBJ_H[hit.cls] || OBJ_H.default) / Math.max(hit.sm[2], hit.sm[3])).toFixed(1);
+    document.getElementById('info-title').textContent = DEFAULT_ALIASES[hit.cls] || hit.cls.toUpperCase();
+    document.getElementById('info-grid').innerHTML = `
       <div class="ik">TARGET_ID</div><div class="iv">#${hit.id}</div>
-      <div class="ik">DISTANCE</div><div class="iv">${dist(hit.sm, hit.cls)}m</div>
+      <div class="ik">DISTANCE</div><div class="iv">${dist}m</div>
       <div class="ik">SIG_STRENGTH</div><div class="iv">${Math.round(hit.score*100)}%</div>
-      <div class="ik">DATA_TAG</div><div class="iv" style="color:var(--y)">${hit.plate || 'NONE'}</div>
+      <div class="ik">DATA_TAG</div><div class="iv" style="color:var(--y)">${hit._plate || 'NONE'}</div>
     `;
-    let desc = `Объект типа ${hit.cls.toUpperCase()} зафиксирован в секторе. `;
-    if(hit.plate) desc += `Модуль ANPR расшифровал идентификатор: [${hit.plate}]. Статус: Наблюдение.`;
-    document.getElementById('info-desc').textContent=desc;
+    document.getElementById('info-desc').textContent = `Объект типа ${hit.cls.toUpperCase()} зафиксирован в секторе. Модуль ANPR расшифровал идентификатор: [${hit._plate || 'N/A'}]. Статус: Наблюдение.`;
     document.getElementById('info-panel').classList.add('open');
   } else { closeInfo(); }
 }
 
-function renameObject() {
-  const titleEl = document.getElementById('info-title');
-  const cls = titleEl.dataset.cls;
-  const newAlias = prompt(`ИЗМЕНИТЬ МЕТКУ ДЛЯ "${cls.toUpperCase()}":`, titleEl.textContent);
-  if (newAlias) {
-    USER_MEM[cls] = newAlias.toUpperCase();
-    localStorage.setItem('myeye_mem', JSON.stringify(USER_MEM));
-    location.reload();
-  }
-}
-
-canvas.addEventListener('click',handleTap);
-function closeInfo(){ selTid=null; document.getElementById('info-panel').classList.remove('open'); }
+canvas.addEventListener('click', handleTap);
+function closeInfo() { selTid = null; document.getElementById('info-panel').classList.remove('open'); }
 bootSeq();
 </script>
 </body>
