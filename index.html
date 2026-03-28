@@ -13,48 +13,36 @@
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
 
 <style>
-:root{ --g:#00ff41; --panel:rgba(2,8,4,.8); --blue:#00aaff; --red: #ff3333; }
+:root{ --g:#00ff41; --panel:rgba(2,8,4,.8); --blue:#00aaff; }
 *{margin:0;padding:0;box-sizing:border-box;}
-body,html{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Share Tech Mono',monospace;color:var(--g); -webkit-tap-highlight-color: transparent;}
+body,html{width:100%;height:100%;background:#000;overflow:hidden;font-family:'Share Tech Mono',monospace;color:var(--g);}
 
-#boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px;text-align:center;}
+#boot{position:fixed;inset:0;background:#000;z-index:300;display:flex;flex-direction:column;justify-content:center;align-items:center;padding:20px;}
 #boot-logo{font-family:'Orbitron',sans-serif;font-weight:900;font-size:42px;color:var(--g);text-shadow:0 0 15px var(--g);letter-spacing:5px;}
-#pb-wrap{width:100%;max-width:300px;height:2px;background:#111;margin-top:20px;position:relative;overflow:hidden;}
-#pb{height:100%;width:0;background:var(--g);transition:width .3s;box-shadow: 0 0 10px var(--g);}
-#btn-start{margin-top:40px;display:none;background:none;border:1px solid var(--g);color:var(--g);padding:15px 50px;cursor:pointer;font-family:'Orbitron';text-transform:uppercase;letter-spacing:2px;transition: 0.3s;}
-#btn-start:active{background:var(--g);color:#000;}
+#pb-wrap{width:100%;max-width:300px;height:2px;background:#111;margin-top:20px;position:relative;}
+#pb{height:100%;width:0;background:var(--g);transition:width .3s;}
+#btn-start{margin-top:40px;display:none;background:none;border:1px solid var(--g);color:var(--g);padding:15px 50px;cursor:pointer;font-family:'Orbitron';text-transform:uppercase;}
 
 #app{position:fixed;inset:0;display:none;flex-direction:column;background:#000;}
-#vp{position:relative;flex:1;background:#000;overflow:hidden;display:flex;align-items:center;justify-content:center;}
-video{display:none;}
-canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;cursor: crosshair;}
+#vp{position:relative;flex:1;display:flex;align-items:center;justify-content:center;background:#000;}
+video{position:absolute;width:1px;height:1px;opacity:0;}
+canvas{width:100%;height:100%;object-fit:cover;z-index:2;}
 
-#topbar{position:absolute;top:0;left:0;right:0;z-index:15;display:grid;grid-template-columns: 1fr auto; gap:10px; padding:15px;pointer-events:none;background: linear-gradient(to bottom, rgba(0,0,0,0.8), transparent);}
-.badge{font-size:10px;padding:4px 8px;border:1px solid rgba(0,255,65,.3);background:var(--panel);display:inline-block;margin-left:5px; backdrop-filter: blur(4px);}
+#topbar{position:absolute;top:0;left:0;right:0;z-index:15;display:grid;grid-template-columns: 1fr auto; padding:15px;pointer-events:none;}
+.badge{font-size:10px;padding:4px 8px;border:1px solid rgba(0,255,65,.3);background:var(--panel);margin-left:5px;}
 
 #terminal{height:120px;background:rgba(0,0,0,0.9);border-top:1px solid rgba(0,255,65,0.3);padding:10px;font-size:10px;overflow:hidden;display:flex;flex-direction:column-reverse;z-index:20;}
-.tl{color:var(--g);margin-bottom:3px;font-family:'Share Tech Mono';text-transform:uppercase;opacity:0.9;animation: fadeIn 0.2s ease-out;}
+.tl{color:var(--g);margin-bottom:3px;}
 .tl span {color: #888; margin-right: 8px;}
-.tl.obj {color: var(--blue);}
-.tl.info {color: #fff; background: rgba(0, 170, 255, 0.2); padding: 2px 5px; border-left: 2px solid var(--blue);}
-
-@keyframes fadeIn { from { opacity: 0; transform: translateX(-5px); } to { opacity: 1; transform: translateX(0); } }
-
-@media (max-width: 600px) {
-  #boot-logo { font-size: 32px; }
-  #topbar { font-size: 12px; padding: 10px; }
-  .badge { font-size: 9px; padding: 3px 6px; }
-  #terminal { height: 100px; padding: 5px; }
-}
 </style>
 </head>
 <body>
 
 <div id="boot">
   <div id="boot-logo">myEYE</div>
-  <div id="boot-log" style="font-size:10px; margin-top:10px; letter-spacing: 1px;">created by bortin</div>
+  <div id="boot-log" style="font-size:10px; margin-top:10px;">SYSTEM CALIBRATING...</div>
   <div id="pb-wrap"><div id="pb"></div></div>
-  <button id="btn-start" onclick="startApp()">open system</button>
+  <button id="btn-start" onclick="startApp()">INITIALIZE SYSTEM</button>
 </div>
 
 <div id="app">
@@ -62,10 +50,10 @@ canvas{position:absolute;width:100%;height:100%;object-fit:cover;z-index:2;curso
     <video id="input_video" playsinline muted></video>
     <canvas id="output_canvas"></canvas>
     <div id="topbar">
-      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE PRO SYSTEM</div>
-      <div style="text-align: right;">
-        <span class="badge" id="b-fps">0 fps</span>
-        <span class="badge" id="b-obj">scanning...</span>
+      <div style="font-family:'Orbitron'; font-weight:700; font-size: 11px;">myEYE HUD v3.0</div>
+      <div>
+        <span class="badge" id="b-fps">0 FPS</span>
+        <span class="badge" id="b-obj">0 TARGETS</span>
       </div>
     </div>
   </div>
@@ -80,41 +68,14 @@ const term = document.getElementById('terminal');
 
 let objectDetector, lastFps = 0, frameCount = 0;
 let currentPersonBox = null;
-let lastDetectedObjects = []; 
 
-const classColors = {
-  person: '#00ff41',
-  vehicle: '#ff3333',
-  animal: '#ffff00',
-  device: '#00aaff',
-  indoor: '#ff00ff',
-  accessory: '#ffa500',
-  food: '#00ff88',
-  default: '#ffffff'
-};
-
-function getObjectGroup(label) {
-  const l = label.toLowerCase();
-  if (l === 'person') return 'HUMAN';
-  if (['car', 'bus', 'truck', 'motorcycle', 'bicycle'].includes(l)) return 'VEHICLE';
-  if (['dog', 'cat', 'bird'].includes(l)) return 'ANIMAL';
-  if (['cell phone', 'laptop', 'tv'].includes(l)) return 'DEVICE';
-  return 'OBJECT';
-}
-
-function getObjectColor(label) {
-  const group = getObjectGroup(label);
-  return classColors[label] || classColors[group.toLowerCase()] || classColors.default;
-}
-
-function log(msg, type = '') {
+function log(msg) {
   const line = document.createElement('div');
-  line.className = `tl ${type}`;
-  const now = new Date();
-  const ts = `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}:${now.getSeconds().toString().padStart(2,'0')}`;
+  line.className = 'tl';
+  const ts = new Date().toLocaleTimeString();
   line.innerHTML = `<span>[${ts}]</span> > ${msg}`;
   term.prepend(line);
-  if (term.childNodes.length > 15) term.lastChild.remove();
+  if (term.childNodes.length > 10) term.lastChild.remove();
 }
 
 const pose = new Pose({locateFile: (file) => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`});
@@ -122,10 +83,8 @@ pose.setOptions({ modelComplexity: 1, smoothLandmarks: true, minDetectionConfide
 
 pose.onResults((results) => {
   if (!results.poseLandmarks || !currentPersonBox) return;
-  
   const { x, y, w, h } = currentPersonBox;
-
-  // Масштабируем точки скелета строго ВНУТРИ рамки детектированного человека
+  
   const adjLandmarks = results.poseLandmarks.map(lp => ({
     x: (lp.x * w + x) / canvasElement.width,
     y: (lp.y * h + y) / canvasElement.height,
@@ -134,90 +93,81 @@ pose.onResults((results) => {
 
   drawConnectors(canvasCtx, adjLandmarks, POSE_CONNECTIONS, {color: '#00ff41', lineWidth: 2});
   drawLandmarks(canvasCtx, adjLandmarks, {color: '#00ff41', fillColor: '#00ff41', lineWidth: 1, radius: 2});
-  
-  // Рисуем тактический овал головы
-  const nose = adjLandmarks[0];
-  if (nose.visibility > 0.5) {
-      canvasCtx.beginPath();
-      canvasCtx.ellipse(nose.x * canvasElement.width, nose.y * canvasElement.height, w*0.15, w*0.2, 0, 0, Math.PI * 2);
-      canvasCtx.strokeStyle = '#00ff41';
-      canvasCtx.stroke();
-  }
 });
 
 async function initModels() {
-  log("INITIALIZING CORE...");
-  objectDetector = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-  document.getElementById('pb').style.width = '50%';
-  await pose.initialize();
-  document.getElementById('pb').style.width = '100%';
-  document.getElementById('btn-start').style.display = 'block';
-  log("SYSTEM READY");
+  try {
+    objectDetector = await cocoSsd.load();
+    document.getElementById('pb').style.width = '50%';
+    await pose.initialize();
+    document.getElementById('pb').style.width = '100%';
+    document.getElementById('boot-log').innerText = "SYSTEM READY";
+    document.getElementById('btn-start').style.display = 'block';
+  } catch (e) {
+    document.getElementById('boot-log').innerText = "INIT ERROR: " + e.message;
+  }
 }
 
-async function draw() {
-  const vw = videoElement.videoWidth;
-  const vh = videoElement.videoHeight;
-  if(vw === 0) return;
+async function processFrame() {
+  if (videoElement.readyState < 2) return;
 
-  canvasElement.width = vw;
-  canvasElement.height = vh;
-  canvasCtx.drawImage(videoElement, 0, 0, vw, vh);
+  canvasElement.width = videoElement.videoWidth;
+  canvasElement.height = videoElement.videoHeight;
+  
+  // 1. Рисуем видео
+  canvasCtx.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
 
-  // Сетка HUD
-  canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.15)';
+  // 2. Сетка
+  canvasCtx.strokeStyle = 'rgba(0, 255, 65, 0.2)';
   canvasCtx.beginPath();
-  for(let i=50; i<vw; i+=50) { canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,vh); }
-  for(let i=50; i<vh; i+=50) { canvasCtx.moveTo(0,i); canvasCtx.lineTo(vw,i); }
+  for(let i=50; i<canvasElement.width; i+=50) { canvasCtx.moveTo(i,0); canvasCtx.lineTo(i,canvasElement.height); }
+  for(let i=50; i<canvasElement.height; i+=50) { canvasCtx.moveTo(0,i); canvasCtx.lineTo(canvasElement.width,i); }
   canvasCtx.stroke();
 
-  const detections = await objectDetector.detect(videoElement, 20, 0.4);
-  lastDetectedObjects = detections;
+  // 3. Объекты
+  const detections = await objectDetector.detect(videoElement, 10, 0.4);
   document.getElementById('b-obj').innerText = detections.length + " TARGETS";
 
   for (const o of detections) {
     const [bx, by, bw, bh] = o.bbox;
-    const color = getObjectColor(o.class);
-    
-    canvasCtx.strokeStyle = color;
+    canvasCtx.strokeStyle = o.class === 'person' ? '#00ff41' : '#00aaff';
     canvasCtx.lineWidth = 2;
     canvasCtx.strokeRect(bx, by, bw, bh);
     
-    canvasCtx.fillStyle = color;
-    canvasCtx.font = '12px Share Tech Mono';
-    canvasCtx.fillText(`[ ${o.class.toUpperCase()} ${Math.round(o.score*100)}% ]`, bx + 5, by + 15);
+    canvasCtx.fillStyle = canvasCtx.strokeStyle;
+    canvasCtx.fillText(o.class.toUpperCase(), bx, by - 5);
 
     if(o.class === 'person') {
       currentPersonBox = { x: bx, y: by, w: bw, h: bh };
-      // Создаем временный холст для Pose с учетом границ человека
-      const cropCanvas = document.createElement('canvas');
-      cropCanvas.width = bw; cropCanvas.height = bh;
-      cropCanvas.getContext('2d').drawImage(videoElement, bx, by, bw, bh, 0, 0, bw, bh);
-      await pose.send({image: cropCanvas});
+      const crop = document.createElement('canvas');
+      crop.width = bw; crop.height = bh;
+      crop.getContext('2d').drawImage(videoElement, bx, by, bw, bh, 0, 0, bw, bh);
+      await pose.send({image: crop});
     }
   }
 
+  // FPS
   frameCount++;
   const now = performance.now();
   if (now - lastFps > 1000) {
     document.getElementById('b-fps').innerText = frameCount + " FPS";
     frameCount = 0; lastFps = now;
   }
-  requestAnimationFrame(draw);
 }
 
 function startApp() {
   document.getElementById('boot').style.display = 'none';
   document.getElementById('app').style.display = 'flex';
   
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
   const camera = new Camera(videoElement, {
-    onFrame: async () => {}, // draw вызывается через requestAnimationFrame
-    width: 1280, height: 720,
-    facingMode: isMobile ? "environment" : "user"
+    onFrame: async () => {
+      await processFrame();
+    },
+    width: 1280,
+    height: 720
   });
-  camera.start();
-  draw();
+  
+  camera.start().then(() => log("CAMERA_ACTIVE"));
 }
 
 initModels();
