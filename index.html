@@ -3,35 +3,47 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>VISION_OS v12.0 | NEURAL_SILHOUETTE</title>
+    <title>TERMINATOR_VISION v14.0</title>
     
-    <!-- TensorFlow.js Core -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
-    <!-- Модель для детекции (рамки) -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
-    <!-- Модель для сегментации (силуэты) -->
     <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/body-pix"></script>
 
     <style>
-        :root { --main: #00ff41; --bg: #050505; }
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; color: var(--main); }
-        #viewport { position: relative; width: 100vw; height: 100vh; }
-        video { position: absolute; width: 100%; height: 100%; object-fit: cover; filter: brightness(0.3) contrast(1.2); z-index: 1; }
-        canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 5; pointer-events: none; }
-        #overlay { position: fixed; inset: 0; background: #000; z-index: 100; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        button { background: none; border: 1px solid var(--main); color: var(--main); padding: 15px 40px; cursor: pointer; letter-spacing: 3px; font-family: inherit; }
-        .hud { position: absolute; top: 10px; left: 10px; z-index: 20; font-size: 10px; background: rgba(0,0,0,0.7); padding: 10px; border-left: 3px solid var(--main); }
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #000; overflow: hidden; font-family: 'Courier New', monospace; }
+        #container { position: relative; width: 100vw; height: 100vh; }
+        video { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 1; filter: brightness(0.2) contrast(1.5); }
+        canvas { position: absolute; width: 100%; height: 100%; object-fit: cover; z-index: 5; }
+        
+        #hud {
+            position: absolute; top: 20px; left: 20px; z-index: 10;
+            color: #00ff41; font-size: 12px; text-shadow: 0 0 5px #00ff41;
+            pointer-events: none; line-height: 1.4;
+        }
+        #boot-screen {
+            position: fixed; inset: 0; background: #000; z-index: 100;
+            display: flex; flex-direction: column; justify-content: center; align-items: center;
+            color: #00ff41; letter-spacing: 2px;
+        }
+        button {
+            background: none; border: 1px solid #00ff41; color: #00ff41;
+            padding: 15px 30px; cursor: pointer; font-family: inherit; margin-top: 20px;
+        }
     </style>
 </head>
 <body>
 
-<div id="overlay">
-    <div style="margin-bottom:20px; font-size:12px; letter-spacing:5px;">SYSTEM_V12: INITIALIZING SEGMENTATION_CORE</div>
-    <button onclick="init()">START NEURAL_SCAN</button>
+<div id="boot-screen">
+    <div id="status-text">SYSTEM: READY_FOR_SCAN</div>
+    <button onclick="startSystem()">INITIALIZE VISION</button>
 </div>
 
-<div id="viewport">
-    <div class="hud" id="stats">STATUS: STANDBY<br>FPS: 0</div>
+<div id="container">
+    <div id="hud">
+        CORE: ACTIVE<br>
+        SCAN_MODE: SYMBOLIC_DECONSTRUCTION<br>
+        <div id="log"></div>
+    </div>
     <video id="video" playsinline muted autoplay></video>
     <canvas id="canvas"></canvas>
 </div>
@@ -39,24 +51,22 @@
 <script>
     const video = document.getElementById('video');
     const canvas = document.getElementById('canvas');
-    const ctx = canvas.getContext('2d', { alpha: false });
-    const stats = document.getElementById('stats');
+    const ctx = canvas.getContext('2d');
+    const log = document.getElementById('log');
     
-    let detector, segmenter;
-    const ASCII = "01$#@%&*+=:-. ".split("");
-    let lastTime = 0;
+    let cocoModel, bpModel;
+    const SYMBOLS = "01$#@%&*+=:-. ".split("");
 
-    async function init() {
-        document.querySelector('button').innerText = "LOADING MODELS...";
+    async function startSystem() {
+        document.getElementById('status-text').innerText = "LOADING NEURAL_NETS...";
         try {
-            // Загрузка моделей параллельно
-            [detector, segmenter] = await Promise.all([
+            // Инициализация моделей
+            [cocoModel, bpModel] = await Promise.all([
                 cocoSsd.load(),
                 bodyPix.load({
                     architecture: 'MobileNetV1',
                     outputStride: 16,
-                    multiplier: 0.5,
-                    quantBytes: 2
+                    multiplier: 0.5
                 })
             ]);
 
@@ -65,79 +75,86 @@
             });
             video.srcObject = stream;
             
-            document.getElementById('overlay').style.display = 'none';
-            render();
-        } catch (e) {
-            alert("FATAL_ERROR: " + e.message);
+            video.onloadedmetadata = () => {
+                canvas.width = video.videoWidth;
+                canvas.height = video.videoHeight;
+                document.getElementById('boot-screen').style.display = 'none';
+                render();
+            };
+        } catch (err) {
+            alert("INIT_ERROR: " + err);
         }
     }
 
-    async function render(now) {
-        const fps = Math.round(1000 / (now - lastTime));
-        lastTime = now;
-        stats.innerHTML = `STATUS: ACTIVE_SCAN<br>FPS: ${fps}<br>ENGINE: BODY_PIX_V1`;
-
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-
-        // 1. Детекция объектов (для рамок и типов)
-        const predictions = await detector.detect(video);
-        
-        // 2. Сегментация (для точного силуэта человека)
-        // Мы делаем сегментацию в низком разрешении для скорости
-        const segmentation = await segmenter.segmentPerson(video, {
-            flipHorizontal: false,
-            internalResolution: 'medium',
-            segmentationThreshold: 0.7
-        });
-
-        // Очистка и отрисовка кадра
+    async function render() {
+        // Очищаем и рисуем текущий кадр видео как фон
         ctx.fillStyle = "#000";
         ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-        // ЭФФЕКТ МАТРИЦЫ ПО СИЛУЭТУ
-        drawMatrixSilhouette(segmentation);
+        try {
+            // 1. Детекция объектов (машины, предметы и т.д.)
+            const objects = await cocoModel.detect(video, 5, 0.4);
+            
+            // 2. Сегментация людей (для символьного силуэта)
+            const segmentation = await bpModel.segmentPerson(video, {
+                internalResolution: 'low', // Важно для скорости
+                segmentationThreshold: 0.6
+            });
 
-        // Отрисовка стандартных рамок COCO-SSD
-        predictions.forEach(p => {
-            const [x, y, w, h] = p.bbox;
-            ctx.strokeStyle = "#00ff41";
-            ctx.setLineDash([5, 5]);
-            ctx.strokeRect(x, y, w, h);
-            ctx.fillStyle = "#00ff41";
-            ctx.font = "10px Courier New";
-            ctx.fillText(`> ${p.class.toUpperCase()} [${Math.round(p.score*100)}%]`, x, y - 5);
-        });
+            // РИСУЕМ СИМВОЛЬНЫЙ СИЛУЭТ (МАТРИЦА)
+            drawSymbolicMask(segmentation);
+
+            // РИСУЕМ РАМКИ ДЛЯ ОСТАЛЬНЫХ ОБЪЕКТОВ
+            objects.forEach(obj => {
+                if (obj.class !== 'person') { // Людей мы уже "отрисовали" символами
+                    drawObjectUI(obj);
+                }
+            });
+
+        } catch (e) {
+            console.error(e);
+        }
 
         requestAnimationFrame(render);
     }
 
-    function drawMatrixSilhouette(seg) {
-        const step = 8; // Плотность символов. Чем меньше, тем детальнее.
-        const data = seg.data; // Массив 0 и 1 (1 - это человек)
-        const width = seg.width;
-        
-        ctx.font = "bold 9px Courier New";
-        
-        for (let y = 0; y < canvas.height; y += step) {
-            for (let x = 0; x < canvas.width; x += step) {
-                // Проверяем, попадает ли точка в маску нейросети
-                const index = y * width + x;
-                if (data[index] === 1) {
-                    const char = ASCII[Math.floor(Math.random() * ASCII.length)];
-                    
-                    // Эффект "свечения"
-                    ctx.shadowBlur = 5;
-                    ctx.shadowColor = "#00ff41";
-                    ctx.fillStyle = `rgba(0, 255, 65, ${Math.random() * 0.8 + 0.2})`;
-                    
+    function drawSymbolicMask(seg) {
+        const step = 10; // Шаг сетки (чем меньше, тем плотнее символы)
+        ctx.font = "bold 10px Courier New";
+        ctx.fillStyle = "#00ff41";
+
+        for (let y = 0; y < seg.height; y += step) {
+            for (let x = 0; x < seg.width; x += step) {
+                const index = y * seg.width + x;
+                // Если нейросеть говорит, что это человек (1)
+                if (seg.data[index] === 1) {
+                    const char = SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)];
+                    // Добавляем эффект "цифрового шума" через прозрачность
+                    ctx.globalAlpha = Math.random() * 0.7 + 0.3;
                     ctx.fillText(char, x, y);
                 }
             }
         }
-        // Сброс тени для производительности
-        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1.0;
+    }
+
+    function drawObjectUI(obj) {
+        const [x, y, w, h] = obj.bbox;
+        ctx.strokeStyle = "#ff0000"; // Красный для тех, кто не человек
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.strokeRect(x, y, w, h);
+        
+        ctx.fillStyle = "#ff0000";
+        ctx.font = "10px Courier New";
+        ctx.fillText(`ID: ${obj.class.toUpperCase()}`, x, y - 5);
+        
+        // Маленький терминал слева
+        if (Math.random() > 0.9) {
+            const line = `> TARGET: ${obj.class} DIST: ${Math.round(2000/w)}m`;
+            log.innerHTML = line + "<br>" + log.innerHTML.split("<br>").slice(0, 5).join("<br>");
+        }
     }
 </script>
 </body>
