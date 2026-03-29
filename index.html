@@ -5,22 +5,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>myEYE Pro</title>
-<!-- Шрифты загружаем первыми, до всего остального -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap">
-
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
-
-<!-- MediaPipe Pose (необязательный) -->
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
+
+<!-- html2canvas для скриншота всей страницы -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
 /* ══════════════════════════════════
@@ -32,9 +28,8 @@
   --o:  #ff9900;  --p:  #cc44ff;
   --panel: rgba(2,8,4,.94);
   --border: rgba(0,255,65,.18);
-  /* Фиксированные высоты нижней зоны */
-  --card-h: 180px;   /* info card -- фиксированная высота */
-  --term-h: 150px;   /* terminal -- фиксированная высота */
+  --card-h: 210px; /* увеличена для кнопки скриншота */
+  --term-h: 150px;
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html, body {
@@ -54,33 +49,20 @@ html, body {
   justify-content: center; align-items: center;
   padding: 24px; gap: 0;
 }
-
-/* Hex bg */
 #boot-hex { position:absolute; inset:0; overflow:hidden; opacity:.05; pointer-events:none; }
 #boot-hex svg { width:100%; height:100%; }
-
-/* Logo wrap -- position:relative для дочерних absolute */
 #boot-logo-wrap { position: relative; margin-bottom: 10px; line-height: 1; }
-
-/*
-  БАГ #3: шрифт лого не отображался -- причина: font-family без fallback
-  и color:transparent блокировал рендер до загрузки шрифта.
-  Решение: добавляем fallback, убираем color:transparent с самого контейнера,
-  устанавливаем начальный цвет через inline-style анимации.
-*/
 #boot-logo {
   font-family: 'Orbitron', 'Arial Black', sans-serif;
   font-weight: 900;
   font-size: clamp(42px, 12vw, 82px);
   letter-spacing: .18em;
   white-space: nowrap;
-  /* Контейнер невидим, буквы анимируются отдельно */
   color: transparent;
 }
 .bc {
   display: inline-block;
   opacity: 0;
-  /* Стартуем с fallback-цветом чтобы шрифт точно отрисовался */
   color: var(--g);
   text-shadow: 0 0 24px rgba(0,255,65,.55), 0 0 60px rgba(0,255,65,.18);
   animation: charDrop .55s cubic-bezier(.22,1,.36,1) forwards;
@@ -90,8 +72,6 @@ html, body {
 .bc:nth-child(3){animation-delay:.31s}
 .bc:nth-child(4){animation-delay:.44s}
 .bc:nth-child(5){animation-delay:.57s}
-
-/* Glitch clone -- абсолютно поверх */
 #boot-logo-g {
   position: absolute; inset: 0;
   font-family: 'Orbitron', 'Arial Black', sans-serif;
@@ -103,20 +83,16 @@ html, body {
   opacity: 0; pointer-events: none;
   animation: glitchLoop 5s 1.6s infinite;
 }
-/* Горизонтальная сканирующая полоса */
 #boot-scan {
   position: absolute; left: 0; right: 0; height: 2px; top: 0;
   background: linear-gradient(90deg, transparent, var(--g), transparent);
   box-shadow: 0 0 12px var(--g);
   animation: scanDown 3s ease-in-out infinite;
 }
-
 #boot-sub {
   font-size: 8px; letter-spacing: .45em; color: var(--g2); text-transform: uppercase;
   margin: 8px 0 22px; opacity: 0; animation: fadeUp .5s .95s forwards;
 }
-
-/* Boot log */
 #boot-log {
   width: min(360px, 88vw); font-size: 8.5px; color: var(--g2);
   min-height: 90px; line-height: 2;
@@ -128,15 +104,11 @@ html, body {
 #boot-log .bl.ok::before   { content: '✔ '; color: var(--g); }
 #boot-log .bl.warn::before { content: '⚡ '; color: var(--o); }
 #boot-log .bl.err::before  { content: '✕ '; color: var(--r); }
-
-/* Progress bar */
 #pb-wrap { width: min(360px, 88vw); margin-top: 16px; }
 #pb-track { height: 2px; background: var(--g3); }
 #pb { height: 100%; width: 0; background: linear-gradient(90deg, var(--g2), var(--g));
   box-shadow: 0 0 12px var(--g); transition: width .35s cubic-bezier(.22,1,.36,1); }
 #pb-pct { font-size: 7px; color: var(--g2); text-align: right; margin-top: 3px; letter-spacing: .2em; }
-
-/* Start button */
 #btn-start {
   margin-top: 32px; display: none;
   background: none; border: 1px solid var(--g); color: var(--g);
@@ -155,20 +127,15 @@ html, body {
 
 /* ══════════════════════════════════
    APP LAYOUT
-   Жёсткая структура: vp занимает всё
-   оставшееся место; card + terminal
-   имеют фиксированные высоты.
 ══════════════════════════════════ */
 #app {
   position: fixed; inset: 0;
   display: none; flex-direction: column;
 }
-
-/* Viewport -- flex:1 = берёт всё свободное место */
 #vp {
   position: relative;
-  flex: 1 1 0;        /* 0 важно -- не растём сверх свободного */
-  min-height: 0;      /* разрешаем сжатие */
+  flex: 1 1 0;
+  min-height: 0;
   overflow: hidden;
   background: #000;
 }
@@ -178,8 +145,6 @@ video { display: none; }
   width: 100%; height: 100%;
   object-fit: cover; z-index: 2; cursor: crosshair;
 }
-
-/* Overlay layers */
 #vp::after {
   content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
   background: repeating-linear-gradient(0deg, transparent, transparent 2px,
@@ -198,8 +163,6 @@ video { display: none; }
 }
 #alert-flash { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; }
 #alert-flash.on { animation: alertFlash 1.2s ease-out forwards; }
-
-/* Corners */
 .hc { position: absolute; width: 52px; height: 52px; z-index: 10; pointer-events: none; }
 .hc::before, .hc::after { content:''; position:absolute; background:var(--g); box-shadow:0 0 6px var(--g); }
 .hc::before { width:2px; height:18px; } .hc::after { width:18px; height:2px; }
@@ -207,8 +170,6 @@ video { display: none; }
 #hc-tr{top:0;right:0;}   #hc-tr::before{top:0;right:0;}    #hc-tr::after{top:0;right:0;}
 #hc-bl{bottom:0;left:0;} #hc-bl::before{bottom:0;left:0;}  #hc-bl::after{bottom:0;left:0;}
 #hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;} #hc-br::after{bottom:0;right:0;}
-
-/* Topbar */
 #topbar {
   position: absolute; top: 0; left: 0; right: 0; z-index: 15; pointer-events: none;
   display: flex; align-items: center; justify-content: space-between; padding: 10px 14px;
@@ -231,14 +192,10 @@ video { display: none; }
 #b-fps .bdot    { background:var(--b); box-shadow:0 0 5px var(--b); }
 #b-threat       { display:none; border-color:rgba(255,51,51,.4); color:var(--r); }
 #b-threat .bdot { background:var(--r); box-shadow:0 0 5px var(--r); animation-duration:.6s; }
-
-/* Cache badge */
 #cache-badge {
   position: absolute; top: 40px; left: 14px; z-index: 16;
   font-size: 7px; color: rgba(0,255,65,.3); letter-spacing: .15em; pointer-events: none;
 }
-
-/* Status bar */
 #statusbar {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 9; pointer-events: none;
   display: flex; justify-content: space-between; padding: 4px 14px;
@@ -247,18 +204,48 @@ video { display: none; }
 .sbi { font-size: 7px; color: rgba(0,255,65,.32); letter-spacing: .1em; }
 
 /* ══════════════════════════════════
-   INFO CARD -- фиксированная высота,
-   position:relative в потоке flex
+   SCREENSHOT FLASH OVERLAY
+══════════════════════════════════ */
+#shot-flash {
+  position: absolute; inset: 0; z-index: 50; pointer-events: none;
+  background: #fff; opacity: 0;
+}
+#shot-flash.snap {
+  animation: shotFlash .45s ease-out forwards;
+}
+@keyframes shotFlash {
+  0%   { opacity: .85; }
+  100% { opacity: 0; }
+}
+
+/* Screenshot capture indicator */
+#shot-indicator {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  z-index: 51; pointer-events: none;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; letter-spacing: .3em;
+  color: #fff; text-shadow: 0 0 20px rgba(255,255,255,.8);
+  opacity: 0;
+}
+#shot-indicator.snap {
+  animation: shotInd .9s ease-out forwards;
+}
+@keyframes shotInd {
+  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+  60%  { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(.95); }
+}
+
+/* ══════════════════════════════════
+   INFO CARD
 ══════════════════════════════════ */
 #info-card {
-  flex: 0 0 var(--card-h);   /* фиксированная высота */
+  flex: 0 0 var(--card-h);
   height: var(--card-h);
-  overflow: hidden;           /* не вылезает */
+  overflow: hidden;
   background: rgba(1,5,2,.99);
   border-top: 1px solid rgba(0,255,65,.45);
-  position: relative;         /* НЕ absolute -- в потоке */
+  position: relative;
   z-index: 30;
-  /* Скрыта -- сворачиваем через height */
   max-height: 0;
   transition: max-height .28s cubic-bezier(.22,1,.36,1),
               border-color .28s;
@@ -275,60 +262,91 @@ video { display: none; }
   background: linear-gradient(90deg, transparent, var(--g), transparent);
   animation: sweepLine 3s linear infinite;
 }
-
 #ic-close {
   position: absolute; top: 8px; right: 12px; background: none;
   border: 1px solid rgba(0,255,65,.3); color: var(--g2);
   font-family: 'Share Tech Mono', monospace; font-size: 8px;
   padding: 3px 10px; cursor: pointer; letter-spacing: .12em; transition: all .2s;
+  z-index: 2;
 }
 #ic-close:hover { border-color:var(--g); color:var(--g); }
-
 #ic-body { padding: 10px 14px 8px; height: 100%; overflow: hidden; }
-#ic-row1 { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
+#ic-row1 { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
 #ic-name {
   font-family: 'Orbitron','Arial Black',sans-serif; font-size: 17px; font-weight: 700;
   letter-spacing: .18em; cursor: pointer; transition: opacity .2s;
 }
 #ic-name:hover { opacity: .7; }
 #ic-sub { font-size: 7px; color: rgba(0,255,65,.35); letter-spacing: .2em; }
-
 #ic-grid {
   display: grid; grid-template-columns: repeat(4,1fr);
-  gap: 2px 8px; font-size: 8px; margin-bottom: 6px;
+  gap: 2px 8px; font-size: 8px; margin-bottom: 5px;
 }
 .ick { color: rgba(0,255,65,.38); font-size: 7px; letter-spacing: .06em; }
 .icv { color: var(--g); }
 .icv.warn  { color: var(--o); }
 .icv.alert { color: var(--r); }
-
 #ic-desc {
   font-size: 7.5px; color: rgba(0,255,65,.45); line-height: 1.6;
-  border-top: 1px solid var(--border); padding-top: 5px;
+  border-top: 1px solid var(--border); padding-top: 4px;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-#ic-tbar { margin-top: 5px; display:flex; align-items:center; gap:8px; }
+#ic-tbar { margin-top: 4px; display:flex; align-items:center; gap:8px; }
 #ic-tl   { font-size:7px; color:rgba(0,255,65,.38); letter-spacing:.1em; white-space:nowrap; }
 #ic-tt   { flex:1; height:2px; background:var(--g3); overflow:hidden; }
 #ic-tf   { height:100%; width:0; transition:width .5s, background .3s; }
 #ic-tv   { font-size:8px; color:var(--g); min-width:26px; text-align:right; }
-#ic-rename { font-size:7px; color:rgba(0,255,65,.28); letter-spacing:.15em;
-  margin-top:4px; cursor:pointer; }
+
+/* Action row: rename + screenshot download */
+#ic-actions { margin-top: 5px; display:flex; align-items:center; gap:10px; }
+#ic-rename {
+  font-size:7px; color:rgba(0,255,65,.28); letter-spacing:.15em;
+  cursor:pointer; transition: color .2s;
+}
 #ic-rename:hover { color:var(--g); }
 
+/* Screenshot download button */
+#ic-shot-btn {
+  display: none; /* показывается после снимка */
+  align-items: center; gap: 5px;
+  font-size: 7px; letter-spacing: .15em;
+  background: none; border: 1px solid rgba(0,255,65,.35);
+  color: var(--g2); padding: 3px 9px; cursor: pointer;
+  font-family: 'Share Tech Mono', monospace;
+  transition: all .2s; position: relative; overflow: hidden;
+}
+#ic-shot-btn::before {
+  content: ''; position: absolute; inset: 0; background: var(--g);
+  transform: scaleX(0); transform-origin: left;
+  transition: transform .22s ease; z-index: -1;
+}
+#ic-shot-btn:hover::before { transform: scaleX(1); }
+#ic-shot-btn:hover { color: #000; border-color: var(--g); }
+#ic-shot-btn.ready { display: flex; }
+#ic-shot-btn.saving { color: var(--o); border-color: var(--o); pointer-events: none; }
+
+/* Shot thumbnail preview */
+#ic-thumb {
+  display: none;
+  width: 32px; height: 18px;
+  border: 1px solid rgba(0,255,65,.2);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+#ic-thumb.ready { display: block; }
+
 /* ══════════════════════════════════
-   TERMINAL -- фиксированная высота
+   TERMINAL
 ══════════════════════════════════ */
 #terminal-wrap {
-  flex: 0 0 var(--term-h);   /* фиксированная высота */
+  flex: 0 0 var(--term-h);
   height: var(--term-h);
   background: rgba(0,0,0,.96);
   border-top: 1px solid var(--border);
   z-index: 20;
   display: flex; flex-direction: column;
-  overflow: hidden;           /* дочерние не вылезают */
+  overflow: hidden;
 }
-
 #term-header {
   flex: 0 0 auto;
   display: flex; align-items: center; justify-content: space-between;
@@ -341,8 +359,6 @@ video { display: none; }
   letter-spacing:.15em; cursor:pointer; padding:0;
 }
 #term-clear:hover { color:var(--g); }
-
-/* Колонки-заголовки */
 #term-cols {
   flex: 0 0 auto;
   display: grid;
@@ -351,18 +367,15 @@ video { display: none; }
   border-bottom: 1px solid rgba(0,255,65,.07);
 }
 .tcl { font-size:6.5px; color:rgba(0,255,65,.22); letter-spacing:.15em; text-transform:uppercase; }
-
-/* Скроллируемое тело терминала */
 #term-body {
-  flex: 1 1 0;               /* растягивается, но в пределах родителя */
+  flex: 1 1 0;
   min-height: 0;
-  overflow-y: auto;           /* ← ключевой скролл */
+  overflow-y: auto;
   padding: 2px 0;
   scrollbar-width: thin; scrollbar-color: var(--g3) transparent;
 }
 #term-body::-webkit-scrollbar { width: 3px; }
 #term-body::-webkit-scrollbar-thumb { background: var(--g3); border-radius: 2px; }
-
 .trow {
   display: grid;
   grid-template-columns: 60px 68px 1fr 68px 74px;
@@ -449,33 +462,26 @@ video { display: none; }
       <rect width="100%" height="100%" fill="url(#hxp)"/>
     </svg>
   </div>
-
   <div id="boot-logo-wrap">
     <div id="boot-logo" aria-label="myEYE">
       <span class="bc">m</span><span class="bc">y</span><span
         class="bc">E</span><span class="bc">Y</span><span class="bc">E</span>
     </div>
     <div id="boot-logo-g" aria-hidden="true">myEYE</div>
-    <div id="boot-scan"  aria-hidden="true"></div>
+    <div id="boot-scan" aria-hidden="true"></div>
   </div>
-
   <div id="boot-sub">powered by bortin'2026</div>
   <div id="boot-log"></div>
-
   <div id="pb-wrap">
     <div id="pb-track"><div id="pb"></div></div>
     <div id="pb-pct">0%</div>
   </div>
-
-<button id="btn-start" onclick="startApp()">ACTIVATE</button>
-
+  <button id="btn-start" onclick="startApp()">ACTIVATE</button>
 </div>
 
 <!-- ═══════════ APP ═══════════ -->
 
 <div id="app">
-
-  <!-- Viewport (занимает всё свободное место) -->
 
   <div id="vp">
     <video id="input_video" playsinline muted></video>
@@ -483,13 +489,15 @@ video { display: none; }
     <div id="grid-ov"></div>
     <div id="vignette"></div>
     <div id="alert-flash"></div>
+    <!-- Shot flash & indicator inside vp for correct capture -->
+    <div id="shot-flash"></div>
+    <div id="shot-indicator">◉ CAPTURED</div>
     <div class="hc" id="hc-tl"></div>
     <div class="hc" id="hc-tr"></div>
     <div class="hc" id="hc-bl"></div>
     <div class="hc" id="hc-br"></div>
 
 ```
-<!-- Topbar -->
 <div id="topbar">
   <div id="sys-id">myEYE <small>// PRO</small></div>
   <div id="badges">
@@ -507,7 +515,6 @@ video { display: none; }
 
 <div id="cache-badge">CACHE: 0 CLASSES</div>
 
-<!-- Status bar -->
 <div id="statusbar">
   <div class="sbi" id="sb-time">--:--:--</div>
   <div class="sbi" id="sb-mode">STANDARD</div>
@@ -517,7 +524,7 @@ video { display: none; }
 
   </div>
 
-  <!-- Info card (фиксированная высота, в потоке flex) -->
+  <!-- Info card -->
 
   <div id="info-card">
     <button id="ic-close" onclick="closeCard()">✕ CLOSE</button>
@@ -533,11 +540,15 @@ video { display: none; }
         <div id="ic-tt"><div id="ic-tf"></div></div>
         <div id="ic-tv">0%</div>
       </div>
-      <div id="ic-rename" onclick="renameObj()">✎ RENAME CLASS</div>
+      <div id="ic-actions">
+        <div id="ic-rename" onclick="renameObj()">✎ RENAME CLASS</div>
+        <img id="ic-thumb" alt="shot" />
+        <button id="ic-shot-btn" onclick="downloadScreenshot()">⬇ SAVE PNG</button>
+      </div>
     </div>
   </div>
 
-  <!-- Terminal (фиксированная высота) -->
+  <!-- Terminal -->
 
   <div id="terminal-wrap">
     <div id="term-header">
@@ -557,6 +568,7 @@ video { display: none; }
 
 <script>
 'use strict';
+
 /* ═══════════════════════════════════════════════
    USER CACHE
 ═══════════════════════════════════════════════ */
@@ -619,10 +631,10 @@ const getAlias = cls => UC.aliases[cls] || cls.toUpperCase();
 /* ═══════════════════════════════════════════════
    ELEMENTS
 ═══════════════════════════════════════════════ */
-const video     = document.getElementById('input_video');
-const canvas    = document.getElementById('output_canvas');
-const ctx       = canvas.getContext('2d');
-const termBody  = document.getElementById('term-body');
+const video    = document.getElementById('input_video');
+const canvas   = document.getElementById('output_canvas');
+const ctx      = canvas.getContext('2d');
+const termBody = document.getElementById('term-body');
 
 /* ═══════════════════════════════════════════════
    STATE
@@ -630,19 +642,23 @@ const termBody  = document.getElementById('term-body');
 let detector    = null;
 let poseModel   = null;
 let poseReady   = false;
-let poseResult  = null;   // последний результат pose
-let poseBox     = null;   // bbox человека, для которого считали позу
+let poseResult  = null;
+let poseBox     = null;
 let poseCanvas  = null;
 let poseCtx     = null;
 
-let lastObjects = [];
-let selectedCls = null;   // класс выбранного объекта
-let threatActive= false;
-let detecting   = false;  // guard async detect
-let poseRunning = false;  // guard async pose.send
-let frameN      = 0;
-let fpsN        = 0;
-let lastFpsT    = 0;
+let lastObjects  = [];
+let selectedCls  = null;
+let threatActive = false;
+let detecting    = false;
+let poseRunning  = false;
+let frameN       = 0;
+let fpsN         = 0;
+let lastFpsT     = 0;
+
+// Screenshot state
+let lastScreenshot = null;   // dataURL of last captured screenshot
+let screenshotBlob = null;   // Blob for download
 
 const logThrottle = {};
 
@@ -657,7 +673,6 @@ function hexA(hex, a) {
   return `rgba(${r},${g},${b},${a})`;
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 function nowStr() {
   const n = new Date();
   const t = n.toTimeString().slice(0,8);
@@ -672,7 +687,6 @@ function sysLog(event, type='SYSTEM', group='SYS') {
   const { t, d } = nowStr();
   const cls = { HUMAN:'person',VEHICLE:'vehicle',ANIMAL:'animal',
                 DEVICE:'device',SYS:'system' }[group] || 'other';
-
   const row = document.createElement('div');
   row.className = `trow ${cls}`;
   row.innerHTML =
@@ -681,20 +695,127 @@ function sysLog(event, type='SYSTEM', group='SYS') {
     `<span class="tc-event">${event}</span>` +
     `<span class="tc-type" style="color:${GCOL[group]||'var(--g)'}">${type}</span>` +
     `<span class="tc-group">${group}</span>`;
-
   termBody.appendChild(row);
-
-  // Авто-скролл только если пользователь у дна
   const nearBottom = termBody.scrollHeight - termBody.scrollTop - termBody.clientHeight < 50;
   if (nearBottom) termBody.scrollTop = termBody.scrollHeight;
-
-  // DOM-лимит
   while (termBody.children.length > 300) termBody.firstElementChild.remove();
 }
 
 function clearLog() {
   termBody.innerHTML = '';
   sysLog('LOG CLEARED','SYSTEM','SYS');
+}
+
+/* ═══════════════════════════════════════════════
+   SCREENSHOT
+   Захват всего #app через html2canvas.
+   html2canvas не рендерит video/canvas напрямую,
+   поэтому:
+   1. Сначала рисуем текущий кадр на временный canvas.
+   2. Конвертируем его в dataURL и передаём как
+      background для #vp через foreignObject (не нужно).
+   Правильная схема: используем html2canvas с
+   onclone-callback, где в клон вставляем текущий
+   кадр из output_canvas как <img> поверх видео,
+   что даёт корректный снимок.
+═══════════════════════════════════════════════ */
+async function captureScreenshot() {
+  // Скрываем flash/indicator перед захватом
+  const flashEl = document.getElementById('shot-flash');
+  const indEl   = document.getElementById('shot-indicator');
+
+  try {
+    // Запоминаем dataURL текущего кадра из canvas детектора
+    const frameDataURL = canvas.toDataURL('image/png');
+
+    const appEl = document.getElementById('app');
+
+    const shotCanvas = await html2canvas(appEl, {
+      backgroundColor: '#000',
+      useCORS: true,
+      allowTaint: true,
+      scale: Math.min(window.devicePixelRatio || 1, 2),
+      logging: false,
+      ignoreElements: el => {
+        // Игнорируем flash/indicator чтобы не попали в снимок
+        return el.id === 'shot-flash' || el.id === 'shot-indicator';
+      },
+      onclone: (doc) => {
+        // В клоне заменяем video+canvas на <img> с реальным кадром
+        const cloneVP = doc.getElementById('vp');
+        const cloneVideo = doc.getElementById('input_video');
+        const cloneCanvas = doc.getElementById('output_canvas');
+
+        // Скрываем видео в клоне
+        if (cloneVideo) cloneVideo.style.display = 'none';
+
+        // Создаём img-заменитель
+        if (cloneCanvas) {
+          const img = doc.createElement('img');
+          img.src = frameDataURL;
+          img.style.cssText = cloneCanvas.style.cssText ||
+            'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;';
+          cloneCanvas.replaceWith(img);
+        }
+      }
+    });
+
+    // Конвертируем в blob для скачивания
+    return new Promise(resolve => {
+      shotCanvas.toBlob(blob => {
+        const dataURL = shotCanvas.toDataURL('image/png');
+        resolve({ blob, dataURL });
+      }, 'image/png');
+    });
+
+  } catch (err) {
+    console.error('Screenshot error:', err);
+    // Fallback: сохраняем только canvas с кадром
+    return new Promise(resolve => {
+      canvas.toBlob(blob => {
+        resolve({ blob, dataURL: canvas.toDataURL('image/png') });
+      }, 'image/png');
+    });
+  }
+}
+
+function showShotFlash() {
+  const flashEl = document.getElementById('shot-flash');
+  const indEl   = document.getElementById('shot-indicator');
+  flashEl.classList.remove('snap');
+  indEl.classList.remove('snap');
+  void flashEl.offsetWidth; // reflow
+  flashEl.classList.add('snap');
+  indEl.classList.add('snap');
+  // Убираем классы после анимации
+  setTimeout(() => {
+    flashEl.classList.remove('snap');
+    indEl.classList.remove('snap');
+  }, 900);
+}
+
+async function downloadScreenshot() {
+  if (!screenshotBlob) return;
+  const btn = document.getElementById('ic-shot-btn');
+  btn.classList.add('saving');
+  btn.textContent = '⏳ SAVING...';
+
+  // Небольшая задержка для UI-фидбека
+  await sleep(80);
+
+  const url = URL.createObjectURL(screenshotBlob);
+  const a   = document.createElement('a');
+  const now = new Date();
+  const ts  = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${now.toTimeString().slice(0,8).replace(/:/g,'')}`;
+  a.href     = url;
+  a.download = `myEYE_${selectedCls || 'capture'}_${ts}.png`;
+  a.click();
+
+  setTimeout(() => URL.revokeObjectURL(url), 3000);
+
+  btn.classList.remove('saving');
+  btn.textContent = '⬇ SAVE PNG';
+  sysLog(`SCREENSHOT SAVED: ${a.download}`, 'PNG', 'SYS');
 }
 
 /* ═══════════════════════════════════════════════
@@ -713,19 +834,30 @@ async function initModels() {
   };
   const setPb = p => { pbEl.style.width = p+'%'; pctEl.textContent = p+'%'; };
 
-  bLog('INIT VISION OS v5.2');         setPb(8);  await sleep(150);
-  bLog(`USER CACHE: ${Object.keys(UC.aliases).length} ALIASES`); setPb(15); await sleep(150);
+  bLog('INIT VISION OS v5.2');
+  setPb(8); await sleep(150);
+  bLog(`USER CACHE: ${Object.keys(UC.aliases).length} ALIASES`);
+  setPb(15); await sleep(150);
+
+  // html2canvas check
+  if (typeof html2canvas !== 'undefined') {
+    bLog('SCREENSHOT ENGINE: READY');
+  } else {
+    bLog('SCREENSHOT ENGINE: FALLBACK MODE','warn');
+  }
+  setPb(25); await sleep(100);
 
   // COCO-SSD
   try {
     bLog('DETECTOR: COCO-SSD LOADING...','warn');
     detector = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-    bLog('DETECTOR: READY');           setPb(60);
+    bLog('DETECTOR: READY');
+    setPb(60);
   } catch(e) {
     bLog('DETECTOR ERROR: '+e.message,'err');
   }
 
-  // MediaPipe Pose (опционально)
+  // MediaPipe Pose (optional)
   try {
     if (typeof Pose === 'undefined') throw new Error('Pose not loaded');
     bLog('POSE ENGINE: LOADING...','warn');
@@ -733,11 +865,11 @@ async function initModels() {
       locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}`
     });
     poseModel.setOptions({
-      modelComplexity:         0,
-      smoothLandmarks:         true,
-      enableSegmentation:      false,
-      minDetectionConfidence:  0.5,
-      minTrackingConfidence:   0.5
+      modelComplexity:        0,
+      smoothLandmarks:        true,
+      enableSegmentation:     false,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence:  0.5
     });
     poseModel.onResults(results => {
       poseResult  = results;
@@ -745,7 +877,8 @@ async function initModels() {
     });
     await poseModel.initialize();
     poseReady = true;
-    bLog('POSE ENGINE: ACTIVE');       setPb(90);
+    bLog('POSE ENGINE: ACTIVE');
+    setPb(90);
   } catch(e) {
     bLog('POSE: UNAVAILABLE (FALLBACK ASCII MODE)','warn');
     poseReady = false;
@@ -767,7 +900,6 @@ function startApp() {
 
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
-  // MediaPipe Camera API или нативный getUserMedia
   if (typeof Camera !== 'undefined') {
     const cam = new Camera(video, {
       onFrame: renderFrame,
@@ -792,7 +924,6 @@ function startApp() {
     }).catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
   }
 
-  // Часы
   setInterval(() => {
     document.getElementById('sb-time').textContent = new Date().toTimeString().slice(0,8);
   }, 1000);
@@ -808,7 +939,6 @@ async function renderFrame() {
   canvas.width  = vw;
   canvas.height = vh;
 
-  // Видео на canvas
   ctx.drawImage(video, 0, 0, vw, vh);
 
   // Виньетка
@@ -826,7 +956,6 @@ async function renderFrame() {
   }
   frameN++;
 
-  // Object detection (guard: один вызов за раз)
   if (!detecting) {
     detecting = true;
     try {
@@ -835,15 +964,12 @@ async function renderFrame() {
     detecting = false;
   }
 
-  // Рисуем объекты
   drawObjects();
 
-  // Pose (только для person, каждые 4 кадра, guard poseRunning)
   if (poseReady && frameN % 4 === 0 && !poseRunning) {
     const person = lastObjects.find(o => o.class === 'person');
     if (person) {
       const [bx, by, bw, bh] = person.bbox;
-      // Клампируем координаты чтобы не выйти за границы видео
       const cx  = Math.max(0, Math.round(bx));
       const cy  = Math.max(0, Math.round(by));
       const cw  = Math.min(Math.round(bw), vw - cx);
@@ -866,7 +992,6 @@ async function renderFrame() {
     }
   }
 
-  // Рисуем скелет поверх всего
   drawPose();
 }
 
@@ -878,7 +1003,6 @@ function drawObjects() {
   const hasThreat = lastObjects.some(o =>
     ['person','car','truck','bus','motorcycle'].includes(o.class));
 
-  // Threat badge
   const tb = document.getElementById('b-threat');
   if (hasThreat !== threatActive) {
     threatActive = hasThreat;
@@ -895,20 +1019,15 @@ function drawObjects() {
     const col   = getCol(obj.class);
     const isSel = (obj.class === selectedCls);
     const isThrt= ['person','car','truck','bus','motorcycle'].includes(obj.class);
-
-    // Pulse-анимация для угроз
     const alpha = isThrt && !isSel ? 0.6 + 0.4*Math.sin(t*0.11) : 1;
 
-    // Основная рамка
     ctx.strokeStyle = hexA(col, alpha);
     ctx.lineWidth   = isSel ? 4 : 3;
     ctx.strokeRect(bx, by, bw, bh);
 
-    // Полупрозрачная заливка
     ctx.fillStyle = hexA(col, isSel ? 0.12 : 0.03);
     ctx.fillRect(bx, by, bw, bh);
 
-    // Угловые скобки
     const cs = Math.min(18, bw*0.2, bh*0.2);
     const ao = isSel ? Math.sin(t*0.1)*2 : 0;
     ctx.strokeStyle = col;
@@ -923,7 +1042,6 @@ function drawObjects() {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Сканирующая линия (только выбранный)
     if (isSel) {
       const sy = by + ((t*2.5 % 100)/100)*bh;
       const sg = ctx.createLinearGradient(bx, sy-10, bx, sy+10);
@@ -931,7 +1049,6 @@ function drawObjects() {
       ctx.fillStyle = sg; ctx.fillRect(bx, sy-10, bw, 20);
     }
 
-    // Лейбл
     const alias  = getAlias(obj.class);
     const pct    = Math.round(obj.score*100) + '%';
     const upward = by > 34;
@@ -948,7 +1065,6 @@ function drawObjects() {
     ctx.fillStyle = hexA(col, .8);
     ctx.fillText(pct, bx+tw+4, upward ? lY-10 : lY-3);
 
-    // Группа (правый верхний угол)
     if (bw > 70) {
       ctx.fillStyle = hexA(col,.1);
       ctx.fillRect(bx+bw-62, by+3, 60, 13);
@@ -957,12 +1073,11 @@ function drawObjects() {
       ctx.fillText(getGroup(obj.class), bx+bw-60, by+13);
     }
 
-    // Лог (throttle 8с)
     const lk = obj.class, now = Date.now();
     if (!logThrottle[lk] || now - logThrottle[lk] > 8000) {
       logThrottle[lk] = now;
       sysLog(alias, obj.class.toUpperCase(), getGroup(obj.class));
-      UC.counts[lk]  = (UC.counts[lk]||0) + 1;
+      UC.counts[lk]   = (UC.counts[lk]||0) + 1;
       UC.lastSeen[lk] = now;
       UC.events.push({ ts:now, cls:lk, score:Math.round(obj.score*100), group:getGroup(lk) });
       saveCache();
@@ -971,67 +1086,33 @@ function drawObjects() {
 }
 
 /* ═══════════════════════════════════════════════
-   DRAW POSE -- корректное проецирование скелета
-   в bbox человека с овалом головы по ключевым
-   точкам глаз/ушей
+   DRAW POSE
 ═══════════════════════════════════════════════ */
-
-/*
-  MediaPipe Pose ландмарки (0-32):
-  0=nose 1=l_eye_in 2=l_eye 3=l_eye_out
-  4=r_eye_in 5=r_eye 6=r_eye_out
-  7=l_ear  8=r_ear
-  9=mouth_l 10=mouth_r
-  11=l_shoulder 12=r_shoulder
-  13=l_elbow 14=r_elbow
-  15=l_wrist 16=r_wrist
-  23=l_hip 24=r_hip
-  25=l_knee 26=r_knee
-  27=l_ankle 28=r_ankle
-*/
-
-// Кости скелета (пары индексов)
 const SKEL_BONES = [
-  // Торс
   [11,12],[11,23],[12,24],[23,24],
-  // Левая рука
   [11,13],[13,15],
-  // Правая рука
   [12,14],[14,16],
-  // Левая нога
   [23,25],[25,27],
-  // Правая нога
   [24,26],[26,28]
 ];
 
 function drawPose() {
   if (!poseResult || !poseResult.poseLandmarks || !poseBox) return;
-
   const lm = poseResult.poseLandmarks;
   const { bx, by, bw, bh } = poseBox;
 
-  /*
-    ИСПРАВЛЕНИЕ БАГ #2: MediaPipe возвращает координаты 0..1
-    ОТНОСИТЕЛЬНО кропа (poseCanvas), который равен bbox.
-    Поэтому проецируем так:
-      canvas_x = bx + lm[i].x * bw
-      canvas_y = by + lm[i].y * bh
-    Фильтруем только видимые точки (visibility > 0.5).
-  */
   const pts = lm.map(p => ({
     x: bx + p.x * bw,
     y: by + p.y * bh,
     v: p.visibility || 0
   }));
 
-  const G_COL     = '#00ff41';
-  const G_COL_DIM = 'rgba(0,255,65,.35)';
+  const G_COL = '#00ff41';
 
   ctx.save();
   ctx.lineCap  = 'round';
   ctx.lineJoin = 'round';
 
-  // ── Кости скелета ──
   ctx.strokeStyle = G_COL;
   ctx.lineWidth   = 2;
   ctx.shadowColor = G_COL;
@@ -1039,7 +1120,7 @@ function drawPose() {
 
   SKEL_BONES.forEach(([a,b]) => {
     if (!pts[a] || !pts[b]) return;
-    if (pts[a].v < 0.4 && pts[b].v < 0.4) return; // оба невидимы -- пропускаем
+    if (pts[a].v < 0.4 && pts[b].v < 0.4) return;
     const alpha = Math.min(pts[a].v, pts[b].v);
     ctx.globalAlpha = Math.max(0.3, alpha);
     ctx.beginPath();
@@ -1048,10 +1129,8 @@ function drawPose() {
     ctx.stroke();
   });
 
-  // ── Суставы -- точки ──
   ctx.shadowBlur = 8;
-  const jointIndices = [11,12,13,14,15,16,23,24,25,26,27,28];
-  jointIndices.forEach(i => {
+  [11,12,13,14,15,16,23,24,25,26,27,28].forEach(i => {
     if (!pts[i] || pts[i].v < 0.4) return;
     ctx.globalAlpha = Math.max(0.4, pts[i].v);
     ctx.fillStyle   = G_COL;
@@ -1060,7 +1139,6 @@ function drawPose() {
     ctx.fill();
   });
 
-  // ── Нос ──
   if (pts[0] && pts[0].v > 0.4) {
     ctx.globalAlpha = pts[0].v;
     ctx.fillStyle   = G_COL;
@@ -1069,31 +1147,19 @@ function drawPose() {
     ctx.fill();
   }
 
-  /*
-    ── Голова -- эллипс по глазам и ушам ──
-    Центр: середина между левым глазом (2) и правым глазом (5)
-    Ширина: расстояние между ушами (7 и 8) * 1.1
-    Высота: ширина * 1.35 (антропометрическое соотношение)
-  */
   const L_EYE = pts[2], R_EYE = pts[5];
   const L_EAR = pts[7], R_EAR = pts[8];
-  const NOSE  = pts[0];
-
-  // Нужно хотя бы 2 глазных точки или 2 ушных
   const eyesOk = L_EYE && R_EYE && L_EYE.v > 0.3 && R_EYE.v > 0.3;
   const earsOk = L_EAR && R_EAR && L_EAR.v > 0.2 && R_EAR.v > 0.2;
 
   if (eyesOk || earsOk) {
     let hcx, hcy, hradW, hradH;
-
     if (eyesOk && earsOk) {
       hcx  = (L_EYE.x + R_EYE.x) / 2;
       hcy  = (L_EYE.y + R_EYE.y) / 2;
-      // Ширина по ушам (голова шире расстояния между глазами)
       const earDist = Math.abs(R_EAR.x - L_EAR.x);
       hradW = earDist * 0.58;
       hradH = hradW * 1.3;
-      // Смещаем центр немного вверх (глаза ниже центра головы)
       hcy -= hradH * 0.12;
     } else if (eyesOk) {
       hcx  = (L_EYE.x + R_EYE.x) / 2;
@@ -1103,15 +1169,12 @@ function drawPose() {
       hradH = hradW * 1.3;
       hcy -= hradH * 0.12;
     } else {
-      // Только уши
       hcx  = (L_EAR.x + R_EAR.x) / 2;
       hcy  = (L_EAR.y + R_EAR.y) / 2;
       const earDist = Math.abs(R_EAR.x - L_EAR.x);
       hradW = earDist * 0.58;
       hradH = hradW * 1.3;
     }
-
-    // Минимальный радиус (на случай очень маленького bbox)
     hradW = Math.max(hradW, 8);
     hradH = Math.max(hradH, 10);
 
@@ -1125,7 +1188,6 @@ function drawPose() {
     ctx.fill();
     ctx.stroke();
 
-    // Крестик-прицел в центре головы
     ctx.globalAlpha = 0.5;
     ctx.lineWidth   = 1;
     const cr = 4;
@@ -1141,9 +1203,9 @@ function drawPose() {
 }
 
 /* ═══════════════════════════════════════════════
-   CANVAS TAP → INFO CARD
+   CANVAS TAP → INFO CARD + SCREENSHOT
 ═══════════════════════════════════════════════ */
-canvas.addEventListener('click', e => {
+canvas.addEventListener('click', async (e) => {
   const rect = canvas.getBoundingClientRect();
   const sx   = canvas.width  / rect.width;
   const sy   = canvas.height / rect.height;
@@ -1157,14 +1219,39 @@ canvas.addEventListener('click', e => {
 
   if (hit) {
     selectedCls = hit.class;
-    openCard(hit);
+
+    // 1. Сначала показываем карточку (без скриншота)
+    openCard(hit, null);
+
     sysLog(`LOCK-ON: ${getAlias(hit.class)}`, hit.class.toUpperCase(), getGroup(hit.class));
+
+    // 2. Делаем визуальный flash
+    showShotFlash();
+
+    // 3. Захватываем скриншот (async, не блокируем UI)
+    sysLog('CAPTURING SCREENSHOT...','SNAP','SYS');
+
+    try {
+      const result = await captureScreenshot();
+      screenshotBlob = result.blob;
+      lastScreenshot = result.dataURL;
+
+      // Обновляем карточку с превью и кнопкой
+      updateCardScreenshot(result.dataURL);
+      sysLog('SCREENSHOT READY','SNAP','SYS');
+    } catch(err) {
+      sysLog('SCREENSHOT FAILED: '+err.message,'ERROR','SYS');
+    }
+
   } else {
     closeCard();
   }
 });
 
-function openCard(obj) {
+/* ═══════════════════════════════════════════════
+   INFO CARD
+═══════════════════════════════════════════════ */
+function openCard(obj, thumbDataURL) {
   const col   = getCol(obj.class);
   const kb    = getKB(obj.class);
   const alias = getAlias(obj.class);
@@ -1175,10 +1262,10 @@ function openCard(obj) {
   const seen   = UC.counts[obj.class] || 0;
 
   const nameEl = document.getElementById('ic-name');
-  nameEl.textContent   = alias;
-  nameEl.style.color   = col;
+  nameEl.textContent    = alias;
+  nameEl.style.color    = col;
   nameEl.style.textShadow = `0 0 18px ${col}`;
-  nameEl.dataset.cls   = obj.class;
+  nameEl.dataset.cls    = obj.class;
 
   document.getElementById('ic-grid').innerHTML =
     `<div class="ick">КЛАСС</div>  <div class="icv">${obj.class.toUpperCase()}</div>` +
@@ -1190,22 +1277,45 @@ function openCard(obj) {
 
   document.getElementById('ic-desc').textContent = kb.desc;
 
-  const tf = document.getElementById('ic-tf');
+  const tf   = document.getElementById('ic-tf');
   const tcol = threat > 60 ? 'var(--r)' : threat > 35 ? 'var(--o)' : 'var(--g)';
   tf.style.width      = threat + '%';
   tf.style.background = tcol;
   tf.style.boxShadow  = `0 0 8px ${tcol}`;
   document.getElementById('ic-tv').textContent = threat + '%';
 
+  // Скрываем кнопку/превью пока нет скриншота
+  const shotBtn = document.getElementById('ic-shot-btn');
+  const thumb   = document.getElementById('ic-thumb');
+  shotBtn.classList.remove('ready');
+  thumb.classList.remove('ready');
+  shotBtn.textContent = '⬇ SAVE PNG';
+  shotBtn.classList.remove('saving');
+
   document.getElementById('info-card').classList.add('open');
 }
 
-function closeCard() {
-  selectedCls = null;
-  document.getElementById('info-card').classList.remove('open');
+function updateCardScreenshot(dataURL) {
+  // Показываем кнопку и превью
+  const shotBtn = document.getElementById('ic-shot-btn');
+  const thumb   = document.getElementById('ic-thumb');
+
+  thumb.src = dataURL;
+  thumb.classList.add('ready');
+  shotBtn.classList.add('ready');
 }
 
-// Клик по имени объекта -- rename
+function closeCard() {
+  selectedCls    = null;
+  lastScreenshot = null;
+  screenshotBlob = null;
+  document.getElementById('info-card').classList.remove('open');
+  const thumb   = document.getElementById('ic-thumb');
+  const shotBtn = document.getElementById('ic-shot-btn');
+  thumb.classList.remove('ready');
+  shotBtn.classList.remove('ready');
+}
+
 document.getElementById('ic-name').addEventListener('click', renameObj);
 
 function renameObj() {
