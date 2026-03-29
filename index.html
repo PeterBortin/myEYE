@@ -1,40 +1,28 @@
 <!DOCTYPE html>
-
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE Pro</title>
-<!-- Шрифты загружаем первыми, до всего остального -->
+<title>myEYE Pro v16.0</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap">
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
-
-<!-- MediaPipe Pose (необязательный) -->
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js" crossorigin="anonymous"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils@0.3.1675466862/camera_utils.js" crossorigin="anonymous"></script>
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils@0.3.1675466124/drawing_utils.js" crossorigin="anonymous"></script>
 
 <style>
-/* ══════════════════════════════════
-   VARIABLES & RESET
-══════════════════════════════════ */
 :root {
   --g:  #00ff41;  --g2: #00cc33;  --g3: #003a12;
   --b:  #00aaff;  --r:  #ff3333;  --y:  #ffe600;
   --o:  #ff9900;  --p:  #cc44ff;
   --panel: rgba(2,8,4,.94);
   --border: rgba(0,255,65,.18);
-  /* Фиксированные высоты нижней зоны */
-  --card-h: 180px;   /* info card — фиксированная высота */
-  --term-h: 150px;   /* terminal — фиксированная высота */
+  --card-h: 180px;
+  --term-h: 150px;
 }
 *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
 html, body {
@@ -45,42 +33,27 @@ html, body {
   user-select: none;
 }
 
-/* ══════════════════════════════════
-   BOOT SCREEN
-══════════════════════════════════ */
+/* BOOT SCREEN */
 #boot {
   position: fixed; inset: 0; background: #000; z-index: 300;
   display: flex; flex-direction: column;
   justify-content: center; align-items: center;
   padding: 24px; gap: 0;
 }
-
-/* Hex bg */
 #boot-hex { position:absolute; inset:0; overflow:hidden; opacity:.05; pointer-events:none; }
 #boot-hex svg { width:100%; height:100%; }
-
-/* Logo wrap — position:relative для дочерних absolute */
 #boot-logo-wrap { position: relative; margin-bottom: 10px; line-height: 1; }
-
-/*
-  БАГ #3: шрифт лого не отображался — причина: font-family без fallback
-  и color:transparent блокировал рендер до загрузки шрифта.
-  Решение: добавляем fallback, убираем color:transparent с самого контейнера,
-  устанавливаем начальный цвет через inline-style анимации.
-*/
 #boot-logo {
   font-family: 'Orbitron', 'Arial Black', sans-serif;
   font-weight: 900;
   font-size: clamp(42px, 12vw, 82px);
   letter-spacing: .18em;
   white-space: nowrap;
-  /* Контейнер невидим, буквы анимируются отдельно */
   color: transparent;
 }
 .bc {
   display: inline-block;
   opacity: 0;
-  /* Стартуем с fallback-цветом чтобы шрифт точно отрисовался */
   color: var(--g);
   text-shadow: 0 0 24px rgba(0,255,65,.55), 0 0 60px rgba(0,255,65,.18);
   animation: charDrop .55s cubic-bezier(.22,1,.36,1) forwards;
@@ -91,7 +64,6 @@ html, body {
 .bc:nth-child(4){animation-delay:.44s}
 .bc:nth-child(5){animation-delay:.57s}
 
-/* Glitch clone — абсолютно поверх */
 #boot-logo-g {
   position: absolute; inset: 0;
   font-family: 'Orbitron', 'Arial Black', sans-serif;
@@ -103,20 +75,16 @@ html, body {
   opacity: 0; pointer-events: none;
   animation: glitchLoop 5s 1.6s infinite;
 }
-/* Горизонтальная сканирующая полоса */
 #boot-scan {
   position: absolute; left: 0; right: 0; height: 2px; top: 0;
   background: linear-gradient(90deg, transparent, var(--g), transparent);
   box-shadow: 0 0 12px var(--g);
   animation: scanDown 3s ease-in-out infinite;
 }
-
 #boot-sub {
   font-size: 8px; letter-spacing: .45em; color: var(--g2); text-transform: uppercase;
   margin: 8px 0 22px; opacity: 0; animation: fadeUp .5s .95s forwards;
 }
-
-/* Boot log */
 #boot-log {
   width: min(360px, 88vw); font-size: 8.5px; color: var(--g2);
   min-height: 90px; line-height: 2;
@@ -129,14 +97,12 @@ html, body {
 #boot-log .bl.warn::before { content: '⚡ '; color: var(--o); }
 #boot-log .bl.err::before  { content: '✕ '; color: var(--r); }
 
-/* Progress bar */
 #pb-wrap { width: min(360px, 88vw); margin-top: 16px; }
 #pb-track { height: 2px; background: var(--g3); }
 #pb { height: 100%; width: 0; background: linear-gradient(90deg, var(--g2), var(--g));
   box-shadow: 0 0 12px var(--g); transition: width .35s cubic-bezier(.22,1,.36,1); }
 #pb-pct { font-size: 7px; color: var(--g2); text-align: right; margin-top: 3px; letter-spacing: .2em; }
 
-/* Start button */
 #btn-start {
   margin-top: 32px; display: none;
   background: none; border: 1px solid var(--g); color: var(--g);
@@ -149,57 +115,28 @@ html, body {
   transform: scaleX(0); transform-origin: left;
   transition: transform .28s cubic-bezier(.22,1,.36,1); z-index: -1;
 }
-#btn-start:hover::before,
-#btn-start:active::before { transform: scaleX(1); }
+#btn-start:hover::before, #btn-start:active::before { transform: scaleX(1); }
 #btn-start:hover, #btn-start:active { color: #000; }
 
-/* ══════════════════════════════════
-   APP LAYOUT
-   Жёсткая структура: vp занимает всё
-   оставшееся место; card + terminal
-   имеют фиксированные высоты.
-══════════════════════════════════ */
-#app {
-  position: fixed; inset: 0;
-  display: none; flex-direction: column;
-}
-
-/* Viewport — flex:1 = берёт всё свободное место */
-#vp {
-  position: relative;
-  flex: 1 1 0;        /* 0 важно — не растём сверх свободного */
-  min-height: 0;      /* разрешаем сжатие */
-  overflow: hidden;
-  background: #000;
-}
+/* APP LAYOUT */
+#app { position: fixed; inset: 0; display: none; flex-direction: column; }
+#vp { position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; background: #000; }
 video { display: none; }
-#output_canvas {
-  position: absolute; inset: 0;
-  width: 100%; height: 100%;
-  object-fit: cover; z-index: 2; cursor: crosshair;
-}
-
-/* Overlay layers */
+#output_canvas { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: 2; cursor: crosshair; }
 #vp::after {
   content: ''; position: absolute; inset: 0; z-index: 5; pointer-events: none;
-  background: repeating-linear-gradient(0deg, transparent, transparent 2px,
-    rgba(0,0,0,.12) 2px, rgba(0,0,0,.12) 4px);
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,.12) 2px, rgba(0,0,0,.12) 4px);
   animation: scanroll 8s linear infinite;
 }
-#vignette {
-  position: absolute; inset: 0; z-index: 4; pointer-events: none;
-  background: radial-gradient(ellipse at center, transparent 36%, rgba(0,0,0,.88) 100%);
-}
+#vignette { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(ellipse at center, transparent 36%, rgba(0,0,0,.88) 100%); }
 #grid-ov {
   position: absolute; inset: 0; z-index: 3; pointer-events: none; opacity: .025;
-  background-image: linear-gradient(var(--g) 1px, transparent 1px),
-                    linear-gradient(90deg, var(--g) 1px, transparent 1px);
+  background-image: linear-gradient(var(--g) 1px, transparent 1px), linear-gradient(90deg, var(--g) 1px, transparent 1px);
   background-size: 48px 48px;
 }
 #alert-flash { position: absolute; inset: 0; z-index: 6; pointer-events: none; opacity: 0; }
 #alert-flash.on { animation: alertFlash 1.2s ease-out forwards; }
 
-/* Corners */
 .hc { position: absolute; width: 52px; height: 52px; z-index: 10; pointer-events: none; }
 .hc::before, .hc::after { content:''; position:absolute; background:var(--g); box-shadow:0 0 6px var(--g); }
 .hc::before { width:2px; height:18px; } .hc::after { width:18px; height:2px; }
@@ -208,37 +145,24 @@ video { display: none; }
 #hc-bl{bottom:0;left:0;} #hc-bl::before{bottom:0;left:0;}  #hc-bl::after{bottom:0;left:0;}
 #hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;} #hc-br::after{bottom:0;right:0;}
 
-/* Topbar */
 #topbar {
   position: absolute; top: 0; left: 0; right: 0; z-index: 15; pointer-events: none;
   display: flex; align-items: center; justify-content: space-between; padding: 10px 14px;
   background: linear-gradient(180deg, rgba(0,0,0,.72) 0%, transparent 100%);
 }
-#sys-id { font-family:'Orbitron','Arial Black',sans-serif; font-size:13px; font-weight:900;
-  letter-spacing:.2em; color:var(--g); text-shadow:0 0 20px rgba(0,255,65,.5); }
+#sys-id { font-family:'Orbitron','Arial Black',sans-serif; font-size:13px; font-weight:900; letter-spacing:.2em; color:var(--g); text-shadow:0 0 20px rgba(0,255,65,.5); }
 #sys-id small { font-weight:400; font-size:9px; opacity:.4; letter-spacing:.08em; }
 #badges { display:flex; gap:5px; align-items:center; }
 .badge {
   font-size:7.5px; letter-spacing:.1em; padding:3px 8px;
   border:1px solid var(--border); background:var(--panel);
-  color:var(--g2); display:flex; align-items:center; gap:4px;
-  backdrop-filter: blur(4px);
+  color:var(--g2); display:flex; align-items:center; gap:4px; backdrop-filter: blur(4px);
 }
-.bdot {
-  width:4px; height:4px; border-radius:50%; background:var(--g);
-  flex-shrink:0; animation:dotBlink 1.5s ease-in-out infinite; box-shadow:0 0 5px var(--g);
-}
-#b-fps .bdot    { background:var(--b); box-shadow:0 0 5px var(--b); }
-#b-threat       { display:none; border-color:rgba(255,51,51,.4); color:var(--r); }
+.bdot { width:4px; height:4px; border-radius:50%; background:var(--g); animation:dotBlink 1.5s ease-in-out infinite; box-shadow:0 0 5px var(--g); }
+#b-fps .bdot { background:var(--b); box-shadow:0 0 5px var(--b); }
+#b-threat { display:none; border-color:rgba(255,51,51,.4); color:var(--r); }
 #b-threat .bdot { background:var(--r); box-shadow:0 0 5px var(--r); animation-duration:.6s; }
-
-/* Cache badge */
-#cache-badge {
-  position: absolute; top: 40px; left: 14px; z-index: 16;
-  font-size: 7px; color: rgba(0,255,65,.3); letter-spacing: .15em; pointer-events: none;
-}
-
-/* Status bar */
+#cache-badge { position: absolute; top: 40px; left: 14px; z-index: 16; font-size: 7px; color: rgba(0,255,65,.3); letter-spacing: .15em; pointer-events: none; }
 #statusbar {
   position: absolute; bottom: 0; left: 0; right: 0; z-index: 9; pointer-events: none;
   display: flex; justify-content: space-between; padding: 4px 14px;
@@ -246,324 +170,114 @@ video { display: none; }
 }
 .sbi { font-size: 7px; color: rgba(0,255,65,.32); letter-spacing: .1em; }
 
-/* ══════════════════════════════════
-   INFO CARD — фиксированная высота,
-   position:relative в потоке flex
-══════════════════════════════════ */
+/* INFO CARD */
 #info-card {
-  flex: 0 0 var(--card-h);   /* фиксированная высота */
-  height: var(--card-h);
-  overflow: hidden;           /* не вылезает */
-  background: rgba(1,5,2,.99);
-  border-top: 1px solid rgba(0,255,65,.45);
-  position: relative;         /* НЕ absolute — в потоке */
-  z-index: 30;
-  /* Скрыта — сворачиваем через height */
-  max-height: 0;
-  transition: max-height .28s cubic-bezier(.22,1,.36,1),
-              border-color .28s;
-  border-top-color: transparent;
-  pointer-events: none;
+  flex: 0 0 var(--card-h); height: var(--card-h); overflow: hidden;
+  background: rgba(1,5,2,.99); border-top: 1px solid rgba(0,255,65,.45);
+  position: relative; z-index: 30; max-height: 0; transition: max-height .28s cubic-bezier(.22,1,.36,1);
+  border-top-color: transparent; pointer-events: none;
 }
-#info-card.open {
-  max-height: var(--card-h);
-  border-top-color: rgba(0,255,65,.45);
-  pointer-events: all;
-}
-#info-card::before {
-  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
-  background: linear-gradient(90deg, transparent, var(--g), transparent);
-  animation: sweepLine 3s linear infinite;
-}
-
-#ic-close {
-  position: absolute; top: 8px; right: 12px; background: none;
-  border: 1px solid rgba(0,255,65,.3); color: var(--g2);
-  font-family: 'Share Tech Mono', monospace; font-size: 8px;
-  padding: 3px 10px; cursor: pointer; letter-spacing: .12em; transition: all .2s;
-}
-#ic-close:hover { border-color:var(--g); color:var(--g); }
-
+#info-card.open { max-height: var(--card-h); border-top-color: rgba(0,255,65,.45); pointer-events: all; }
+#info-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, var(--g), transparent); animation: sweepLine 3s linear infinite; }
+#ic-close { position: absolute; top: 8px; right: 12px; background: none; border: 1px solid rgba(0,255,65,.3); color: var(--g2); font-family: 'Share Tech Mono', monospace; font-size: 8px; padding: 3px 10px; cursor: pointer; }
 #ic-body { padding: 10px 14px 8px; height: 100%; overflow: hidden; }
 #ic-row1 { display:flex; align-items:baseline; gap:10px; margin-bottom:6px; }
-#ic-name {
-  font-family: 'Orbitron','Arial Black',sans-serif; font-size: 17px; font-weight: 700;
-  letter-spacing: .18em; cursor: pointer; transition: opacity .2s;
-}
-#ic-name:hover { opacity: .7; }
-#ic-sub { font-size: 7px; color: rgba(0,255,65,.35); letter-spacing: .2em; }
-
-#ic-grid {
-  display: grid; grid-template-columns: repeat(4,1fr);
-  gap: 2px 8px; font-size: 8px; margin-bottom: 6px;
-}
-.ick { color: rgba(0,255,65,.38); font-size: 7px; letter-spacing: .06em; }
+#ic-name { font-family: 'Orbitron','Arial Black',sans-serif; font-size: 17px; font-weight: 700; letter-spacing: .18em; cursor: pointer; }
+#ic-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 2px 8px; font-size: 8px; margin-bottom: 6px; }
+.ick { color: rgba(0,255,65,.38); font-size: 7px; }
 .icv { color: var(--g); }
-.icv.warn  { color: var(--o); }
-.icv.alert { color: var(--r); }
-
-#ic-desc {
-  font-size: 7.5px; color: rgba(0,255,65,.45); line-height: 1.6;
-  border-top: 1px solid var(--border); padding-top: 5px;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
+#ic-desc { font-size: 7.5px; color: rgba(0,255,65,.45); line-height: 1.6; border-top: 1px solid var(--border); padding-top: 5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #ic-tbar { margin-top: 5px; display:flex; align-items:center; gap:8px; }
-#ic-tl   { font-size:7px; color:rgba(0,255,65,.38); letter-spacing:.1em; white-space:nowrap; }
-#ic-tt   { flex:1; height:2px; background:var(--g3); overflow:hidden; }
-#ic-tf   { height:100%; width:0; transition:width .5s, background .3s; }
-#ic-tv   { font-size:8px; color:var(--g); min-width:26px; text-align:right; }
-#ic-rename { font-size:7px; color:rgba(0,255,65,.28); letter-spacing:.15em;
-  margin-top:4px; cursor:pointer; }
-#ic-rename:hover { color:var(--g); }
+#ic-tt { flex:1; height:2px; background:var(--g3); overflow:hidden; }
+#ic-tf { height:100%; width:0; transition:width .5s, background .3s; }
 
-/* ══════════════════════════════════
-   TERMINAL — фиксированная высота
-══════════════════════════════════ */
-#terminal-wrap {
-  flex: 0 0 var(--term-h);   /* фиксированная высота */
-  height: var(--term-h);
-  background: rgba(0,0,0,.96);
-  border-top: 1px solid var(--border);
-  z-index: 20;
-  display: flex; flex-direction: column;
-  overflow: hidden;           /* дочерние не вылезают */
-}
-
-#term-header {
-  flex: 0 0 auto;
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 4px 12px; border-bottom: 1px solid rgba(0,255,65,.1);
-}
+/* TERMINAL */
+#terminal-wrap { flex: 0 0 var(--term-h); height: var(--term-h); background: rgba(0,0,0,.96); border-top: 1px solid var(--border); z-index: 20; display: flex; flex-direction: column; overflow: hidden; }
+#term-header { flex: 0 0 auto; display: flex; align-items: center; justify-content: space-between; padding: 4px 12px; border-bottom: 1px solid rgba(0,255,65,.1); }
 #term-title { font-size:7px; letter-spacing:.25em; color:rgba(0,255,65,.3); }
-#term-clear {
-  background:none; border:none; color:rgba(0,255,65,.28);
-  font-family:'Share Tech Mono',monospace; font-size:7px;
-  letter-spacing:.15em; cursor:pointer; padding:0;
-}
-#term-clear:hover { color:var(--g); }
-
-/* Колонки-заголовки */
-#term-cols {
-  flex: 0 0 auto;
-  display: grid;
-  grid-template-columns: 60px 68px 1fr 68px 74px;
-  gap: 0 4px; padding: 2px 12px;
-  border-bottom: 1px solid rgba(0,255,65,.07);
-}
+#term-clear { background:none; border:none; color:rgba(0,255,65,.28); font-family:'Share Tech Mono',monospace; font-size:7px; cursor:pointer; }
+#term-cols { flex: 0 0 auto; display: grid; grid-template-columns: 60px 68px 1fr 68px 74px; gap: 0 4px; padding: 2px 12px; border-bottom: 1px solid rgba(0,255,65,.07); }
 .tcl { font-size:6.5px; color:rgba(0,255,65,.22); letter-spacing:.15em; text-transform:uppercase; }
-
-/* Скроллируемое тело терминала */
-#term-body {
-  flex: 1 1 0;               /* растягивается, но в пределах родителя */
-  min-height: 0;
-  overflow-y: auto;           /* ← ключевой скролл */
-  padding: 2px 0;
-  scrollbar-width: thin; scrollbar-color: var(--g3) transparent;
-}
-#term-body::-webkit-scrollbar { width: 3px; }
-#term-body::-webkit-scrollbar-thumb { background: var(--g3); border-radius: 2px; }
-
-.trow {
-  display: grid;
-  grid-template-columns: 60px 68px 1fr 68px 74px;
-  gap: 0 4px; padding: 2px 12px;
-  font-size: 8px; line-height: 1.5;
-  border-left: 2px solid transparent;
-  transition: background .12s;
-  animation: rowIn .16s ease-out both;
-}
-.trow:hover { background: rgba(0,255,65,.04); }
+#term-body { flex: 1 1 0; min-height: 0; overflow-y: auto; padding: 2px 0; scrollbar-width: thin; scrollbar-color: var(--g3) transparent; }
+.trow { display: grid; grid-template-columns: 60px 68px 1fr 68px 74px; gap: 0 4px; padding: 2px 12px; font-size: 8px; line-height: 1.5; border-left: 2px solid transparent; animation: rowIn .16s ease-out both; }
 .trow.person   { border-left-color: var(--g); }
 .trow.vehicle  { border-left-color: var(--r); }
-.trow.animal   { border-left-color: var(--y); }
-.trow.device   { border-left-color: var(--b); }
-.trow.system   { border-left-color: var(--p); }
 .trow.other    { border-left-color: rgba(255,255,255,.3); }
-.tc-time  { color: rgba(0,255,65,.32); font-size: 7.5px; }
-.tc-date  { color: rgba(0,255,65,.22); font-size: 7px; }
-.tc-event { color: var(--g); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.tc-type  { font-size: 7.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tc-group { font-size: 7px; color: rgba(0,255,65,.38); }
 
-/* ══════════════════════════════════
-   KEYFRAMES
-══════════════════════════════════ */
-@keyframes charDrop {
-  0%   { opacity:0; transform:translateY(-18px) scaleY(2.2); }
-  100% { opacity:1; transform:none; }
-}
-@keyframes glitchLoop {
-  0%,87%,100%{ opacity:0; transform:none; }
-  88%{ opacity:.7; transform:translateX(-3px);
-       clip-path:polygon(0 12%,100% 12%,100% 38%,0 38%); color:var(--r); }
-  90%{ opacity:.5; transform:translateX(4px);
-       clip-path:polygon(0 55%,100% 55%,100% 80%,0 80%); color:var(--b); }
-  92%{ opacity:0; }
-}
-@keyframes scanDown {
-  0%  { top:0;    opacity:0; }
-  10% { opacity:1; }
-  90% { opacity:1; }
-  100%{ top:100%; opacity:0; }
-}
-@keyframes fadeUp {
-  from { opacity:0; transform:translateY(4px); }
-  to   { opacity:1; transform:none; }
-}
-@keyframes sweepLine {
-  from { background-position:-200% 0; }
-  to   { background-position: 200% 0; }
-}
-@keyframes scanroll {
-  from { background-position:0 0; }
-  to   { background-position:0 80px; }
-}
-@keyframes dotBlink {
-  0%,100%{ opacity:1; }
-  50%    { opacity:.15; }
-}
-@keyframes alertFlash {
-  0%   { opacity:1; background:rgba(255,51,51,.07); }
-  100% { opacity:0; }
-}
-@keyframes rowIn {
-  from { opacity:0; transform:translateX(-5px); }
-  to   { opacity:1; transform:none; }
-}
+@keyframes charDrop { 0% { opacity:0; transform:translateY(-18px) scaleY(2.2); } 100% { opacity:1; transform:none; } }
+@keyframes glitchLoop { 0%,87%,100%{ opacity:0; transform:none; } 88%{ opacity:.7; transform:translateX(-3px); clip-path:polygon(0 12%,100% 12%,100% 38%,0 38%); color:var(--r); } 90%{ opacity:.5; transform:translateX(4px); clip-path:polygon(0 55%,100% 55%,100% 80%,0 80%); color:var(--b); } 92%{ opacity:0; } }
+@keyframes scanDown { 0% { top:0; opacity:0; } 100%{ top:100%; opacity:0; } }
+@keyframes fadeUp { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+@keyframes sweepLine { from { background-position:-200% 0; } to { background-position: 200% 0; } }
+@keyframes scanroll { from { background-position:0 0; } to { background-position:0 80px; } }
+@keyframes dotBlink { 0%,100%{ opacity:1; } 50% { opacity:.15; } }
+@keyframes alertFlash { 0% { opacity:1; background:rgba(255,51,51,.07); } 100% { opacity:0; } }
+@keyframes rowIn { from { opacity:0; transform:translateX(-5px); } to { opacity:1; transform:none; } }
 </style>
-
 </head>
 <body>
-
-<!-- ═══════════ BOOT ═══════════ -->
 
 <div id="boot">
   <div id="boot-hex">
     <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <pattern id="hxp" x="0" y="0" width="56" height="48" patternUnits="userSpaceOnUse">
-          <polygon points="28,2 54,16 54,44 28,46 2,44 2,16"
-            fill="none" stroke="#00ff41" stroke-width=".5"/>
-        </pattern>
-      </defs>
+      <defs><pattern id="hxp" x="0" y="0" width="56" height="48" patternUnits="userSpaceOnUse"><polygon points="28,2 54,16 54,44 28,46 2,44 2,16" fill="none" stroke="#00ff41" stroke-width=".5"/></pattern></defs>
       <rect width="100%" height="100%" fill="url(#hxp)"/>
     </svg>
   </div>
-
   <div id="boot-logo-wrap">
-    <div id="boot-logo" aria-label="myEYE">
-      <span class="bc">m</span><span class="bc">y</span><span
-        class="bc">E</span><span class="bc">Y</span><span class="bc">E</span>
-    </div>
+    <div id="boot-logo" aria-label="myEYE"><span class="bc">m</span><span class="bc">y</span><span class="bc">E</span><span class="bc">Y</span><span class="bc">E</span></div>
     <div id="boot-logo-g" aria-hidden="true">myEYE</div>
     <div id="boot-scan"  aria-hidden="true"></div>
   </div>
-
   <div id="boot-sub">powered by bortin'2026</div>
   <div id="boot-log"></div>
-
-  <div id="pb-wrap">
-    <div id="pb-track"><div id="pb"></div></div>
-    <div id="pb-pct">0%</div>
-  </div>
-
-<button id="btn-start" onclick="startApp()">ACTIVATE</button>
-
+  <div id="pb-wrap"><div id="pb-track"><div id="pb"></div></div><div id="pb-pct">0%</div></div>
+  <button id="btn-start" onclick="startApp()">ACTIVATE</button>
 </div>
 
-<!-- ═══════════ APP ═══════════ -->
-
 <div id="app">
-
-  <!-- Viewport (занимает всё свободное место) -->
-
   <div id="vp">
     <video id="input_video" playsinline muted></video>
     <canvas id="output_canvas"></canvas>
-    <div id="grid-ov"></div>
-    <div id="vignette"></div>
-    <div id="alert-flash"></div>
-    <div class="hc" id="hc-tl"></div>
-    <div class="hc" id="hc-tr"></div>
-    <div class="hc" id="hc-bl"></div>
-    <div class="hc" id="hc-br"></div>
-
-```
-<!-- Topbar -->
-<div id="topbar">
-  <div id="sys-id">myEYE <small>// PRO</small></div>
-  <div id="badges">
-    <div class="badge" id="b-fps">
-      <span class="bdot"></span><span id="fps-txt">-- FPS</span>
+    <div id="grid-ov"></div><div id="vignette"></div><div id="alert-flash"></div>
+    <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div><div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
+    <div id="topbar">
+      <div id="sys-id">myEYE <small>// PRO</small></div>
+      <div id="badges">
+        <div class="badge" id="b-fps"><span class="bdot"></span><span id="fps-txt">-- FPS</span></div>
+        <div class="badge" id="b-obj"><span class="bdot"></span><span id="obj-txt">SCANNING</span></div>
+        <div class="badge" id="b-threat"><span class="bdot"></span>THREAT</div>
+      </div>
     </div>
-    <div class="badge" id="b-obj">
-      <span class="bdot"></span><span id="obj-txt">SCANNING</span>
-    </div>
-    <div class="badge" id="b-threat">
-      <span class="bdot"></span>THREAT
+    <div id="cache-badge">CACHE: 0 CLASSES</div>
+    <div id="statusbar">
+      <div class="sbi" id="sb-time">--:--:--</div>
+      <div class="sbi" id="sb-mode">DEEP SCAN</div>
+      <div class="sbi">myEYE Pro</div>
     </div>
   </div>
-</div>
-
-<div id="cache-badge">CACHE: 0 CLASSES</div>
-
-<!-- Status bar -->
-<div id="statusbar">
-  <div class="sbi" id="sb-time">--:--:--</div>
-  <div class="sbi" id="sb-mode">STANDARD</div>
-  <div class="sbi">myEYE Pro</div>
-</div>
-```
-
-  </div>
-
-  <!-- Info card (фиксированная высота, в потоке flex) -->
 
   <div id="info-card">
     <button id="ic-close" onclick="closeCard()">✕ CLOSE</button>
     <div id="ic-body">
-      <div id="ic-row1">
-        <div id="ic-name">---</div>
-        <div id="ic-sub">// TAP NAME TO RENAME</div>
-      </div>
-      <div id="ic-grid"></div>
-      <div id="ic-desc"></div>
-      <div id="ic-tbar">
-        <div id="ic-tl">THREAT</div>
-        <div id="ic-tt"><div id="ic-tf"></div></div>
-        <div id="ic-tv">0%</div>
-      </div>
+      <div id="ic-row1"><div id="ic-name">---</div><div id="ic-sub">// TAP NAME TO RENAME</div></div>
+      <div id="ic-grid"></div><div id="ic-desc"></div>
+      <div id="ic-tbar"><div id="ic-tl">THREAT</div><div id="ic-tt"><div id="ic-tf"></div></div><div id="ic-tv">0%</div></div>
       <div id="ic-rename" onclick="renameObj()">✎ RENAME CLASS</div>
     </div>
   </div>
 
-  <!-- Terminal (фиксированная высота) -->
-
   <div id="terminal-wrap">
-    <div id="term-header">
-      <span id="term-title">● SYSTEM LOG</span>
-      <button id="term-clear" onclick="clearLog()">✕ CLEAR</button>
-    </div>
-    <div id="term-cols">
-      <span class="tcl">TIME</span>
-      <span class="tcl">DATE</span>
-      <span class="tcl">EVENT</span>
-      <span class="tcl">TYPE</span>
-      <span class="tcl">GROUP</span>
-    </div>
+    <div id="term-header"><span id="term-title">● SYSTEM LOG</span><button id="term-clear" onclick="clearLog()">✕ CLEAR</button></div>
+    <div id="term-cols"><span class="tcl">TIME</span><span class="tcl">DATE</span><span class="tcl">EVENT</span><span class="tcl">TYPE</span><span class="tcl">GROUP</span></div>
     <div id="term-body"></div>
   </div>
-</div><!-- /app -->
+</div>
 
 <script>
 'use strict';
-/* ═══════════════════════════════════════════════
-   USER CACHE
-═══════════════════════════════════════════════ */
-const CACHE_KEY = 'myeye_v52';
-let UC = (() => {
-  try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch(e) { return {}; }
-})();
+const CACHE_KEY = 'myeye_v52_pro';
+let UC = (() => { try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch(e) { return {}; } })();
 ['aliases','counts','lastSeen','events'].forEach(k => { if (!UC[k]) UC[k] = k==='events'?[]:{} });
 
 function saveCache() {
@@ -573,661 +287,218 @@ function saveCache() {
   if (el) el.textContent = `CACHE: ${Object.keys(UC.counts).length} CLASSES / ${UC.events.length} EVT`;
 }
 
-/* ═══════════════════════════════════════════════
-   KNOWLEDGE BASE
-═══════════════════════════════════════════════ */
 const GROUPS = {
-  person:'HUMAN',
-  car:'VEHICLE',truck:'VEHICLE',bus:'VEHICLE',motorcycle:'VEHICLE',
-  bicycle:'VEHICLE',train:'VEHICLE',airplane:'VEHICLE',boat:'VEHICLE',
-  dog:'ANIMAL',cat:'ANIMAL',bird:'ANIMAL',horse:'ANIMAL',
-  sheep:'ANIMAL',cow:'ANIMAL',elephant:'ANIMAL',bear:'ANIMAL',
-  zebra:'ANIMAL',giraffe:'ANIMAL',
-  'cell phone':'DEVICE',laptop:'DEVICE',mouse:'DEVICE',remote:'DEVICE',
-  keyboard:'DEVICE',tv:'DEVICE',microwave:'DEVICE',clock:'DEVICE',
-  chair:'FURNITURE',couch:'FURNITURE',bed:'FURNITURE','dining table':'FURNITURE',
-  toilet:'FURNITURE',bench:'FURNITURE',sink:'FURNITURE',
-  bottle:'KITCHENWARE',cup:'KITCHENWARE',fork:'KITCHENWARE',
-  knife:'KITCHENWARE',spoon:'KITCHENWARE',bowl:'KITCHENWARE',
-  backpack:'ACCESSORY',umbrella:'ACCESSORY',handbag:'ACCESSORY',
-  suitcase:'ACCESSORY','sports ball':'ACCESSORY',skateboard:'ACCESSORY',
-  banana:'FOOD',apple:'FOOD',sandwich:'FOOD',pizza:'FOOD',cake:'FOOD'
+  person:'HUMAN', car:'VEHICLE', truck:'VEHICLE', bus:'VEHICLE', motorcycle:'VEHICLE',
+  dog:'ANIMAL', cat:'ANIMAL', 'cell phone':'DEVICE', laptop:'DEVICE'
 };
-const GCOL = {
-  HUMAN:'#00ff41',VEHICLE:'#ff3333',ANIMAL:'#ffe600',DEVICE:'#00aaff',
-  FURNITURE:'#cc44ff',KITCHENWARE:'#ff44aa',ACCESSORY:'#ff9900',
-  FOOD:'#00ff88',OBJECT:'#ffffff'
-};
+const GCOL = { HUMAN:'#00ff41', VEHICLE:'#ff3333', ANIMAL:'#ffe600', DEVICE:'#00aaff', OBJECT:'#ffffff' };
 const KB = {
-  person:{threat:.72, desc:'Homo sapiens. Скелетная модель активна. Вектор перемещения вычисляется.'},
-  car:    {threat:.55, desc:'Колёсное ТС. Гражданский класс. Масса ~1200 кг.'},
-  truck:  {threat:.68, desc:'Тяжёлое грузовое ТС. Зона повышенной опасности.'},
-  bus:    {threat:.50, desc:'Пассажирский транспорт. Мониторинг пешеходных зон.'},
-  motorcycle:{threat:.62, desc:'Двухколёсное моторизованное ТС. Высокая манёвренность.'},
-  dog:    {threat:.32, desc:'Canis lupus familiaris. Поведенческий вектор оценивается.'},
-  cat:    {threat:.10, desc:'Felis catus. Автономный агент. Высокая мобильность.'},
-  'cell phone':{threat:.18, desc:'EMF-источник. Возможна активная передача данных.'},
-  backpack:{threat:.38, desc:'Носимый контейнер. Содержимое неизвестно.'},
-  _d:     {threat:.20, desc:'Объект идентифицирован. Расширенный анализ выполняется.'}
+  person:{threat:.72, desc:'Homo sapiens. Скелетная модель активна.'},
+  car:{threat:.55, desc:'Колёсное ТС. Гражданский класс.'},
+  _d:{threat:.20, desc:'Объект идентифицирован. Анализ...'}
 };
 
 const getGroup = cls => GROUPS[cls] || 'OBJECT';
-const getCol   = cls => GCOL[getGroup(cls)] || '#fff';
-const getKB    = cls => KB[cls] || KB._d;
+const getCol = cls => GCOL[getGroup(cls)] || '#fff';
+const getKB = cls => KB[cls] || KB._d;
 const getAlias = cls => UC.aliases[cls] || cls.toUpperCase();
 
-/* ═══════════════════════════════════════════════
-   ELEMENTS
-═══════════════════════════════════════════════ */
-const video     = document.getElementById('input_video');
-const canvas    = document.getElementById('output_canvas');
-const ctx       = canvas.getContext('2d');
-const termBody  = document.getElementById('term-body');
+const video = document.getElementById('input_video');
+const canvas = document.getElementById('output_canvas');
+const ctx = canvas.getContext('2d');
+const termBody = document.getElementById('term-body');
 
-/* ═══════════════════════════════════════════════
-   STATE
-═══════════════════════════════════════════════ */
-let detector    = null;
-let poseModel   = null;
-let poseReady   = false;
-let poseResult  = null;   // последний результат pose
-let poseBox     = null;   // bbox человека, для которого считали позу
-let poseCanvas  = null;
-let poseCtx     = null;
-
-let lastObjects = [];
-let selectedCls = null;   // класс выбранного объекта
-let threatActive= false;
-let detecting   = false;  // guard async detect
-let poseRunning = false;  // guard async pose.send
-let frameN      = 0;
-let fpsN        = 0;
-let lastFpsT    = 0;
-
+let detector = null, poseModel = null, poseReady = false, poseResult = null, poseBox = null, poseCanvas = null, poseCtx = null;
+let lastObjects = [], selectedCls = null, threatActive = false, detecting = false, poseRunning = false;
+let frameN = 0, fpsN = 0, lastFpsT = 0;
 const logThrottle = {};
 
-/* ═══════════════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════════════ */
 function hexA(hex, a) {
   if (!hex || hex[0] !== '#') return `rgba(255,255,255,${a})`;
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
   return `rgba(${r},${g},${b},${a})`;
 }
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
 function nowStr() {
   const n = new Date();
-  const t = n.toTimeString().slice(0,8);
-  const d = `${String(n.getDate()).padStart(2,'0')}.${String(n.getMonth()+1).padStart(2,'0')}.${n.getFullYear()}`;
-  return { t, d };
+  return { t: n.toTimeString().slice(0,8), d: `${String(n.getDate()).padStart(2,'0')}.${String(n.getMonth()+1).padStart(2,'0')}.${n.getFullYear()}` };
 }
 
-/* ═══════════════════════════════════════════════
-   TERMINAL
-═══════════════════════════════════════════════ */
 function sysLog(event, type='SYSTEM', group='SYS') {
   const { t, d } = nowStr();
-  const cls = { HUMAN:'person',VEHICLE:'vehicle',ANIMAL:'animal',
-                DEVICE:'device',SYS:'system' }[group] || 'other';
-
+  const cls = { HUMAN:'person', VEHICLE:'vehicle', ANIMAL:'animal', DEVICE:'device', SYS:'system' }[group] || 'other';
   const row = document.createElement('div');
   row.className = `trow ${cls}`;
-  row.innerHTML =
-    `<span class="tc-time">${t}</span>` +
-    `<span class="tc-date">${d}</span>` +
-    `<span class="tc-event">${event}</span>` +
-    `<span class="tc-type" style="color:${GCOL[group]||'var(--g)'}">${type}</span>` +
-    `<span class="tc-group">${group}</span>`;
-
+  row.innerHTML = `<span class="tc-time">${t}</span><span class="tc-date">${d}</span><span class="tc-event">${event}</span><span class="tc-type" style="color:${GCOL[group]||'var(--g)'}">${type}</span><span class="tc-group">${group}</span>`;
   termBody.appendChild(row);
-
-  // Авто-скролл только если пользователь у дна
-  const nearBottom = termBody.scrollHeight - termBody.scrollTop - termBody.clientHeight < 50;
-  if (nearBottom) termBody.scrollTop = termBody.scrollHeight;
-
-  // DOM-лимит
+  if (termBody.scrollHeight - termBody.scrollTop - termBody.clientHeight < 50) termBody.scrollTop = termBody.scrollHeight;
   while (termBody.children.length > 300) termBody.firstElementChild.remove();
 }
 
-function clearLog() {
-  termBody.innerHTML = '';
-  sysLog('LOG CLEARED','SYSTEM','SYS');
-}
-
-/* ═══════════════════════════════════════════════
-   BOOT SEQUENCE
-═══════════════════════════════════════════════ */
 async function initModels() {
-  const blogEl = document.getElementById('boot-log');
-  const pbEl   = document.getElementById('pb');
-  const pctEl  = document.getElementById('pb-pct');
-
-  const bLog = (txt, cls='ok') => {
-    const d = document.createElement('div');
-    d.className = 'bl ' + cls;
-    d.textContent = txt;
-    blogEl.appendChild(d);
-  };
+  const blogEl = document.getElementById('boot-log'), pbEl = document.getElementById('pb'), pctEl = document.getElementById('pb-pct');
+  const bLog = (txt, cls='ok') => { const d = document.createElement('div'); d.className = 'bl ' + cls; d.textContent = txt; blogEl.appendChild(d); };
   const setPb = p => { pbEl.style.width = p+'%'; pctEl.textContent = p+'%'; };
 
-  bLog('INIT VISION OS v5.2');         setPb(8);  await sleep(150);
-  bLog(`USER CACHE: ${Object.keys(UC.aliases).length} ALIASES`); setPb(15); await sleep(150);
-
-  // COCO-SSD
+  bLog('INIT VISION OS v16.0 PRO'); setPb(10); await sleep(150);
   try {
-    bLog('DETECTOR: COCO-SSD LOADING...','warn');
+    bLog('DETECTOR: LOADING COCO-SSD...','warn');
     detector = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-    bLog('DETECTOR: READY');           setPb(60);
-  } catch(e) {
-    bLog('DETECTOR ERROR: '+e.message,'err');
-  }
+    bLog('DETECTOR: OPTIMIZED FOR DISTANCE'); setPb(60);
+  } catch(e) { bLog('DETECTOR ERROR: '+e.message,'err'); }
 
-  // MediaPipe Pose (опционально)
   try {
-    if (typeof Pose === 'undefined') throw new Error('Pose not loaded');
-    bLog('POSE ENGINE: LOADING...','warn');
-    poseModel = new Pose({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}`
-    });
-    poseModel.setOptions({
-      modelComplexity:         0,
-      smoothLandmarks:         true,
-      enableSegmentation:      false,
-      minDetectionConfidence:  0.5,
-      minTrackingConfidence:   0.5
-    });
-    poseModel.onResults(results => {
-      poseResult  = results;
-      poseRunning = false;
-    });
-    await poseModel.initialize();
-    poseReady = true;
-    bLog('POSE ENGINE: ACTIVE');       setPb(90);
-  } catch(e) {
-    bLog('POSE: UNAVAILABLE (FALLBACK ASCII MODE)','warn');
-    poseReady = false;
-  }
+    poseModel = new Pose({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${f}` });
+    poseModel.setOptions({ modelComplexity: 0, smoothLandmarks: true, minDetectionConfidence: 0.5 });
+    poseModel.onResults(r => { poseResult = r; poseRunning = false; });
+    await poseModel.initialize(); poseReady = true; bLog('POSE ENGINE: ACTIVE'); setPb(90);
+  } catch(e) { bLog('POSE: FALLBACK MODE','warn'); }
 
-  setPb(100); await sleep(150);
-  bLog('ALL SYSTEMS OPERATIONAL');
+  setPb(100); bLog('ALL SYSTEMS OPERATIONAL');
   document.getElementById('btn-start').style.display = 'block';
 }
 
-/* ═══════════════════════════════════════════════
-   START APP
-═══════════════════════════════════════════════ */
 function startApp() {
   document.getElementById('boot').style.display = 'none';
-  document.getElementById('app').style.display  = 'flex';
+  document.getElementById('app').style.display = 'flex';
   saveCache();
-  sysLog('SYSTEM START: SUCCESS','SYSTEM','SYS');
-
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-  // MediaPipe Camera API или нативный getUserMedia
-  if (typeof Camera !== 'undefined') {
-    const cam = new Camera(video, {
-      onFrame: renderFrame,
-      width: 1280, height: 720,
-      facingMode: isMobile ? 'environment' : 'user'
-    });
-    cam.start().catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  } else {
-    navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: isMobile ? 'environment' : 'user',
-        width:  { ideal: 1280 },
-        height: { ideal: 720  }
-      }
-    }).then(stream => {
-      video.srcObject = stream;
-      video.onloadedmetadata = () => {
-        video.play();
-        const loop = () => { renderFrame(); requestAnimationFrame(loop); };
-        requestAnimationFrame(loop);
-      };
-    }).catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  }
-
-  // Часы
-  setInterval(() => {
-    document.getElementById('sb-time').textContent = new Date().toTimeString().slice(0,8);
-  }, 1000);
+  sysLog('SYSTEM START: DEEP SCAN MODE','SYSTEM','SYS');
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 1280 } } }).then(stream => {
+    video.srcObject = stream;
+    video.onloadedmetadata = () => { video.play(); const loop = () => { renderFrame(); requestAnimationFrame(loop); }; requestAnimationFrame(loop); };
+  });
+  setInterval(() => { document.getElementById('sb-time').textContent = new Date().toTimeString().slice(0,8); }, 1000);
 }
 
-/* ═══════════════════════════════════════════════
-   MAIN RENDER
-═══════════════════════════════════════════════ */
 async function renderFrame() {
   const vw = video.videoWidth, vh = video.videoHeight;
   if (!vw || !detector) return;
-
-  canvas.width  = vw;
-  canvas.height = vh;
-
-  // Видео на canvas
+  canvas.width = vw; canvas.height = vh;
   ctx.drawImage(video, 0, 0, vw, vh);
 
-  // Виньетка
-  const vig = ctx.createRadialGradient(vw/2,vh/2,vw*.22, vw/2,vh/2,vw*.68);
-  vig.addColorStop(0,'rgba(0,0,0,0)');
-  vig.addColorStop(1,'rgba(0,0,0,0.52)');
-  ctx.fillStyle = vig; ctx.fillRect(0,0,vw,vh);
-
-  // FPS
   fpsN++;
   const now = performance.now();
-  if (now - lastFpsT > 1000) {
-    document.getElementById('fps-txt').textContent = fpsN + ' FPS';
-    fpsN = 0; lastFpsT = now;
-  }
+  if (now - lastFpsT > 1000) { document.getElementById('fps-txt').textContent = fpsN + ' FPS'; fpsN = 0; lastFpsT = now; }
   frameN++;
 
-  // Object detection (guard: один вызов за раз)
   if (!detecting) {
     detecting = true;
     try {
-      lastObjects = await detector.detect(video, 50, 0.32);
-    } catch(e) { /* ignore */ }
+      // Увеличено количество объектов (150) и снижен порог (0.25) для дальности
+      lastObjects = await detector.detect(video, 150, 0.25);
+    } catch(e) {}
     detecting = false;
   }
 
-  // Рисуем объекты
   drawObjects();
-
-  // Pose (только для person, каждые 4 кадра, guard poseRunning)
   if (poseReady && frameN % 4 === 0 && !poseRunning) {
-    const person = lastObjects.find(o => o.class === 'person');
-    if (person) {
-      const [bx, by, bw, bh] = person.bbox;
-      // Клампируем координаты чтобы не выйти за границы видео
-      const cx  = Math.max(0, Math.round(bx));
-      const cy  = Math.max(0, Math.round(by));
-      const cw  = Math.min(Math.round(bw), vw - cx);
-      const ch  = Math.min(Math.round(bh), vh - cy);
-      if (cw > 32 && ch > 32) {
-        if (!poseCanvas) {
-          poseCanvas = document.createElement('canvas');
-          poseCtx    = poseCanvas.getContext('2d');
-        }
-        poseCanvas.width  = cw;
-        poseCanvas.height = ch;
+    const p = lastObjects.find(o => o.class === 'person');
+    if (p) {
+      const [bx, by, bw, bh] = p.bbox;
+      const cx = Math.max(0, bx), cy = Math.max(0, by), cw = Math.min(bw, vw-cx), ch = Math.min(bh, vh-cy);
+      if (cw > 30 && ch > 30) {
+        if (!poseCanvas) { poseCanvas = document.createElement('canvas'); poseCtx = poseCanvas.getContext('2d'); }
+        poseCanvas.width = cw; poseCanvas.height = ch;
         poseCtx.drawImage(video, cx, cy, cw, ch, 0, 0, cw, ch);
-        poseBox     = { bx:cx, by:cy, bw:cw, bh:ch };
-        poseRunning = true;
-        poseModel.send({ image: poseCanvas }).catch(() => { poseRunning = false; });
+        poseBox = { bx:cx, by:cy, bw:cw, bh:ch }; poseRunning = true;
+        poseModel.send({ image: poseCanvas }).catch(() => poseRunning = false);
       }
-    } else {
-      poseResult = null;
-      poseBox    = null;
     }
   }
-
-  // Рисуем скелет поверх всего
   drawPose();
 }
 
-/* ═══════════════════════════════════════════════
-   DRAW OBJECTS
-═══════════════════════════════════════════════ */
 function drawObjects() {
   const t = frameN;
-  const hasThreat = lastObjects.some(o =>
-    ['person','car','truck','bus','motorcycle'].includes(o.class));
-
-  // Threat badge
-  const tb = document.getElementById('b-threat');
-  if (hasThreat !== threatActive) {
-    threatActive = hasThreat;
-    tb.style.display = hasThreat ? 'flex' : 'none';
-    if (hasThreat) {
-      const af = document.getElementById('alert-flash');
-      af.classList.remove('on'); void af.offsetWidth; af.classList.add('on');
-    }
-  }
+  const hasThreat = lastObjects.some(o => ['person','car','truck'].includes(o.class));
+  document.getElementById('b-threat').style.display = hasThreat ? 'flex' : 'none';
   document.getElementById('obj-txt').textContent = lastObjects.length + ' TARGETS';
 
+  // Группировка для терминала
+  const counts = {};
+  
   lastObjects.forEach(obj => {
     const [bx, by, bw, bh] = obj.bbox;
-    const col   = getCol(obj.class);
+    const isFar = obj.score < 0.45 || (bw * bh < (canvas.width * canvas.height * 0.02));
+    const col = isFar ? '#ffffff' : getCol(obj.class);
     const isSel = (obj.class === selectedCls);
-    const isThrt= ['person','car','truck','bus','motorcycle'].includes(obj.class);
 
-    // Pulse-анимация для угроз
-    const alpha = isThrt && !isSel ? 0.6 + 0.4*Math.sin(t*0.11) : 1;
-
-    // Основная рамка
-    ctx.strokeStyle = hexA(col, alpha);
-    ctx.lineWidth   = isSel ? 4 : 3;
+    // Отрисовка рамки
+    ctx.save();
+    if (isFar) {
+        ctx.setLineDash([5, 5]); // Пунктир для дальних объектов
+        ctx.strokeStyle = "rgba(255,255,255,0.6)";
+    } else {
+        ctx.strokeStyle = hexA(col, 1);
+    }
+    ctx.lineWidth = isSel ? 3 : 1.5;
     ctx.strokeRect(bx, by, bw, bh);
-
-    // Полупрозрачная заливка
-    ctx.fillStyle = hexA(col, isSel ? 0.12 : 0.03);
-    ctx.fillRect(bx, by, bw, bh);
-
-    // Угловые скобки
-    const cs = Math.min(18, bw*0.2, bh*0.2);
-    const ao = isSel ? Math.sin(t*0.1)*2 : 0;
-    ctx.strokeStyle = col;
-    ctx.lineWidth   = isSel ? 3.5 : 2.5;
-    ctx.shadowColor = col;
-    ctx.shadowBlur  = isSel ? 12 : 5;
-    ctx.beginPath();
-    ctx.moveTo(bx-ao,      by+cs-ao); ctx.lineTo(bx-ao,       by-ao);      ctx.lineTo(bx+cs-ao,   by-ao);
-    ctx.moveTo(bx+bw-cs+ao,by-ao);   ctx.lineTo(bx+bw+ao,    by-ao);      ctx.lineTo(bx+bw+ao,   by+cs-ao);
-    ctx.moveTo(bx-ao,      by+bh-cs+ao);ctx.lineTo(bx-ao,     by+bh+ao);   ctx.lineTo(bx+cs-ao,   by+bh+ao);
-    ctx.moveTo(bx+bw-cs+ao,by+bh+ao);ctx.lineTo(bx+bw+ao,    by+bh+ao);   ctx.lineTo(bx+bw+ao,   by+bh-cs+ao);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    // Сканирующая линия (только выбранный)
+    
     if (isSel) {
-      const sy = by + ((t*2.5 % 100)/100)*bh;
-      const sg = ctx.createLinearGradient(bx, sy-10, bx, sy+10);
-      sg.addColorStop(0, hexA(col,0)); sg.addColorStop(.5, hexA(col,.4)); sg.addColorStop(1, hexA(col,0));
-      ctx.fillStyle = sg; ctx.fillRect(bx, sy-10, bw, 20);
+        ctx.fillStyle = hexA(col, 0.1);
+        ctx.fillRect(bx, by, bw, bh);
     }
+    
+    // Метка
+    ctx.setLineDash([]);
+    ctx.font = "10px 'Share Tech Mono'";
+    ctx.fillStyle = col;
+    ctx.fillText(`${getAlias(obj.class)} [${Math.round(obj.score*100)}]`, bx, by > 15 ? by - 5 : by + 15);
+    ctx.restore();
 
-    // Лейбл
-    const alias  = getAlias(obj.class);
-    const pct    = Math.round(obj.score*100) + '%';
-    const upward = by > 34;
-    const lY     = upward ? by - 5 : by + bh + 20;
+    // Сбор статистики для лога
+    counts[obj.class] = (counts[obj.class] || 0) + 1;
+  });
 
-    ctx.font = "bold 15px 'Share Tech Mono'";
-    const tw = ctx.measureText(alias).width + 10;
-    ctx.fillStyle = hexA(col, .92);
-    ctx.fillRect(bx, upward ? lY-23 : lY-16, tw, 24);
-    ctx.fillStyle = '#000';
-    ctx.fillText(alias, bx+4, upward ? lY-10 : lY-3);
-
-    ctx.font = "11px 'Share Tech Mono'";
-    ctx.fillStyle = hexA(col, .8);
-    ctx.fillText(pct, bx+tw+4, upward ? lY-10 : lY-3);
-
-    // Группа (правый верхний угол)
-    if (bw > 70) {
-      ctx.fillStyle = hexA(col,.1);
-      ctx.fillRect(bx+bw-62, by+3, 60, 13);
-      ctx.fillStyle = hexA(col,.65);
-      ctx.font = "7.5px 'Share Tech Mono'";
-      ctx.fillText(getGroup(obj.class), bx+bw-60, by+13);
-    }
-
-    // Лог (throttle 8с)
-    const lk = obj.class, now = Date.now();
-    if (!logThrottle[lk] || now - logThrottle[lk] > 8000) {
-      logThrottle[lk] = now;
-      sysLog(alias, obj.class.toUpperCase(), getGroup(obj.class));
-      UC.counts[lk]  = (UC.counts[lk]||0) + 1;
-      UC.lastSeen[lk] = now;
-      UC.events.push({ ts:now, cls:lk, score:Math.round(obj.score*100), group:getGroup(lk) });
-      saveCache();
+  // Вывод в терминал одной строкой с количеством
+  const now = Date.now();
+  Object.keys(counts).forEach(cls => {
+    if (!logThrottle[cls] || now - logThrottle[cls] > 10000) {
+      logThrottle[cls] = now;
+      const count = counts[cls];
+      sysLog(`${getAlias(cls)} (${count})`, cls.toUpperCase(), getGroup(cls));
     }
   });
 }
-
-/* ═══════════════════════════════════════════════
-   DRAW POSE — корректное проецирование скелета
-   в bbox человека с овалом головы по ключевым
-   точкам глаз/ушей
-═══════════════════════════════════════════════ */
-
-/*
-  MediaPipe Pose ландмарки (0-32):
-  0=nose 1=l_eye_in 2=l_eye 3=l_eye_out
-  4=r_eye_in 5=r_eye 6=r_eye_out
-  7=l_ear  8=r_ear
-  9=mouth_l 10=mouth_r
-  11=l_shoulder 12=r_shoulder
-  13=l_elbow 14=r_elbow
-  15=l_wrist 16=r_wrist
-  23=l_hip 24=r_hip
-  25=l_knee 26=r_knee
-  27=l_ankle 28=r_ankle
-*/
-
-// Кости скелета (пары индексов)
-const SKEL_BONES = [
-  // Торс
-  [11,12],[11,23],[12,24],[23,24],
-  // Левая рука
-  [11,13],[13,15],
-  // Правая рука
-  [12,14],[14,16],
-  // Левая нога
-  [23,25],[25,27],
-  // Правая нога
-  [24,26],[26,28]
-];
 
 function drawPose() {
   if (!poseResult || !poseResult.poseLandmarks || !poseBox) return;
-
-  const lm = poseResult.poseLandmarks;
-  const { bx, by, bw, bh } = poseBox;
-
-  /*
-    ИСПРАВЛЕНИЕ БАГ #2: MediaPipe возвращает координаты 0..1
-    ОТНОСИТЕЛЬНО кропа (poseCanvas), который равен bbox.
-    Поэтому проецируем так:
-      canvas_x = bx + lm[i].x * bw
-      canvas_y = by + lm[i].y * bh
-    Фильтруем только видимые точки (visibility > 0.5).
-  */
-  const pts = lm.map(p => ({
-    x: bx + p.x * bw,
-    y: by + p.y * bh,
-    v: p.visibility || 0
-  }));
-
-  const G_COL     = '#00ff41';
-  const G_COL_DIM = 'rgba(0,255,65,.35)';
-
+  const lm = poseResult.poseLandmarks, { bx, by, bw, bh } = poseBox;
+  const pts = lm.map(p => ({ x: bx + p.x * bw, y: by + p.y * bh, v: p.visibility || 0 }));
   ctx.save();
-  ctx.lineCap  = 'round';
-  ctx.lineJoin = 'round';
-
-  // ── Кости скелета ──
-  ctx.strokeStyle = G_COL;
-  ctx.lineWidth   = 2;
-  ctx.shadowColor = G_COL;
-  ctx.shadowBlur  = 6;
-
-  SKEL_BONES.forEach(([a,b]) => {
-    if (!pts[a] || !pts[b]) return;
-    if (pts[a].v < 0.4 && pts[b].v < 0.4) return; // оба невидимы — пропускаем
-    const alpha = Math.min(pts[a].v, pts[b].v);
-    ctx.globalAlpha = Math.max(0.3, alpha);
-    ctx.beginPath();
-    ctx.moveTo(pts[a].x, pts[a].y);
-    ctx.lineTo(pts[b].x, pts[b].y);
-    ctx.stroke();
+  ctx.strokeStyle = '#00ff41'; ctx.lineWidth = 2;
+  [[11,12],[11,23],[12,24],[23,24],[11,13],[13,15],[12,14],[14,16],[23,25],[25,27],[24,26],[26,28]].forEach(([a,b]) => {
+    if (pts[a].v > 0.5 && pts[b].v > 0.5) { ctx.beginPath(); ctx.moveTo(pts[a].x, pts[a].y); ctx.lineTo(pts[b].x, pts[b].y); ctx.stroke(); }
   });
-
-  // ── Суставы — точки ──
-  ctx.shadowBlur = 8;
-  const jointIndices = [11,12,13,14,15,16,23,24,25,26,27,28];
-  jointIndices.forEach(i => {
-    if (!pts[i] || pts[i].v < 0.4) return;
-    ctx.globalAlpha = Math.max(0.4, pts[i].v);
-    ctx.fillStyle   = G_COL;
-    ctx.beginPath();
-    ctx.arc(pts[i].x, pts[i].y, 4, 0, Math.PI*2);
-    ctx.fill();
-  });
-
-  // ── Нос ──
-  if (pts[0] && pts[0].v > 0.4) {
-    ctx.globalAlpha = pts[0].v;
-    ctx.fillStyle   = G_COL;
-    ctx.beginPath();
-    ctx.arc(pts[0].x, pts[0].y, 3, 0, Math.PI*2);
-    ctx.fill();
-  }
-
-  /*
-    ── Голова — эллипс по глазам и ушам ──
-    Центр: середина между левым глазом (2) и правым глазом (5)
-    Ширина: расстояние между ушами (7 и 8) * 1.1
-    Высота: ширина * 1.35 (антропометрическое соотношение)
-  */
-  const L_EYE = pts[2], R_EYE = pts[5];
-  const L_EAR = pts[7], R_EAR = pts[8];
-  const NOSE  = pts[0];
-
-  // Нужно хотя бы 2 глазных точки или 2 ушных
-  const eyesOk = L_EYE && R_EYE && L_EYE.v > 0.3 && R_EYE.v > 0.3;
-  const earsOk = L_EAR && R_EAR && L_EAR.v > 0.2 && R_EAR.v > 0.2;
-
-  if (eyesOk || earsOk) {
-    let hcx, hcy, hradW, hradH;
-
-    if (eyesOk && earsOk) {
-      hcx  = (L_EYE.x + R_EYE.x) / 2;
-      hcy  = (L_EYE.y + R_EYE.y) / 2;
-      // Ширина по ушам (голова шире расстояния между глазами)
-      const earDist = Math.abs(R_EAR.x - L_EAR.x);
-      hradW = earDist * 0.58;
-      hradH = hradW * 1.3;
-      // Смещаем центр немного вверх (глаза ниже центра головы)
-      hcy -= hradH * 0.12;
-    } else if (eyesOk) {
-      hcx  = (L_EYE.x + R_EYE.x) / 2;
-      hcy  = (L_EYE.y + R_EYE.y) / 2;
-      const eyeDist = Math.abs(R_EYE.x - L_EYE.x);
-      hradW = eyeDist * 1.6;
-      hradH = hradW * 1.3;
-      hcy -= hradH * 0.12;
-    } else {
-      // Только уши
-      hcx  = (L_EAR.x + R_EAR.x) / 2;
-      hcy  = (L_EAR.y + R_EAR.y) / 2;
-      const earDist = Math.abs(R_EAR.x - L_EAR.x);
-      hradW = earDist * 0.58;
-      hradH = hradW * 1.3;
-    }
-
-    // Минимальный радиус (на случай очень маленького bbox)
-    hradW = Math.max(hradW, 8);
-    hradH = Math.max(hradH, 10);
-
-    ctx.globalAlpha  = 0.75;
-    ctx.strokeStyle  = G_COL;
-    ctx.lineWidth    = 2;
-    ctx.shadowBlur   = 8;
-    ctx.fillStyle    = 'rgba(0,255,65,.08)';
-    ctx.beginPath();
-    ctx.ellipse(hcx, hcy, hradW, hradH, 0, 0, Math.PI*2);
-    ctx.fill();
-    ctx.stroke();
-
-    // Крестик-прицел в центре головы
-    ctx.globalAlpha = 0.5;
-    ctx.lineWidth   = 1;
-    const cr = 4;
-    ctx.beginPath();
-    ctx.moveTo(hcx-cr, hcy); ctx.lineTo(hcx+cr, hcy);
-    ctx.moveTo(hcx, hcy-cr); ctx.lineTo(hcx, hcy+cr);
-    ctx.stroke();
-  }
-
-  ctx.globalAlpha = 1;
-  ctx.shadowBlur  = 0;
   ctx.restore();
 }
 
-/* ═══════════════════════════════════════════════
-   CANVAS TAP → INFO CARD
-═══════════════════════════════════════════════ */
 canvas.addEventListener('click', e => {
-  const rect = canvas.getBoundingClientRect();
-  const sx   = canvas.width  / rect.width;
-  const sy   = canvas.height / rect.height;
-  const cx   = (e.clientX - rect.left) * sx;
-  const cy   = (e.clientY - rect.top)  * sy;
-
-  const hit = lastObjects.find(o => {
-    const [bx,by,bw,bh] = o.bbox;
-    return cx >= bx && cx <= bx+bw && cy >= by && cy <= by+bh;
-  });
-
-  if (hit) {
-    selectedCls = hit.class;
-    openCard(hit);
-    sysLog(`LOCK-ON: ${getAlias(hit.class)}`, hit.class.toUpperCase(), getGroup(hit.class));
-  } else {
-    closeCard();
-  }
+  const rect = canvas.getBoundingClientRect(), sx = canvas.width/rect.width, sy = canvas.height/rect.height;
+  const cx = (e.clientX-rect.left)*sx, cy = (e.clientY-rect.top)*sy;
+  const hit = lastObjects.find(o => { const [bx,by,bw,bh] = o.bbox; return cx>=bx && cx<=bx+bw && cy>=by && cy<=by+bh; });
+  if (hit) { selectedCls = hit.class; openCard(hit); } else { closeCard(); }
 });
 
 function openCard(obj) {
-  const col   = getCol(obj.class);
-  const kb    = getKB(obj.class);
-  const alias = getAlias(obj.class);
-  const group = getGroup(obj.class);
-  const [bx,by,bw,bh] = obj.bbox;
-  const score  = Math.round(obj.score*100);
-  const threat = Math.round(kb.threat*100);
-  const seen   = UC.counts[obj.class] || 0;
-
+  const col = getCol(obj.class), kb = getKB(obj.class), alias = getAlias(obj.class);
   const nameEl = document.getElementById('ic-name');
-  nameEl.textContent   = alias;
-  nameEl.style.color   = col;
-  nameEl.style.textShadow = `0 0 18px ${col}`;
-  nameEl.dataset.cls   = obj.class;
-
-  document.getElementById('ic-grid').innerHTML =
-    `<div class="ick">КЛАСС</div>  <div class="icv">${obj.class.toUpperCase()}</div>` +
-    `<div class="ick">ГРУППА</div> <div class="icv">${group}</div>` +
-    `<div class="ick">СИГНАЛ</div> <div class="icv">${score}%</div>` +
-    `<div class="ick">В КЭШЕ</div> <div class="icv">${seen}×</div>` +
-    `<div class="ick">РАЗМЕР</div> <div class="icv">${Math.round(bw)}×${Math.round(bh)}</div>` +
-    `<div class="ick">ПОЗИЦИЯ</div><div class="icv">${Math.round(bx)},${Math.round(by)}</div>`;
-
+  nameEl.textContent = alias; nameEl.style.color = col; nameEl.dataset.cls = obj.class;
+  document.getElementById('ic-grid').innerHTML = `<div class="ick">КЛАСС</div><div class="icv">${obj.class.toUpperCase()}</div><div class="ick">SIGNAL</div><div class="icv">${Math.round(obj.score*100)}%</div>`;
   document.getElementById('ic-desc').textContent = kb.desc;
-
-  const tf = document.getElementById('ic-tf');
-  const tcol = threat > 60 ? 'var(--r)' : threat > 35 ? 'var(--o)' : 'var(--g)';
-  tf.style.width      = threat + '%';
-  tf.style.background = tcol;
-  tf.style.boxShadow  = `0 0 8px ${tcol}`;
-  document.getElementById('ic-tv').textContent = threat + '%';
-
+  document.getElementById('ic-tf').style.width = (kb.threat*100)+'%';
+  document.getElementById('ic-tf').style.background = col;
   document.getElementById('info-card').classList.add('open');
 }
-
-function closeCard() {
-  selectedCls = null;
-  document.getElementById('info-card').classList.remove('open');
-}
-
-// Клик по имени объекта — rename
-document.getElementById('ic-name').addEventListener('click', renameObj);
-
+function closeCard() { selectedCls = null; document.getElementById('info-card').classList.remove('open'); }
+function clearLog() { termBody.innerHTML = ''; sysLog('LOG CLEANED','SYSTEM','SYS'); }
 function renameObj() {
-  const nameEl = document.getElementById('ic-name');
-  const cls    = nameEl.dataset.cls;
-  if (!cls) return;
-  const cur = UC.aliases[cls] || cls.toUpperCase();
-  const nv  = prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" →`, cur);
-  if (nv !== null && nv.trim()) {
-    const nm = nv.trim().toUpperCase();
-    UC.aliases[cls] = nm;
-    saveCache();
-    nameEl.textContent = nm;
-    sysLog(`ALIAS: ${cls.toUpperCase()} → ${nm}`, 'RENAME', 'SYS');
-  }
+  const nameEl = document.getElementById('ic-name'), cls = nameEl.dataset.cls;
+  const nv = prompt(`RENAME "${cls.toUpperCase()}" TO:`, getAlias(cls));
+  if (nv) { UC.aliases[cls] = nv.toUpperCase(); saveCache(); nameEl.textContent = nv.toUpperCase(); }
 }
 
-/* ═══════════════════════════════════════════════
-   BOOT
-═══════════════════════════════════════════════ */
 initModels();
 </script>
-
 </body>
 </html>
