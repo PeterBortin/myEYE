@@ -9,13 +9,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap">
 
-<!-- COCO-SSD -->
-
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
-
-<!-- MediaPipe: стабильные версии без хешей (как в myDRW) -->
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
 
@@ -25,203 +21,214 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
-<!-- html2canvas для скриншота -->
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
 <style>
 :root {
-  --g:  #00ff41;  --g2: #00cc33;  --g3: #003a12;
-  --b:  #00aaff;  --r:  #ff3333;  --y:  #ffe600;
-  --o:  #ff9900;  --p:  #cc44ff;
-  --panel:  rgba(2,8,4,.94);
-  --border: rgba(0,255,65,.18);
-  --card-h: 210px;
-  --term-h: 150px;
+  --g:#00ff41; --g2:#00cc33; --g3:#003a12;
+  --b:#00aaff; --r:#ff3333; --y:#ffe600;
+  --o:#ff9900; --p:#cc44ff;
+  --panel:rgba(2,8,4,.94);
+  --border:rgba(0,255,65,.18);
+  --card-h:210px;
+  --term-h:150px;
 }
-*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-html, body {
-  width:100%; height:100%; background:#000; overflow:hidden;
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html,body{
+  width:100%;height:100%;background:#000;overflow:hidden;
   font-family:'Share Tech Mono','Courier New',monospace;
-  color:var(--g); -webkit-tap-highlight-color:transparent; user-select:none;
+  color:var(--g);-webkit-tap-highlight-color:transparent;user-select:none;
 }
 
 /* ── BOOT ── */
-#boot {
-  position:fixed; inset:0; background:#000; z-index:300;
-  display:flex; flex-direction:column; justify-content:center; align-items:center; padding:24px;
+#boot{
+  position:fixed;inset:0;background:#000;z-index:300;
+  display:flex;flex-direction:column;justify-content:center;align-items:center;padding:24px;
 }
-#boot-hex { position:absolute; inset:0; overflow:hidden; opacity:.05; pointer-events:none; }
-#boot-hex svg { width:100%; height:100%; }
-#boot-logo-wrap { position:relative; margin-bottom:10px; line-height:1; }
-#boot-logo {
-  font-family:'Orbitron','Arial Black',sans-serif; font-weight:900;
-  font-size:clamp(42px,12vw,82px); letter-spacing:.18em; white-space:nowrap; color:transparent;
+#boot-hex{position:absolute;inset:0;overflow:hidden;opacity:.05;pointer-events:none;}
+#boot-hex svg{width:100%;height:100%;}
+#boot-logo-wrap{position:relative;margin-bottom:10px;line-height:1;}
+#boot-logo{
+  font-family:'Orbitron','Arial Black',sans-serif;font-weight:900;
+  font-size:clamp(42px,12vw,82px);letter-spacing:.18em;white-space:nowrap;color:transparent;
 }
-.bc {
-  display:inline-block; opacity:0; color:var(--g);
+.bc{
+  display:inline-block;opacity:0;color:var(--g);
   text-shadow:0 0 24px rgba(0,255,65,.55),0 0 60px rgba(0,255,65,.18);
   animation:charDrop .55s cubic-bezier(.22,1,.36,1) forwards;
 }
-.bc:nth-child(1){animation-delay:.05s} .bc:nth-child(2){animation-delay:.18s}
-.bc:nth-child(3){animation-delay:.31s} .bc:nth-child(4){animation-delay:.44s}
+.bc:nth-child(1){animation-delay:.05s}.bc:nth-child(2){animation-delay:.18s}
+.bc:nth-child(3){animation-delay:.31s}.bc:nth-child(4){animation-delay:.44s}
 .bc:nth-child(5){animation-delay:.57s}
-#boot-logo-g {
-  position:absolute; inset:0; font-family:'Orbitron','Arial Black',sans-serif; font-weight:900;
-  font-size:clamp(42px,12vw,82px); letter-spacing:.18em; white-space:nowrap;
-  color:var(--g); opacity:0; pointer-events:none; animation:glitchLoop 5s 1.6s infinite;
+#boot-logo-g{
+  position:absolute;inset:0;font-family:'Orbitron','Arial Black',sans-serif;font-weight:900;
+  font-size:clamp(42px,12vw,82px);letter-spacing:.18em;white-space:nowrap;
+  color:var(--g);opacity:0;pointer-events:none;animation:glitchLoop 5s 1.6s infinite;
 }
-#boot-scan {
-  position:absolute; left:0; right:0; height:2px; top:0;
+#boot-scan{
+  position:absolute;left:0;right:0;height:2px;top:0;
   background:linear-gradient(90deg,transparent,var(--g),transparent);
-  box-shadow:0 0 12px var(--g); animation:scanDown 3s ease-in-out infinite;
+  box-shadow:0 0 12px var(--g);animation:scanDown 3s ease-in-out infinite;
 }
-#boot-sub {
-  font-size:8px; letter-spacing:.45em; color:var(--g2); text-transform:uppercase;
-  margin:8px 0 22px; opacity:0; animation:fadeUp .5s .95s forwards;
+#boot-sub{font-size:8px;letter-spacing:.45em;color:var(--g2);text-transform:uppercase;margin:8px 0 22px;opacity:0;animation:fadeUp .5s .95s forwards;}
+#boot-log{width:min(360px,88vw);font-size:8.5px;color:var(--g2);min-height:90px;line-height:2;}
+#boot-log .bl{opacity:0;animation:fadeUp .18s forwards;padding-left:5px;border-left:2px solid var(--g3);margin-bottom:2px;}
+#boot-log .bl.ok::before{content:'✔ ';color:var(--g);}
+#boot-log .bl.warn::before{content:'⚡ ';color:var(--o);}
+#boot-log .bl.err::before{content:'✕ ';color:var(--r);}
+#pb-wrap{width:min(360px,88vw);margin-top:16px;}
+#pb-track{height:2px;background:var(--g3);}
+#pb{height:100%;width:0;background:linear-gradient(90deg,var(--g2),var(--g));box-shadow:0 0 12px var(--g);transition:width .35s cubic-bezier(.22,1,.36,1);}
+#pb-pct{font-size:7px;color:var(--g2);text-align:right;margin-top:3px;letter-spacing:.2em;}
+#btn-start{
+  margin-top:32px;display:none;background:none;border:1px solid var(--g);color:var(--g);
+  font-family:'Orbitron',sans-serif;font-size:10px;letter-spacing:.35em;padding:13px 44px;
+  cursor:pointer;position:relative;overflow:hidden;transition:color .25s;
 }
-#boot-log { width:min(360px,88vw); font-size:8.5px; color:var(--g2); min-height:90px; line-height:2; }
-#boot-log .bl {
-  opacity:0; animation:fadeUp .18s forwards;
-  padding-left:5px; border-left:2px solid var(--g3); margin-bottom:2px;
+#btn-start::before{
+  content:'';position:absolute;inset:0;background:var(--g);
+  transform:scaleX(0);transform-origin:left;transition:transform .28s cubic-bezier(.22,1,.36,1);z-index:-1;
 }
-#boot-log .bl.ok::before   { content:'✔ '; color:var(--g); }
-#boot-log .bl.warn::before { content:'⚡ '; color:var(--o); }
-#boot-log .bl.err::before  { content:'✕ '; color:var(--r); }
-#pb-wrap { width:min(360px,88vw); margin-top:16px; }
-#pb-track { height:2px; background:var(--g3); }
-#pb { height:100%; width:0; background:linear-gradient(90deg,var(--g2),var(--g)); box-shadow:0 0 12px var(--g); transition:width .35s cubic-bezier(.22,1,.36,1); }
-#pb-pct { font-size:7px; color:var(--g2); text-align:right; margin-top:3px; letter-spacing:.2em; }
-#btn-start {
-  margin-top:32px; display:none; background:none; border:1px solid var(--g); color:var(--g);
-  font-family:'Orbitron',sans-serif; font-size:10px; letter-spacing:.35em; padding:13px 44px;
-  cursor:pointer; position:relative; overflow:hidden; transition:color .25s;
-}
-#btn-start::before {
-  content:''; position:absolute; inset:0; background:var(--g);
-  transform:scaleX(0); transform-origin:left; transition:transform .28s cubic-bezier(.22,1,.36,1); z-index:-1;
-}
-#btn-start:hover::before,#btn-start:active::before { transform:scaleX(1); }
-#btn-start:hover,#btn-start:active { color:#000; }
+#btn-start:hover::before,#btn-start:active::before{transform:scaleX(1);}
+#btn-start:hover,#btn-start:active{color:#000;}
 
 /* ── APP ── */
-#app { position:fixed; inset:0; display:none; flex-direction:column; }
-#vp  { position:relative; flex:1 1 0; min-height:0; overflow:hidden; background:#000; }
-video { display:none; }
-#output_canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:2; cursor:crosshair; }
-#vp::after {
-  content:''; position:absolute; inset:0; z-index:5; pointer-events:none;
+#app{position:fixed;inset:0;display:none;flex-direction:column;}
+#vp{position:relative;flex:1 1 0;min-height:0;overflow:hidden;background:#000;}
+video{display:none;}
+#output_canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;cursor:crosshair;}
+#vp::after{
+  content:'';position:absolute;inset:0;z-index:5;pointer-events:none;
   background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);
   animation:scanroll 8s linear infinite;
 }
-#vignette { position:absolute; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center,transparent 36%,rgba(0,0,0,.88) 100%); }
-#grid-ov  { position:absolute; inset:0; z-index:3; pointer-events:none; opacity:.025; background-image:linear-gradient(var(--g) 1px,transparent 1px),linear-gradient(90deg,var(--g) 1px,transparent 1px); background-size:48px 48px; }
-#alert-flash { position:absolute; inset:0; z-index:6; pointer-events:none; opacity:0; }
-#alert-flash.on { animation:alertFlash 1.2s ease-out forwards; }
-.hc { position:absolute; width:52px; height:52px; z-index:10; pointer-events:none; }
-.hc::before,.hc::after { content:''; position:absolute; background:var(--g); box-shadow:0 0 6px var(--g); }
-.hc::before { width:2px; height:18px; } .hc::after { width:18px; height:2px; }
-#hc-tl{top:0;left:0;} #hc-tl::before{top:0;left:0;} #hc-tl::after{top:0;left:0;}
-#hc-tr{top:0;right:0;} #hc-tr::before{top:0;right:0;} #hc-tr::after{top:0;right:0;}
-#hc-bl{bottom:0;left:0;} #hc-bl::before{bottom:0;left:0;} #hc-bl::after{bottom:0;left:0;}
-#hc-br{bottom:0;right:0;} #hc-br::before{bottom:0;right:0;} #hc-br::after{bottom:0;right:0;}
-#topbar {
-  position:absolute; top:0; left:0; right:0; z-index:15; pointer-events:none;
-  display:flex; align-items:center; justify-content:space-between; padding:10px 14px;
+#vignette{position:absolute;inset:0;z-index:4;pointer-events:none;background:radial-gradient(ellipse at center,transparent 36%,rgba(0,0,0,.88) 100%);}
+#grid-ov{position:absolute;inset:0;z-index:3;pointer-events:none;opacity:.025;background-image:linear-gradient(var(--g) 1px,transparent 1px),linear-gradient(90deg,var(--g) 1px,transparent 1px);background-size:48px 48px;}
+#alert-flash{position:absolute;inset:0;z-index:6;pointer-events:none;opacity:0;}
+#alert-flash.on{animation:alertFlash 1.2s ease-out forwards;}
+
+.hc{position:absolute;width:52px;height:52px;z-index:10;pointer-events:none;}
+.hc::before,.hc::after{content:'';position:absolute;background:var(--g);box-shadow:0 0 6px var(--g);}
+.hc::before{width:2px;height:18px;}.hc::after{width:18px;height:2px;}
+#hc-tl{top:0;left:0;}#hc-tl::before{top:0;left:0;}#hc-tl::after{top:0;left:0;}
+#hc-tr{top:0;right:0;}#hc-tr::before{top:0;right:0;}#hc-tr::after{top:0;right:0;}
+#hc-bl{bottom:0;left:0;}#hc-bl::before{bottom:0;left:0;}#hc-bl::after{bottom:0;left:0;}
+#hc-br{bottom:0;right:0;}#hc-br::before{bottom:0;right:0;}#hc-br::after{bottom:0;right:0;}
+
+#topbar{
+  position:absolute;top:0;left:0;right:0;z-index:15;pointer-events:none;
+  display:flex;align-items:center;justify-content:space-between;padding:10px 14px;
   background:linear-gradient(180deg,rgba(0,0,0,.72) 0%,transparent 100%);
 }
-#sys-id { font-family:'Orbitron','Arial Black',sans-serif; font-size:13px; font-weight:900; letter-spacing:.2em; color:var(--g); text-shadow:0 0 20px rgba(0,255,65,.5); }
-#sys-id small { font-weight:400; font-size:9px; opacity:.4; letter-spacing:.08em; }
-#badges { display:flex; gap:5px; align-items:center; }
-.badge { font-size:7.5px; letter-spacing:.1em; padding:3px 8px; border:1px solid var(--border); background:var(--panel); color:var(--g2); display:flex; align-items:center; gap:4px; backdrop-filter:blur(4px); }
-.bdot { width:4px; height:4px; border-radius:50%; background:var(--g); flex-shrink:0; animation:dotBlink 1.5s ease-in-out infinite; box-shadow:0 0 5px var(--g); }
-#b-fps .bdot    { background:var(--b); box-shadow:0 0 5px var(--b); }
-#b-threat       { display:none; border-color:rgba(255,51,51,.4); color:var(--r); }
-#b-threat .bdot { background:var(--r); box-shadow:0 0 5px var(--r); animation-duration:.6s; }
-#cache-badge { position:absolute; top:40px; left:14px; z-index:16; font-size:7px; color:rgba(0,255,65,.3); letter-spacing:.15em; pointer-events:none; }
-#statusbar { position:absolute; bottom:0; left:0; right:0; z-index:9; pointer-events:none; display:flex; justify-content:space-between; padding:4px 14px; background:linear-gradient(0deg,rgba(0,0,0,.7) 0%,transparent 100%); }
-.sbi { font-size:7px; color:rgba(0,255,65,.32); letter-spacing:.1em; }
+#sys-id{font-family:'Orbitron','Arial Black',sans-serif;font-size:13px;font-weight:900;letter-spacing:.2em;color:var(--g);text-shadow:0 0 20px rgba(0,255,65,.5);}
+#sys-id small{font-weight:400;font-size:9px;opacity:.4;letter-spacing:.08em;}
+#badges{display:flex;gap:5px;align-items:center;}
+.badge{font-size:7.5px;letter-spacing:.1em;padding:3px 8px;border:1px solid var(--border);background:var(--panel);color:var(--g2);display:flex;align-items:center;gap:4px;backdrop-filter:blur(4px);}
+.bdot{width:4px;height:4px;border-radius:50%;background:var(--g);flex-shrink:0;animation:dotBlink 1.5s ease-in-out infinite;box-shadow:0 0 5px var(--g);}
+#b-fps .bdot{background:var(--b);box-shadow:0 0 5px var(--b);}
+#b-threat{display:none;border-color:rgba(255,51,51,.4);color:var(--r);}
+#b-threat .bdot{background:var(--r);box-shadow:0 0 5px var(--r);animation-duration:.6s;}
 
-/* ── SCREENSHOT ── */
-#shot-flash { position:absolute; inset:0; z-index:50; pointer-events:none; background:#fff; opacity:0; }
-#shot-flash.snap { animation:shotFlash .45s ease-out forwards; }
-@keyframes shotFlash { 0%{opacity:.85} 100%{opacity:0} }
-#shot-indicator { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:51; pointer-events:none; font-family:'Orbitron',sans-serif; font-size:11px; letter-spacing:.3em; color:#fff; text-shadow:0 0 20px rgba(255,255,255,.8); opacity:0; }
-#shot-indicator.snap { animation:shotInd .9s ease-out forwards; }
-@keyframes shotInd { 0%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 60%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) scale(.95)} }
+/* ── CAMERA SWITCH BUTTON ── */
+#btn-cam-switch{
+  position:absolute;top:50px;right:14px;z-index:20;
+  background:rgba(2,8,4,.85);border:1px solid rgba(0,255,65,.35);
+  color:var(--g2);font-family:'Share Tech Mono',monospace;
+  font-size:9px;letter-spacing:.15em;padding:7px 12px;
+  cursor:pointer;backdrop-filter:blur(6px);
+  transition:all .2s;display:flex;align-items:center;gap:6px;
+}
+#btn-cam-switch:hover,#btn-cam-switch:active{
+  border-color:var(--g);color:var(--g);background:rgba(0,255,65,.1);
+}
+#btn-cam-switch .cam-icon{font-size:13px;}
+#btn-cam-switch.switching{
+  opacity:.5;pointer-events:none;
+  border-color:var(--o);color:var(--o);
+}
+
+#cache-badge{position:absolute;top:40px;left:14px;z-index:16;font-size:7px;color:rgba(0,255,65,.3);letter-spacing:.15em;pointer-events:none;}
+#statusbar{position:absolute;bottom:0;left:0;right:0;z-index:9;pointer-events:none;display:flex;justify-content:space-between;padding:4px 14px;background:linear-gradient(0deg,rgba(0,0,0,.7) 0%,transparent 100%);}
+.sbi{font-size:7px;color:rgba(0,255,65,.32);letter-spacing:.1em;}
+
+/* ── SCREENSHOT FLASH ── */
+#shot-flash{position:absolute;inset:0;z-index:50;pointer-events:none;background:#fff;opacity:0;}
+#shot-flash.snap{animation:shotFlash .45s ease-out forwards;}
+#shot-indicator{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;pointer-events:none;font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:.3em;color:#fff;text-shadow:0 0 20px rgba(255,255,255,.8);opacity:0;}
+#shot-indicator.snap{animation:shotInd .9s ease-out forwards;}
+@keyframes shotFlash{0%{opacity:.85}100%{opacity:0}}
+@keyframes shotInd{0%{opacity:1;transform:translate(-50%,-50%) scale(1.1)}60%{opacity:1;transform:translate(-50%,-50%) scale(1)}100%{opacity:0;transform:translate(-50%,-50%) scale(.95)}}
 
 /* ── INFO CARD ── */
-#info-card { flex:0 0 var(--card-h); height:var(--card-h); overflow:hidden; background:rgba(1,5,2,.99); border-top:1px solid rgba(0,255,65,.45); position:relative; z-index:30; max-height:0; transition:max-height .28s cubic-bezier(.22,1,.36,1),border-color .28s; border-top-color:transparent; pointer-events:none; }
-#info-card.open { max-height:var(--card-h); border-top-color:rgba(0,255,65,.45); pointer-events:all; }
-#info-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--g),transparent); animation:sweepLine 3s linear infinite; }
-#ic-close { position:absolute; top:8px; right:12px; background:none; border:1px solid rgba(0,255,65,.3); color:var(--g2); font-family:'Share Tech Mono',monospace; font-size:8px; padding:3px 10px; cursor:pointer; letter-spacing:.12em; transition:all .2s; z-index:2; }
-#ic-close:hover { border-color:var(--g); color:var(--g); }
-#ic-body { padding:10px 14px 8px; height:100%; overflow:hidden; }
-#ic-row1 { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
-#ic-name { font-family:'Orbitron','Arial Black',sans-serif; font-size:17px; font-weight:700; letter-spacing:.18em; cursor:pointer; transition:opacity .2s; }
-#ic-name:hover { opacity:.7; }
-#ic-sub { font-size:7px; color:rgba(0,255,65,.35); letter-spacing:.2em; }
-#ic-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:2px 8px; font-size:8px; margin-bottom:5px; }
-.ick { color:rgba(0,255,65,.38); font-size:7px; letter-spacing:.06em; }
-.icv { color:var(--g); } .icv.warn{color:var(--o)} .icv.alert{color:var(--r)}
-#ic-desc { font-size:7.5px; color:rgba(0,255,65,.45); line-height:1.6; border-top:1px solid var(--border); padding-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-#ic-tbar { margin-top:4px; display:flex; align-items:center; gap:8px; }
-#ic-tl   { font-size:7px; color:rgba(0,255,65,.38); letter-spacing:.1em; white-space:nowrap; }
-#ic-tt   { flex:1; height:2px; background:var(--g3); overflow:hidden; }
-#ic-tf   { height:100%; width:0; transition:width .5s,background .3s; }
-#ic-tv   { font-size:8px; color:var(--g); min-width:26px; text-align:right; }
-#ic-actions { margin-top:5px; display:flex; align-items:center; gap:10px; }
-#ic-rename { font-size:7px; color:rgba(0,255,65,.28); letter-spacing:.15em; cursor:pointer; transition:color .2s; }
-#ic-rename:hover { color:var(--g); }
-#ic-shot-btn { display:none; align-items:center; gap:5px; font-size:7px; letter-spacing:.15em; background:none; border:1px solid rgba(0,255,65,.35); color:var(--g2); padding:3px 9px; cursor:pointer; font-family:'Share Tech Mono',monospace; transition:all .2s; position:relative; overflow:hidden; }
-#ic-shot-btn::before { content:''; position:absolute; inset:0; background:var(--g); transform:scaleX(0); transform-origin:left; transition:transform .22s ease; z-index:-1; }
-#ic-shot-btn:hover::before { transform:scaleX(1); }
-#ic-shot-btn:hover { color:#000; border-color:var(--g); }
-#ic-shot-btn.ready  { display:flex; }
-#ic-shot-btn.saving { color:var(--o); border-color:var(--o); pointer-events:none; }
-#ic-thumb { display:none; width:32px; height:18px; border:1px solid rgba(0,255,65,.2); object-fit:cover; flex-shrink:0; }
-#ic-thumb.ready { display:block; }
+#info-card{flex:0 0 var(--card-h);height:var(--card-h);overflow:hidden;background:rgba(1,5,2,.99);border-top:1px solid rgba(0,255,65,.45);position:relative;z-index:30;max-height:0;transition:max-height .28s cubic-bezier(.22,1,.36,1),border-color .28s;border-top-color:transparent;pointer-events:none;}
+#info-card.open{max-height:var(--card-h);border-top-color:rgba(0,255,65,.45);pointer-events:all;}
+#info-card::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--g),transparent);animation:sweepLine 3s linear infinite;}
+#ic-close{position:absolute;top:8px;right:12px;background:none;border:1px solid rgba(0,255,65,.3);color:var(--g2);font-family:'Share Tech Mono',monospace;font-size:8px;padding:3px 10px;cursor:pointer;letter-spacing:.12em;transition:all .2s;z-index:2;}
+#ic-close:hover{border-color:var(--g);color:var(--g);}
+#ic-body{padding:10px 14px 8px;height:100%;overflow:hidden;}
+#ic-row1{display:flex;align-items:baseline;gap:10px;margin-bottom:5px;}
+#ic-name{font-family:'Orbitron','Arial Black',sans-serif;font-size:17px;font-weight:700;letter-spacing:.18em;cursor:pointer;transition:opacity .2s;}
+#ic-name:hover{opacity:.7;}
+#ic-sub{font-size:7px;color:rgba(0,255,65,.35);letter-spacing:.2em;}
+#ic-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:2px 8px;font-size:8px;margin-bottom:5px;}
+.ick{color:rgba(0,255,65,.38);font-size:7px;letter-spacing:.06em;}
+.icv{color:var(--g)}.icv.warn{color:var(--o)}.icv.alert{color:var(--r)}
+#ic-desc{font-size:7.5px;color:rgba(0,255,65,.45);line-height:1.6;border-top:1px solid var(--border);padding-top:4px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+#ic-tbar{margin-top:4px;display:flex;align-items:center;gap:8px;}
+#ic-tl{font-size:7px;color:rgba(0,255,65,.38);letter-spacing:.1em;white-space:nowrap;}
+#ic-tt{flex:1;height:2px;background:var(--g3);overflow:hidden;}
+#ic-tf{height:100%;width:0;transition:width .5s,background .3s;}
+#ic-tv{font-size:8px;color:var(--g);min-width:26px;text-align:right;}
+#ic-actions{margin-top:5px;display:flex;align-items:center;gap:10px;}
+#ic-rename{font-size:7px;color:rgba(0,255,65,.28);letter-spacing:.15em;cursor:pointer;transition:color .2s;}
+#ic-rename:hover{color:var(--g);}
+#ic-shot-btn{display:none;align-items:center;gap:5px;font-size:7px;letter-spacing:.15em;background:none;border:1px solid rgba(0,255,65,.35);color:var(--g2);padding:3px 9px;cursor:pointer;font-family:'Share Tech Mono',monospace;transition:all .2s;position:relative;overflow:hidden;}
+#ic-shot-btn::before{content:'';position:absolute;inset:0;background:var(--g);transform:scaleX(0);transform-origin:left;transition:transform .22s ease;z-index:-1;}
+#ic-shot-btn:hover::before{transform:scaleX(1);}
+#ic-shot-btn:hover{color:#000;border-color:var(--g);}
+#ic-shot-btn.ready{display:flex;}
+#ic-shot-btn.saving{color:var(--o);border-color:var(--o);pointer-events:none;}
+#ic-thumb{display:none;width:32px;height:18px;border:1px solid rgba(0,255,65,.2);object-fit:cover;flex-shrink:0;}
+#ic-thumb.ready{display:block;}
 
 /* ── TERMINAL ── */
-#terminal-wrap { flex:0 0 var(--term-h); height:var(--term-h); background:rgba(0,0,0,.96); border-top:1px solid var(--border); z-index:20; display:flex; flex-direction:column; overflow:hidden; }
-#term-header { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:4px 12px; border-bottom:1px solid rgba(0,255,65,.1); }
-#term-title { font-size:7px; letter-spacing:.25em; color:rgba(0,255,65,.3); }
-#term-clear { background:none; border:none; color:rgba(0,255,65,.28); font-family:'Share Tech Mono',monospace; font-size:7px; letter-spacing:.15em; cursor:pointer; padding:0; }
-#term-clear:hover { color:var(--g); }
-#term-cols { flex:0 0 auto; display:grid; grid-template-columns:60px 68px 1fr 68px 74px; gap:0 4px; padding:2px 12px; border-bottom:1px solid rgba(0,255,65,.07); }
-.tcl { font-size:6.5px; color:rgba(0,255,65,.22); letter-spacing:.15em; text-transform:uppercase; }
-#term-body { flex:1 1 0; min-height:0; overflow-y:auto; padding:2px 0; scrollbar-width:thin; scrollbar-color:var(--g3) transparent; }
-#term-body::-webkit-scrollbar { width:3px; }
-#term-body::-webkit-scrollbar-thumb { background:var(--g3); border-radius:2px; }
-.trow { display:grid; grid-template-columns:60px 68px 1fr 68px 74px; gap:0 4px; padding:2px 12px; font-size:8px; line-height:1.5; border-left:2px solid transparent; transition:background .12s; animation:rowIn .16s ease-out both; }
-.trow:hover { background:rgba(0,255,65,.04); }
-.trow.person  { border-left-color:var(--g); }
-.trow.vehicle { border-left-color:var(--r); }
-.trow.animal  { border-left-color:var(--y); }
-.trow.device  { border-left-color:var(--b); }
-.trow.system  { border-left-color:var(--p); }
-.trow.other   { border-left-color:rgba(255,255,255,.3); }
-.tc-time  { color:rgba(0,255,65,.32); font-size:7.5px; }
-.tc-date  { color:rgba(0,255,65,.22); font-size:7px; }
-.tc-event { color:var(--g); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tc-type  { font-size:7.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tc-group { font-size:7px; color:rgba(0,255,65,.38); }
+#terminal-wrap{flex:0 0 var(--term-h);height:var(--term-h);background:rgba(0,0,0,.96);border-top:1px solid var(--border);z-index:20;display:flex;flex-direction:column;overflow:hidden;}
+#term-header{flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:4px 12px;border-bottom:1px solid rgba(0,255,65,.1);}
+#term-title{font-size:7px;letter-spacing:.25em;color:rgba(0,255,65,.3);}
+#term-clear{background:none;border:none;color:rgba(0,255,65,.28);font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:.15em;cursor:pointer;padding:0;}
+#term-clear:hover{color:var(--g);}
+#term-cols{flex:0 0 auto;display:grid;grid-template-columns:60px 68px 1fr 68px 74px;gap:0 4px;padding:2px 12px;border-bottom:1px solid rgba(0,255,65,.07);}
+.tcl{font-size:6.5px;color:rgba(0,255,65,.22);letter-spacing:.15em;text-transform:uppercase;}
+#term-body{flex:1 1 0;min-height:0;overflow-y:auto;padding:2px 0;scrollbar-width:thin;scrollbar-color:var(--g3) transparent;}
+#term-body::-webkit-scrollbar{width:3px;}
+#term-body::-webkit-scrollbar-thumb{background:var(--g3);border-radius:2px;}
+.trow{display:grid;grid-template-columns:60px 68px 1fr 68px 74px;gap:0 4px;padding:2px 12px;font-size:8px;line-height:1.5;border-left:2px solid transparent;transition:background .12s;animation:rowIn .16s ease-out both;}
+.trow:hover{background:rgba(0,255,65,.04);}
+.trow.person{border-left-color:var(--g);}
+.trow.vehicle{border-left-color:var(--r);}
+.trow.animal{border-left-color:var(--y);}
+.trow.device{border-left-color:var(--b);}
+.trow.system{border-left-color:var(--p);}
+.trow.other{border-left-color:rgba(255,255,255,.3);}
+.tc-time{color:rgba(0,255,65,.32);font-size:7.5px;}
+.tc-date{color:rgba(0,255,65,.22);font-size:7px;}
+.tc-event{color:var(--g);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tc-type{font-size:7.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tc-group{font-size:7px;color:rgba(0,255,65,.38);}
 
 /* ── KEYFRAMES ── */
-@keyframes charDrop { 0%{opacity:0;transform:translateY(-18px) scaleY(2.2)} 100%{opacity:1;transform:none} }
-@keyframes glitchLoop {
+@keyframes charDrop{0%{opacity:0;transform:translateY(-18px) scaleY(2.2)}100%{opacity:1;transform:none}}
+@keyframes glitchLoop{
   0%,87%,100%{opacity:0;transform:none}
   88%{opacity:.7;transform:translateX(-3px);clip-path:polygon(0 12%,100% 12%,100% 38%,0 38%);color:var(--r)}
   90%{opacity:.5;transform:translateX(4px);clip-path:polygon(0 55%,100% 55%,100% 80%,0 80%);color:var(--b)}
   92%{opacity:0}
 }
-@keyframes scanDown { 0%{top:0;opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{top:100%;opacity:0} }
-@keyframes fadeUp   { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
-@keyframes sweepLine{ from{background-position:-200% 0} to{background-position:200% 0} }
-@keyframes scanroll { from{background-position:0 0} to{background-position:0 80px} }
-@keyframes dotBlink { 0%,100%{opacity:1} 50%{opacity:.15} }
-@keyframes alertFlash { 0%{opacity:1;background:rgba(255,51,51,.07)} 100%{opacity:0} }
-@keyframes rowIn    { from{opacity:0;transform:translateX(-5px)} to{opacity:1;transform:none} }
+@keyframes scanDown{0%{top:0;opacity:0}10%{opacity:1}90%{opacity:1}100%{top:100%;opacity:0}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+@keyframes sweepLine{from{background-position:-200% 0}to{background-position:200% 0}}
+@keyframes scanroll{from{background-position:0 0}to{background-position:0 80px}}
+@keyframes dotBlink{0%,100%{opacity:1}50%{opacity:.15}}
+@keyframes alertFlash{0%{opacity:1;background:rgba(255,51,51,.07)}100%{opacity:0}}
+@keyframes rowIn{from{opacity:0;transform:translateX(-5px)}to{opacity:1;transform:none}}
 </style>
 
 </head>
@@ -274,6 +281,10 @@ video { display:none; }
         <div class="badge" id="b-threat"><span class="bdot"></span>THREAT</div>
       </div>
     </div>
+    <!-- FIX #2: Camera switch button -->
+    <button id="btn-cam-switch" onclick="switchCamera()">
+      <span class="cam-icon">⟳</span><span id="cam-label">REAR</span>
+    </button>
     <div id="cache-badge">CACHE: 0 CLASSES</div>
     <div id="statusbar">
       <div class="sbi" id="sb-time">--:--:--</div>
@@ -320,7 +331,7 @@ video { display:none; }
 /* ══════════════════════════════════════════════
    USER CACHE
 ══════════════════════════════════════════════ */
-const CACHE_KEY = 'myeye_v53';
+const CACHE_KEY = 'myeye_v54';
 let UC = (() => {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch(e) { return {}; }
 })();
@@ -360,17 +371,20 @@ const GCOL = {
   FURNITURE:'#cc44ff',KITCHENWARE:'#ff44aa',ACCESSORY:'#ff9900',FOOD:'#00ff88',OBJECT:'#ffffff'
 };
 const KB = {
-  person:      {threat:.72, desc:'Homo sapiens. Скелет + кисти рук активны. Вектор вычисляется.'},
-  car:         {threat:.55, desc:'Колёсное ТС. Гражданский класс. Масса ~1200 кг.'},
-  truck:       {threat:.68, desc:'Тяжёлое грузовое ТС. Зона повышенной опасности.'},
-  bus:         {threat:.50, desc:'Пассажирский транспорт. Мониторинг пешеходных зон.'},
-  motorcycle:  {threat:.62, desc:'Двухколёсное моторизованное ТС. Высокая манёвренность.'},
-  dog:         {threat:.32, desc:'Canis lupus familiaris. Поведенческий вектор оценивается.'},
-  cat:         {threat:.10, desc:'Felis catus. Автономный агент. Высокая мобильность.'},
-  'cell phone':{threat:.18, desc:'EMF-источник. Возможна активная передача данных.'},
-  backpack:    {threat:.38, desc:'Носимый контейнер. Содержимое неизвестно.'},
-  _d:          {threat:.20, desc:'Объект идентифицирован. Расширенный анализ выполняется.'}
+  person:      {threat:.72,desc:'Homo sapiens. Скелет + кисти рук активны. Вектор вычисляется.'},
+  car:         {threat:.55,desc:'Колёсное ТС. Гражданский класс. Масса ~1200 кг.'},
+  truck:       {threat:.68,desc:'Тяжёлое грузовое ТС. Зона повышенной опасности.'},
+  bus:         {threat:.50,desc:'Пассажирский транспорт. Мониторинг пешеходных зон.'},
+  motorcycle:  {threat:.62,desc:'Двухколёсное моторизованное ТС. Высокая манёвренность.'},
+  dog:         {threat:.32,desc:'Canis lupus familiaris. Поведенческий вектор оценивается.'},
+  cat:         {threat:.10,desc:'Felis catus. Автономный агент. Высокая мобильность.'},
+  'cell phone':{threat:.18,desc:'EMF-источник. Возможна активная передача данных.'},
+  backpack:    {threat:.38,desc:'Носимый контейнер. Содержимое неизвестно.'},
+  _d:          {threat:.20,desc:'Объект идентифицирован. Расширенный анализ выполняется.'}
 };
+
+// FIX #3: Classes for which skeleton/hands rendering is enabled
+const SKELETON_CLASSES = new Set(['person']);
 
 const getGroup = cls => GROUPS[cls] || 'OBJECT';
 const getCol   = cls => GCOL[getGroup(cls)] || '#fff';
@@ -388,30 +402,36 @@ const termBody = document.getElementById('term-body');
 /* ══════════════════════════════════════════════
    STATE
 ══════════════════════════════════════════════ */
-let detector   = null;  // COCO-SSD
-let mpPose     = null;  // MediaPipe Pose
-let mpHands    = null;  // MediaPipe Hands
+let detector   = null;
+let mpPose     = null;
+let mpHands    = null;
 let poseReady  = false;
 let handsReady = false;
 
-// onResults callbacks записывают сюда
 let lastPoseResult  = null;
 let lastHandsResult = null;
+let lastObjects     = [];
+let selectedCls     = null;
+let threatActive    = false;
+let detecting       = false;
 
-// COCO
-let lastObjects  = [];
-let selectedCls  = null;
-let threatActive = false;
-let detecting    = false;
+// FIX #3: Track if person is currently detected by COCO
+let personDetected  = false;
 
-// FPS / frame
+// FPS
 let frameN   = 0;
 let fpsN     = 0;
 let lastFpsT = 0;
 
-// Screenshot
-let lastScreenshot = null;
-let screenshotBlob = null;
+// Screenshot — FIX #1: store raw canvas dataURL, not html2canvas
+let screenshotDataURL = null;
+let screenshotBlob    = null;
+
+// Camera switching — FIX #2
+let currentFacingMode = 'environment';
+let activeStream      = null;
+let mpCamera          = null;
+let isSwitchingCam    = false;
 
 const logThrottle = {};
 
@@ -460,46 +480,19 @@ function clearLog() {
 }
 
 /* ══════════════════════════════════════════════
-   SCREENSHOT
+   FIX #1: SCREENSHOT — capture canvas directly
+   No html2canvas dependency needed for frame capture.
+   The canvas already has the full rendered frame with
+   all overlays (bounding boxes, skeleton, labels).
 ══════════════════════════════════════════════ */
-async function captureScreenshot() {
-  // Снимаем текущий кадр до html2canvas (он async и кадр уйдёт)
-  const frameDataURL = canvas.toDataURL('image/png');
-
-  try {
-    const shotCanvas = await html2canvas(document.getElementById('app'), {
-      backgroundColor: '#000',
-      useCORS: true,
-      allowTaint: true,
-      scale: Math.min(window.devicePixelRatio || 1, 2),
-      logging: false,
-      ignoreElements: el => el.id === 'shot-flash' || el.id === 'shot-indicator',
-      onclone: (doc) => {
-        const cloneVideo  = doc.getElementById('input_video');
-        const cloneCanvas = doc.getElementById('output_canvas');
-        if (cloneVideo)  cloneVideo.style.display = 'none';
-        if (cloneCanvas) {
-          const img = doc.createElement('img');
-          img.src = frameDataURL;
-          img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;';
-          cloneCanvas.replaceWith(img);
-        }
-      }
-    });
-    return new Promise(resolve => {
-      shotCanvas.toBlob(blob => {
-        resolve({ blob, dataURL: shotCanvas.toDataURL('image/png') });
-      }, 'image/png');
-    });
-  } catch(err) {
-    console.warn('html2canvas fallback:', err);
-    // Fallback: только canvas
-    return new Promise(resolve => {
-      canvas.toBlob(blob => {
-        resolve({ blob, dataURL: canvas.toDataURL('image/png') });
-      }, 'image/png');
-    });
-  }
+function captureCanvasSnapshot() {
+  return new Promise(resolve => {
+    // Canvas has everything: video frame + all drawn overlays
+    const dataURL = canvas.toDataURL('image/png');
+    canvas.toBlob(blob => {
+      resolve({ blob, dataURL });
+    }, 'image/png');
+  });
 }
 
 function showShotFlash() {
@@ -515,7 +508,7 @@ async function downloadScreenshot() {
   if (!screenshotBlob) return;
   const btn = document.getElementById('ic-shot-btn');
   btn.classList.add('saving'); btn.textContent = '⏳ SAVING...';
-  await sleep(80);
+  await sleep(60);
 
   const url = URL.createObjectURL(screenshotBlob);
   const a   = document.createElement('a');
@@ -544,15 +537,9 @@ async function initModels() {
   };
   const setPb = p => { pbEl.style.width = p+'%'; pctEl.textContent = p+'%'; };
 
-  bLog('INIT VISION OS v5.3'); setPb(5); await sleep(120);
+  bLog('INIT VISION OS v5.4'); setPb(5); await sleep(120);
   bLog(`USER CACHE: ${Object.keys(UC.aliases).length} ALIASES`); setPb(10); await sleep(120);
-
-  if (typeof html2canvas !== 'undefined') {
-    bLog('SCREENSHOT ENGINE: READY');
-  } else {
-    bLog('SCREENSHOT ENGINE: FALLBACK MODE','warn');
-  }
-  setPb(18); await sleep(100);
+  bLog('SCREENSHOT ENGINE: CANVAS DIRECT'); setPb(18); await sleep(100);
 
   // COCO-SSD
   try {
@@ -577,7 +564,6 @@ async function initModels() {
       minDetectionConfidence: 0.5,
       minTrackingConfidence:  0.5
     });
-    // Сохраняем результат — рисуем в renderFrame
     mpPose.onResults(res => { lastPoseResult = res; });
     await mpPose.initialize();
     poseReady = true;
@@ -613,11 +599,90 @@ async function initModels() {
 }
 
 /* ══════════════════════════════════════════════
+   FIX #2: CAMERA SWITCHING
+   Properly stops old stream and restarts Camera
+   with new facingMode, reinitialises MP pipeline.
+══════════════════════════════════════════════ */
+async function switchCamera() {
+  if (isSwitchingCam) return;
+  isSwitchingCam = true;
+
+  const btn = document.getElementById('btn-cam-switch');
+  btn.classList.add('switching');
+  sysLog('SWITCHING CAMERA...','CAM','SYS');
+
+  // Toggle facing mode
+  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+  document.getElementById('cam-label').textContent =
+    currentFacingMode === 'environment' ? 'REAR' : 'FRONT';
+
+  try {
+    // Stop existing MediaPipe Camera
+    if (mpCamera) {
+      try { await mpCamera.stop(); } catch(e) {}
+      mpCamera = null;
+    }
+
+    // Stop existing raw stream tracks
+    if (activeStream) {
+      activeStream.getTracks().forEach(t => t.stop());
+      activeStream = null;
+    }
+
+    // Reset MP results to avoid stale skeleton
+    lastPoseResult  = null;
+    lastHandsResult = null;
+    lastObjects     = [];
+    personDetected  = false;
+
+    await sleep(300); // Brief pause for hardware release
+
+    await startCamera();
+    sysLog(`CAMERA: ${currentFacingMode.toUpperCase()} ACTIVE`, 'CAM', 'SYS');
+  } catch(e) {
+    sysLog('CAM SWITCH ERR: '+e.message,'ERROR','SYS');
+    // Revert on failure
+    currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+    document.getElementById('cam-label').textContent =
+      currentFacingMode === 'environment' ? 'REAR' : 'FRONT';
+    await startCamera();
+  }
+
+  btn.classList.remove('switching');
+  isSwitchingCam = false;
+}
+
+/* ══════════════════════════════════════════════
+   START CAMERA (extracted for reuse in switch)
+══════════════════════════════════════════════ */
+async function startCamera() {
+  if (typeof Camera !== 'undefined') {
+    // MediaPipe Camera handles getUserMedia internally
+    mpCamera = new Camera(video, {
+      onFrame: onFrame,
+      facingMode: currentFacingMode,
+      width: 1280,
+      height: 720
+    });
+    await mpCamera.start();
+  } else {
+    // Fallback: raw getUserMedia
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: {
+        facingMode: currentFacingMode,
+        width:  { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    });
+    activeStream    = stream;
+    video.srcObject = stream;
+    await new Promise(resolve => { video.onloadedmetadata = resolve; });
+    video.play();
+  }
+}
+
+/* ══════════════════════════════════════════════
    START APP
-   Архитектура (из myDRW):
-     Camera.onFrame → отправляем полный кадр в MP
-     onResults callbacks → lastPoseResult / lastHandsResult
-     renderFrame → рисуем всё поверх canvas
 ══════════════════════════════════════════════ */
 function startApp() {
   document.getElementById('boot').style.display = 'none';
@@ -625,47 +690,26 @@ function startApp() {
   saveCache();
   sysLog('SYSTEM START: SUCCESS','SYSTEM','SYS');
 
+  // Set initial camera label
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  currentFacingMode = isMobile ? 'environment' : 'user';
+  document.getElementById('cam-label').textContent =
+    currentFacingMode === 'environment' ? 'REAR' : 'FRONT';
 
-  // Обработчик каждого кадра
-  async function onFrame() {
-    // COCO-SSD (guard: один запрос за раз)
-    if (!detecting && detector) {
-      detecting = true;
-      try { lastObjects = await detector.detect(video, 50, 0.32); }
-      catch(e) { /* ignore */ }
-      detecting = false;
+  // FIX #2: fallback loop for raw getUserMedia path
+  let rafActive = false;
+  const rafLoop = async () => {
+    await onFrame();
+    requestAnimationFrame(rafLoop);
+  };
+
+  startCamera().then(() => {
+    // If not using MediaPipe Camera, start our own RAF loop
+    if (!mpCamera && !rafActive) {
+      rafActive = true;
+      requestAnimationFrame(rafLoop);
     }
-    // Pose: полный кадр (НЕ crop!) — координаты будут 0..1 от полного видео
-    if (poseReady)  { try { await mpPose.send({ image: video });  } catch(e) {} }
-    if (handsReady) { try { await mpHands.send({ image: video }); } catch(e) {} }
-    renderFrame();
-  }
-
-  if (typeof Camera !== 'undefined') {
-    const cam = new Camera(video, {
-      onFrame,
-      facingMode: isMobile ? 'environment' : 'user',
-      width: 1280, height: 720
-    });
-    cam.start().catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  } else {
-    // Fallback getUserMedia
-    navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: isMobile ? 'environment' : 'user',
-        width:  { ideal: 1280 },
-        height: { ideal: 720 }
-      }
-    }).then(stream => {
-      video.srcObject = stream;
-      video.onloadedmetadata = () => {
-        video.play();
-        const loop = async () => { await onFrame(); requestAnimationFrame(loop); };
-        requestAnimationFrame(loop);
-      };
-    }).catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  }
+  }).catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
 
   setInterval(() => {
     document.getElementById('sb-time').textContent = new Date().toTimeString().slice(0,8);
@@ -673,26 +717,54 @@ function startApp() {
 }
 
 /* ══════════════════════════════════════════════
+   FRAME HANDLER
+══════════════════════════════════════════════ */
+async function onFrame() {
+  if (!video.videoWidth) return;
+
+  // COCO-SSD (one at a time guard)
+  if (!detecting && detector) {
+    detecting = true;
+    try { lastObjects = await detector.detect(video, 50, 0.32); }
+    catch(e) { /* ignore */ }
+    detecting = false;
+  }
+
+  // FIX #3: Only send to pose/hands if a person is currently detected
+  // This prevents skeleton from projecting onto non-human objects
+  personDetected = lastObjects.some(o => SKELETON_CLASSES.has(o.class));
+
+  if (personDetected) {
+    if (poseReady)  { try { await mpPose.send({ image: video });  } catch(e) {} }
+    if (handsReady) { try { await mpHands.send({ image: video }); } catch(e) {} }
+  } else {
+    // Clear stale results immediately so skeleton disappears
+    lastPoseResult  = null;
+    lastHandsResult = null;
+  }
+
+  renderFrame();
+}
+
+/* ══════════════════════════════════════════════
    RENDER FRAME
-   Все данные уже готовы из onResults callbacks —
-   здесь только рисуем.
 ══════════════════════════════════════════════ */
 function renderFrame() {
   const vw = video.videoWidth, vh = video.videoHeight;
-  if (!vw) return;
+  if (!vw || !vh) return;
 
   canvas.width  = vw;
   canvas.height = vh;
 
-  // 1. Видеокадр
+  // 1. Video frame
   ctx.drawImage(video, 0, 0, vw, vh);
 
-  // 2. Виньетка
-  const vig = ctx.createRadialGradient(vw/2,vh/2,vw*.22, vw/2,vh/2,vw*.68);
+  // 2. Vignette
+  const vig = ctx.createRadialGradient(vw/2,vh/2,vw*.22,vw/2,vh/2,vw*.68);
   vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.52)');
   ctx.fillStyle = vig; ctx.fillRect(0,0,vw,vh);
 
-  // FPS
+  // FPS counter
   fpsN++;
   const now = performance.now();
   if (now - lastFpsT > 1000) {
@@ -701,14 +773,12 @@ function renderFrame() {
   }
   frameN++;
 
-  // 3. COCO-SSD рамки
+  // 3. COCO-SSD boxes
   drawObjects(vw, vh);
 
-  // 4. Скелет
-  if (lastPoseResult)  drawPose(vw, vh);
-
-  // 5. Кисти
-  if (lastHandsResult) drawHands(vw, vh);
+  // 4. Skeleton — only when person is present (FIX #3)
+  if (personDetected && lastPoseResult)  drawPose(vw, vh);
+  if (personDetected && lastHandsResult) drawHands(vw, vh);
 }
 
 /* ══════════════════════════════════════════════
@@ -746,18 +816,14 @@ function drawObjects(vw, vh) {
     ctx.strokeStyle = col; ctx.lineWidth = isSel ? 3.5 : 2.5;
     ctx.shadowColor = col; ctx.shadowBlur = isSel ? 12 : 5;
     ctx.beginPath();
-    ctx.moveTo(bx-ao,bx+cs-ao);
-    // Верхний-левый
+    // Corner brackets
     ctx.moveTo(bx-ao,by+cs-ao);      ctx.lineTo(bx-ao,by-ao);         ctx.lineTo(bx+cs-ao,by-ao);
-    // Верхний-правый
     ctx.moveTo(bx+bw-cs+ao,by-ao);   ctx.lineTo(bx+bw+ao,by-ao);      ctx.lineTo(bx+bw+ao,by+cs-ao);
-    // Нижний-левый
     ctx.moveTo(bx-ao,by+bh-cs+ao);   ctx.lineTo(bx-ao,by+bh+ao);      ctx.lineTo(bx+cs-ao,by+bh+ao);
-    // Нижний-правый
     ctx.moveTo(bx+bw-cs+ao,by+bh+ao);ctx.lineTo(bx+bw+ao,by+bh+ao);   ctx.lineTo(bx+bw+ao,by+bh-cs+ao);
     ctx.stroke(); ctx.shadowBlur = 0;
 
-    // Сканирующая линия
+    // Scan line on selected
     if (isSel) {
       const sy = by + ((t*2.5 % 100)/100)*bh;
       const sg = ctx.createLinearGradient(bx,sy-10,bx,sy+10);
@@ -765,7 +831,7 @@ function drawObjects(vw, vh) {
       ctx.fillStyle = sg; ctx.fillRect(bx,sy-10,bw,20);
     }
 
-    // Лейбл
+    // Label
     const alias  = getAlias(obj.class);
     const pct    = Math.round(obj.score*100)+'%';
     const upward = by > 34;
@@ -783,7 +849,7 @@ function drawObjects(vw, vh) {
       ctx.fillText(getGroup(obj.class), bx+bw-60, by+13);
     }
 
-    // Лог throttle 8с
+    // Log throttle 8s
     const lk = obj.class, ts = Date.now();
     if (!logThrottle[lk] || ts - logThrottle[lk] > 8000) {
       logThrottle[lk] = ts;
@@ -797,19 +863,9 @@ function drawObjects(vw, vh) {
 }
 
 /* ══════════════════════════════════════════════
-   DRAW POSE (MediaPipe Pose — полноэкранный)
-
-   КЛЮЧЕВЫЕ ИСПРАВЛЕНИЯ vs старой версии:
-   1. Убран crop-подход (poseCanvas/poseBox).
-      MP Pose теперь получает полный кадр video,
-      координаты 0..1 уже относительно полного кадра.
-   2. Используем POSE_CONNECTIONS из drawing_utils
-      (с fallback на ручной список).
-   3. Голова строится по носу+ушам (алгоритм из myDRW).
-   4. Нет старого guard poseRunning — MP сам буферизует.
+   DRAW POSE (MediaPipe Pose)
+   FIX #3: Only called when personDetected=true
 ══════════════════════════════════════════════ */
-
-// Fallback скелет если POSE_CONNECTIONS не загрузился
 const SKEL_FALLBACK = [
   [11,12],[11,13],[13,15],[12,14],[14,16],
   [11,23],[12,24],[23,24],
@@ -821,26 +877,34 @@ function drawPose(vw, vh) {
   const res = lastPoseResult;
   if (!res || !res.poseLandmarks) return;
 
-  const lm   = res.poseLandmarks;
-  const G    = '#00ff41';
+  const lm    = res.poseLandmarks;
+  const G     = '#00ff41';
   const conns = (typeof POSE_CONNECTIONS !== 'undefined') ? POSE_CONNECTIONS : SKEL_FALLBACK;
 
-  // Проецируем в пиксели
   const pts = lm.map(p => ({
     x: p.x * vw,
     y: p.y * vh,
     v: (p.visibility != null) ? p.visibility : 1
   }));
 
+  // Additional guard: if key torso landmarks have very low visibility,
+  // skip drawing entirely — avoids ghosting on non-human objects
+  const torsoVisibility = [
+    pts[11]?.v ?? 0,
+    pts[12]?.v ?? 0,
+    pts[23]?.v ?? 0,
+    pts[24]?.v ?? 0
+  ];
+  const avgTorso = torsoVisibility.reduce((a,b)=>a+b,0) / torsoVisibility.length;
+  if (avgTorso < 0.35) return; // Not confident enough → skip
+
   ctx.save();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
 
-  // ── Кости ──
+  // Bones
   ctx.strokeStyle = G; ctx.lineWidth = 2;
   ctx.shadowColor = G; ctx.shadowBlur = 6;
-
   conns.forEach(pair => {
-    // POSE_CONNECTIONS может быть массивом пар или объектом {start,end}
     const a = Array.isArray(pair) ? pair[0] : pair.start;
     const b = Array.isArray(pair) ? pair[1] : pair.end;
     const pa = pts[a], pb = pts[b];
@@ -851,7 +915,7 @@ function drawPose(vw, vh) {
     ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
   });
 
-  // ── Суставы ──
+  // Joints
   ctx.shadowBlur = 8;
   const JOINTS = [11,12,13,14,15,16,23,24,25,26,27,28,29,30,31,32];
   JOINTS.forEach(i => {
@@ -861,14 +925,13 @@ function drawPose(vw, vh) {
     ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, 4, 0, Math.PI*2); ctx.fill();
   });
 
-  // ── Нос ──
+  // Nose
   if (pts[0] && pts[0].v > 0.4) {
     ctx.globalAlpha = pts[0].v; ctx.fillStyle = G;
     ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, 3, 0, Math.PI*2); ctx.fill();
   }
 
-  // ── Голова (алгоритм из myDRW) ──
-  // MP Pose: 0=нос, 7=лев.ухо, 8=пр.ухо, 2=лев.глаз, 5=пр.глаз
+  // Head ellipse
   const nose = pts[0], lEar = pts[7], rEar = pts[8];
   const lEye = pts[2], rEye = pts[5];
   const noseOk = nose && nose.v > 0.5;
@@ -878,12 +941,11 @@ function drawPose(vw, vh) {
   if (noseOk && (earOk || eyeOk)) {
     let cx, cy, rX, rY;
     if (earOk) {
-      // Ширина по ушам — наиболее точная метрика (как в myDRW)
       rX = Math.abs(lEar.x - rEar.x) * 0.8;
       if (rX < 15) rX = 15;
       rY = rX * 1.25;
       cx = nose.x;
-      cy = nose.y - rY * 0.2;   // смещение вверх от носа
+      cy = nose.y - rY * 0.2;
     } else {
       rX = Math.abs(lEye.x - rEye.x) * 1.5;
       if (rX < 15) rX = 15;
@@ -898,12 +960,10 @@ function drawPose(vw, vh) {
     ctx.beginPath(); ctx.ellipse(cx, cy, rX, rY, 0, 0, Math.PI*2);
     ctx.fill(); ctx.stroke();
 
-    // Метка
     ctx.globalAlpha = 0.55; ctx.fillStyle = G;
     ctx.font = "10px 'Share Tech Mono'";
     ctx.fillText('HUMAN', cx + rX + 4, cy - rY);
 
-    // Крестик
     ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
     const cr = 4;
     ctx.beginPath();
@@ -917,12 +977,9 @@ function drawPose(vw, vh) {
 }
 
 /* ══════════════════════════════════════════════
-   DRAW HANDS (MediaPipe Hands — полноэкранный)
-   Координаты 0..1 от полного кадра → пиксели.
-   Цвета как в myDRW: линии #00ff41, точки #ff0055.
+   DRAW HANDS (MediaPipe Hands)
+   FIX #3: Only called when personDetected=true
 ══════════════════════════════════════════════ */
-
-// Fallback топология руки
 const HAND_FALLBACK = [
   [0,1],[1,2],[2,3],[3,4],
   [0,5],[5,6],[6,7],[7,8],
@@ -935,7 +992,7 @@ function drawHands(vw, vh) {
   const res = lastHandsResult;
   if (!res || !res.multiHandLandmarks || !res.multiHandLandmarks.length) return;
 
-  const conns = (typeof HAND_CONNECTIONS !== 'undefined') ? HAND_CONNECTIONS : HAND_FALLBACK;
+  const conns  = (typeof HAND_CONNECTIONS !== 'undefined') ? HAND_CONNECTIONS : HAND_FALLBACK;
   const H_LINE  = '#00ff41';
   const H_JOINT = '#ff0055';
 
@@ -945,7 +1002,7 @@ function drawHands(vw, vh) {
   res.multiHandLandmarks.forEach(landmarks => {
     const pts = landmarks.map(p => ({ x: p.x * vw, y: p.y * vh }));
 
-    // Линии
+    // Lines
     ctx.strokeStyle = H_LINE; ctx.lineWidth = 2;
     ctx.shadowColor = H_LINE; ctx.shadowBlur = 6;
     ctx.globalAlpha = 0.9;
@@ -956,14 +1013,14 @@ function drawHands(vw, vh) {
       ctx.beginPath(); ctx.moveTo(pts[a].x,pts[a].y); ctx.lineTo(pts[b].x,pts[b].y); ctx.stroke();
     });
 
-    // Суставы (красные точки как в myDRW)
+    // Joints
     ctx.shadowBlur = 8;
     pts.forEach(p => {
       ctx.fillStyle = H_JOINT; ctx.globalAlpha = 0.9;
       ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
     });
 
-    // Запястье (точка 0) — маркер-кольцо
+    // Wrist ring
     if (pts[0]) {
       ctx.strokeStyle = H_LINE; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6;
       ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,8,0,Math.PI*2); ctx.stroke();
@@ -976,6 +1033,7 @@ function drawHands(vw, vh) {
 
 /* ══════════════════════════════════════════════
    CANVAS TAP → INFO CARD + SCREENSHOT
+   FIX #1: Capture canvas directly (no html2canvas)
 ══════════════════════════════════════════════ */
 canvas.addEventListener('click', async (e) => {
   const rect = canvas.getBoundingClientRect();
@@ -993,12 +1051,13 @@ canvas.addEventListener('click', async (e) => {
     selectedCls = hit.class;
     openCard(hit);
     sysLog(`LOCK-ON: ${getAlias(hit.class)}`, hit.class.toUpperCase(), getGroup(hit.class));
+
+    // FIX #1: Capture canvas directly — includes video frame + all overlays
     showShotFlash();
-    sysLog('CAPTURING SCREENSHOT...','SNAP','SYS');
     try {
-      const result = await captureScreenshot();
-      screenshotBlob = result.blob;
-      lastScreenshot = result.dataURL;
+      const result = await captureCanvasSnapshot();
+      screenshotBlob    = result.blob;
+      screenshotDataURL = result.dataURL;
       updateCardScreenshot(result.dataURL);
       sysLog('SCREENSHOT READY','SNAP','SYS');
     } catch(err) {
@@ -1036,7 +1095,7 @@ function openCard(obj) {
 
   document.getElementById('ic-desc').textContent = kb.desc;
 
-  const tf = document.getElementById('ic-tf');
+  const tf   = document.getElementById('ic-tf');
   const tcol = threat > 60 ? 'var(--r)' : threat > 35 ? 'var(--o)' : 'var(--g)';
   tf.style.width = threat+'%'; tf.style.background = tcol; tf.style.boxShadow = `0 0 8px ${tcol}`;
   document.getElementById('ic-tv').textContent = threat+'%';
@@ -1055,7 +1114,9 @@ function updateCardScreenshot(dataURL) {
 }
 
 function closeCard() {
-  selectedCls = null; lastScreenshot = null; screenshotBlob = null;
+  selectedCls       = null;
+  screenshotDataURL = null;
+  screenshotBlob    = null;
   document.getElementById('info-card').classList.remove('open');
   document.getElementById('ic-thumb').classList.remove('ready');
   document.getElementById('ic-shot-btn').classList.remove('ready','saving');
