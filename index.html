@@ -884,11 +884,15 @@ function drawPose(vw, vh) {
   }));
   ctx.save();
   ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+
+  /* Кости — пропускаем соединения с точками головы (0-10) */
   ctx.strokeStyle = G; ctx.lineWidth = 2;
   ctx.shadowColor = G; ctx.shadowBlur = 6;
   conns.forEach(pair => {
     const a = Array.isArray(pair) ? pair[0] : pair.start;
     const b = Array.isArray(pair) ? pair[1] : pair.end;
+    /* Точки 0-10 — нос, глаза, уши, рот — пропускаем */
+    if (a <= 10 || b <= 10) return;
     const pa = pts[a], pb = pts[b];
     if (!pa || !pb) return;
     const minV = Math.min(pa.v, pb.v);
@@ -896,6 +900,8 @@ function drawPose(vw, vh) {
     ctx.globalAlpha = Math.max(0.3, minV);
     ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
   });
+
+  /* Суставы — только тело (11+), без головы */
   ctx.shadowBlur = 8;
   const JOINTS = [11,12,13,14,15,16,23,24,25,26,27,28,29,30,31,32];
   JOINTS.forEach(i => {
@@ -904,53 +910,18 @@ function drawPose(vw, vh) {
     ctx.fillStyle = G;
     ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, 4, 0, Math.PI*2); ctx.fill();
   });
-  if (pts[0] && pts[0].v > 0.4) {
-    ctx.globalAlpha = pts[0].v; ctx.fillStyle = G;
-    ctx.beginPath(); ctx.arc(pts[0].x, pts[0].y, 3, 0, Math.PI*2); ctx.fill();
-  }
-  const nose = pts[0], lEar = pts[7], rEar = pts[8];
-  const lEye = pts[2], rEye = pts[5];
-  const noseOk = nose && nose.v > 0.5;
-  const earOk  = lEar && rEar && lEar.v > 0.2 && rEar.v > 0.2;
-  const eyeOk  = lEye && rEye && lEye.v > 0.3 && rEye.v > 0.3;
-  if (noseOk && (earOk || eyeOk)) {
-    let cx, cy, rX, rY;
-    if (earOk) {
-      rX = Math.abs(lEar.x - rEar.x) * 0.8;
-      if (rX < 15) rX = 15; rY = rX * 1.25;
-      cx = nose.x; cy = nose.y - rY * 0.2;
-    } else {
-      rX = Math.abs(lEye.x - rEye.x) * 1.5;
-      if (rX < 15) rX = 15; rY = rX * 1.25;
-      cx = (lEye.x + rEye.x) / 2; cy = (lEye.y + rEye.y) / 2 - rY * 0.15;
-    }
-    ctx.globalAlpha = 0.75;
-    ctx.strokeStyle = G; ctx.lineWidth = 2; ctx.shadowBlur = 8;
-    ctx.fillStyle = 'rgba(0,255,65,.08)';
-    ctx.beginPath(); ctx.ellipse(cx, cy, rX, rY, 0, 0, Math.PI*2);
-    ctx.fill(); ctx.stroke();
-    ctx.globalAlpha = 0.55; ctx.fillStyle = G;
-    ctx.font = "10px 'Share Tech Mono'";
-    ctx.fillText('HUMAN', cx + rX + 4, cy - rY);
-    ctx.globalAlpha = 0.45; ctx.lineWidth = 1;
-    const cr = 4;
-    ctx.beginPath();
-    ctx.moveTo(cx-cr,cy); ctx.lineTo(cx+cr,cy);
-    ctx.moveTo(cx,cy-cr); ctx.lineTo(cx,cy+cr);
-    ctx.stroke();
-  }
+
+  /* Овал головы, нос, метки — УДАЛЕНЫ (заменены сеткой лица) */
+
   ctx.globalAlpha = 1; ctx.shadowBlur = 0;
   ctx.restore();
 }
 
 /* ════════════════════════════════════════════════════
    ДОБАВЛЕНИЕ: DRAW FACE MESH
-   Логика из Neural Face Scanner v6.2:
-   - Тесселяция (FACEMESH_TESSELATION) с анимированным
-     сканирующим лучом — линии рядом с лучом ярче
-   - Контуры губ, левого и правого глаза
-   - Рамка захвата с метками (TARGET_LOCKED)
-   Рисуется поверх скелета, только при hasPerson
+   Зелёная тесселяция без анимации сканирующей линии.
+   Заменяет овал головы из скелета.
+   Рисуется только при hasPerson.
 ════════════════════════════════════════════════════ */
 function drawFaceMesh(vw, vh) {
   const res = lastFaceResult;
@@ -960,110 +931,75 @@ function drawFaceMesh(vw, vh) {
   }
   document.getElementById('b-face').classList.add('active');
 
-  /* Сдвигаем сканирующую линию — независимо от FPS, через frameN */
-  faceScanLineY = (faceScanLineY + 0.006) % 1.0;
-
+  const G = '#00ff41';
   ctx.save();
 
   for (const landmarks of res.multiFaceLandmarks) {
 
-    /* ── Тесселяция с анимированным лучом ── */
+    /* ── Тесселяция — зелёная, статичная ── */
     const tesselation = (typeof FACEMESH_TESSELATION !== 'undefined')
       ? FACEMESH_TESSELATION : [];
 
+    ctx.strokeStyle = 'rgba(0,255,65,0.22)';
+    ctx.lineWidth   = 0.5;
     for (const conn of tesselation) {
       const s = landmarks[conn[0]];
       const e = landmarks[conn[1]];
       if (!s || !e) continue;
-      /* расстояние точки до сканирующей линии */
-      const midY = (s.y + e.y) * 0.5;
-      const dist = Math.abs(midY - faceScanLineY);
-      const isNearScan = dist < 0.04;
-      ctx.strokeStyle = isNearScan
-        ? 'rgba(0,200,255,0.55)'
-        : 'rgba(0,200,255,0.12)';
-      ctx.lineWidth = isNearScan ? 0.9 : 0.4;
       ctx.beginPath();
       ctx.moveTo(s.x * vw, s.y * vh);
       ctx.lineTo(e.x * vw, e.y * vh);
       ctx.stroke();
     }
 
-    /* ── Контуры губ ── */
-    if (typeof FACEMESH_LIPS !== 'undefined') {
-      ctx.strokeStyle = 'rgba(0,255,200,0.75)';
-      ctx.lineWidth   = 1.2;
-      ctx.shadowColor = 'rgba(0,255,200,0.4)';
-      ctx.shadowBlur  = 4;
-      for (const conn of FACEMESH_LIPS) {
-        const s = landmarks[conn[0]], e = landmarks[conn[1]];
-        if (!s || !e) continue;
-        ctx.beginPath();
-        ctx.moveTo(s.x * vw, s.y * vh);
-        ctx.lineTo(e.x * vw, e.y * vh);
-        ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
-    }
+    /* ── Контуры: губы + глаза — ярче, зелёный ── */
+    const featureConns = [];
+    if (typeof FACEMESH_LIPS      !== 'undefined') featureConns.push(...FACEMESH_LIPS);
+    if (typeof FACEMESH_LEFT_EYE  !== 'undefined') featureConns.push(...FACEMESH_LEFT_EYE);
+    if (typeof FACEMESH_RIGHT_EYE !== 'undefined') featureConns.push(...FACEMESH_RIGHT_EYE);
 
-    /* ── Контуры глаз ── */
-    const eyeConns = [];
-    if (typeof FACEMESH_RIGHT_EYE !== 'undefined') eyeConns.push(...FACEMESH_RIGHT_EYE);
-    if (typeof FACEMESH_LEFT_EYE  !== 'undefined') eyeConns.push(...FACEMESH_LEFT_EYE);
-    if (eyeConns.length) {
-      ctx.strokeStyle = 'rgba(0,220,255,0.70)';
-      ctx.lineWidth   = 1.0;
-      ctx.shadowColor = 'rgba(0,200,255,0.35)';
-      ctx.shadowBlur  = 3;
-      for (const conn of eyeConns) {
-        const s = landmarks[conn[0]], e = landmarks[conn[1]];
-        if (!s || !e) continue;
-        ctx.beginPath();
-        ctx.moveTo(s.x * vw, s.y * vh);
-        ctx.lineTo(e.x * vw, e.y * vh);
-        ctx.stroke();
-      }
-      ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(0,255,65,0.65)';
+    ctx.lineWidth   = 1.0;
+    ctx.shadowColor = G;
+    ctx.shadowBlur  = 3;
+    for (const conn of featureConns) {
+      const s = landmarks[conn[0]], e = landmarks[conn[1]];
+      if (!s || !e) continue;
+      ctx.beginPath();
+      ctx.moveTo(s.x * vw, s.y * vh);
+      ctx.lineTo(e.x * vw, e.y * vh);
+      ctx.stroke();
     }
+    ctx.shadowBlur = 0;
 
-    /* ── Рамка захвата (как в Neural Face Scanner) ── */
+    /* ── Угловая рамка захвата — зелёная ── */
     const xArr = landmarks.map(l => l.x * vw);
     const yArr = landmarks.map(l => l.y * vh);
-    const fxMin = Math.min(...xArr) - 22;
-    const fxMax = Math.max(...xArr) + 22;
-    const fyMin = Math.min(...yArr) - 40;
-    const fyMax = Math.max(...yArr) + 20;
+    const fxMin = Math.min(...xArr) - 18;
+    const fxMax = Math.max(...xArr) + 18;
+    const fyMin = Math.min(...yArr) - 32;
+    const fyMax = Math.max(...yArr) + 16;
     const fw = fxMax - fxMin;
     const fh = fyMax - fyMin;
-    const cs = Math.min(22, fw * 0.22, fh * 0.22);
+    const cs = Math.min(20, fw * 0.2, fh * 0.2);
 
-    ctx.strokeStyle = 'rgba(0,200,255,0.85)';
+    ctx.strokeStyle = hexA(G, 0.82);
     ctx.lineWidth   = 1.5;
-    ctx.shadowColor = 'rgba(0,200,255,0.5)';
-    ctx.shadowBlur  = 6;
+    ctx.shadowColor = G;
+    ctx.shadowBlur  = 5;
     ctx.beginPath();
-    /* верхний-левый */
     ctx.moveTo(fxMin, fyMin + cs); ctx.lineTo(fxMin, fyMin); ctx.lineTo(fxMin + cs, fyMin);
-    /* верхний-правый */
     ctx.moveTo(fxMax - cs, fyMin); ctx.lineTo(fxMax, fyMin); ctx.lineTo(fxMax, fyMin + cs);
-    /* нижний-левый */
     ctx.moveTo(fxMin, fyMax - cs); ctx.lineTo(fxMin, fyMax); ctx.lineTo(fxMin + cs, fyMax);
-    /* нижний-правый */
     ctx.moveTo(fxMax - cs, fyMax); ctx.lineTo(fxMax, fyMax); ctx.lineTo(fxMax, fyMax - cs);
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    /* Метка TARGET_LOCKED */
-    ctx.font      = "9px 'Share Tech Mono'";
-    ctx.fillStyle = 'rgba(0,200,255,0.75)';
+    /* Метка FACE_MESH */
+    ctx.font        = "9px 'Share Tech Mono'";
+    ctx.fillStyle   = hexA(G, 0.65);
     ctx.globalAlpha = 0.85;
-    const nose0 = landmarks[4]; /* кончик носа — стабильная точка */
-    const posX  = nose0 ? Math.round(nose0.x * 100) : 0;
-    ctx.fillText(
-      `TARGET_LOCKED | X:${posX} FACE_MESH`,
-      fxMin,
-      fyMin > 14 ? fyMin - 5 : fyMax + 12
-    );
+    ctx.fillText('FACE_MESH', fxMin, fyMin > 14 ? fyMin - 5 : fyMax + 12);
     ctx.globalAlpha = 1;
   }
 
@@ -1324,6 +1260,8 @@ async function initMic() {
     document.getElementById('mic-txt').textContent = 'MIC ●';
     sysLog('MICROPHONE: ACTIVE','AUDIO','SYS');
     requestAnimationFrame(renderAudio);
+    /* Запускаем распознавание речи */
+    if (window._startSpeechRec) window._startSpeechRec();
   } catch(e) {
     document.getElementById('b-mic').classList.add('muted');
     document.getElementById('mic-txt').textContent = 'MIC ✕';
@@ -1467,6 +1405,94 @@ function _updateCardAudio() {
   if (icEnv)  { icEnv.textContent = lastEnvStr; icEnv.className = 'ica-val' + (lastDbVal > -20 ? ' warn' : ''); }
   if (icPill) { icPill.textContent = speechDetected ? 'SPEECH' : 'SILENT'; icPill.classList.toggle('on', speechDetected); }
 }
+
+/* ════════════════════════════════════════════════════
+   ДОБАВЛЕНИЕ: SPEECH RECOGNITION → ТЕРМИНАЛ
+   Двухязычный режим: ru-RU → en-US автоматически.
+   Финальные фразы выводятся в sysLog как VOICE-событие.
+   Промежуточный результат обновляет MIC-бейдж.
+════════════════════════════════════════════════════ */
+(function initSpeechRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    sysLog('SPEECH API: NOT SUPPORTED','WARN','SYS');
+    return;
+  }
+
+  /* Создаём два экземпляра — один для RU, один для EN.
+     Работают поочерёдно: при ошибке/паузе передают управление. */
+  function makeRec(lang) {
+    const r = new SR();
+    r.continuous      = true;
+    r.interimResults  = true;
+    r.lang            = lang;
+    r.maxAlternatives = 1;
+    return r;
+  }
+
+  const recRU = makeRec('ru-RU');
+  const recEN = makeRec('en-US');
+  let activeRec = recRU;
+  let srRunning = false;
+  let interimTimeout = null;
+
+  function startSR() {
+    if (srRunning) return;
+    srRunning = true;
+    try { activeRec.start(); } catch(e) { srRunning = false; }
+  }
+
+  function onResult(lang) {
+    return function(event) {
+      let interim = '';
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const t = event.results[i][0].transcript.trim();
+        if (!t) continue;
+        if (event.results[i].isFinal) {
+          /* Финальная фраза — в терминал */
+          sysLog('VOICE [' + lang + ']: ' + t, 'VOICE', 'SYS');
+          document.getElementById('mic-txt').textContent = 'MIC ●';
+        } else {
+          interim += t;
+        }
+      }
+      if (interim) {
+        /* Промежуточный — показываем в бейдже, не спамим терминал */
+        const short = interim.length > 22 ? interim.slice(-22) + '…' : interim;
+        document.getElementById('mic-txt').textContent = short;
+        /* сбрасываем через 2с если замолчали */
+        clearTimeout(interimTimeout);
+        interimTimeout = setTimeout(() => {
+          document.getElementById('mic-txt').textContent = 'MIC ●';
+        }, 2000);
+      }
+    };
+  }
+
+  function onEnd(switchTo) {
+    return function() {
+      srRunning = false;
+      /* Переключаем на другой язык при завершении */
+      activeRec = switchTo;
+      setTimeout(startSR, 300);
+    };
+  }
+
+  function onError() {
+    srRunning = false;
+    setTimeout(startSR, 500);
+  }
+
+  recRU.onresult = onResult('RU');
+  recEN.onresult = onResult('EN');
+  recRU.onend    = onEnd(recEN);
+  recEN.onend    = onEnd(recRU);
+  recRU.onerror  = onError;
+  recEN.onerror  = onError;
+
+  /* Запускаем после инициализации приложения */
+  window._startSpeechRec = startSR;
+})();
 
 /* ════════════════════════════════════════════════════
    BOOT
