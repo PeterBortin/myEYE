@@ -9,6 +9,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap">
 
+<!-- Three.js for Green/Red modes -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
 <!-- COCO-SSD -->
 
 <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
@@ -25,18 +29,13 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
 
-<!-- ДОБАВЛЕНИЕ: FaceMesh -->
-
 <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
 
-<!-- html2canvas для скриншота -->
+<!-- html2canvas -->
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <style>
-/* ════════════════════════════════════════
-   ОРИГИНАЛЬНЫЕ СТИЛИ — БЕЗ ИЗМЕНЕНИЙ
-════════════════════════════════════════ */
 :root {
   --g:  #00ff41;  --g2: #00cc33;  --g3: #003a12;
   --b:  #00aaff;  --r:  #ff3333;  --y:  #ffe600;
@@ -116,6 +115,34 @@ html, body {
 #vp  { position:relative; flex:1 1 0; min-height:0; overflow:hidden; background:#000; }
 video { display:none; }
 #output_canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:2; cursor:crosshair; }
+
+/* ── VISION MODE CANVASES (green/red from my3DS) ── */
+#three-canvas { position:absolute; inset:0; width:100%; height:100%; z-index:1; display:none; }
+#red-canvas   { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:7; display:none; }
+
+/* ── MODE TRANSITION ── */
+#mode-transition { position:absolute; inset:0; z-index:202; pointer-events:none; opacity:0; }
+#mode-transition.active { animation:modeFlash .7s ease forwards; }
+@keyframes modeFlash { 0%{opacity:0}12%{opacity:1}38%{opacity:.8}55%{opacity:.3}100%{opacity:0} }
+#mode-transition.to-standard { background:radial-gradient(circle at 50% 50%,rgba(0,255,65,.4) 0%,rgba(0,30,0,.65) 60%,transparent 100%); }
+#mode-transition.to-green    { background:radial-gradient(circle at 50% 50%,rgba(0,255,65,.35) 0%,rgba(0,20,0,.6) 60%,transparent 100%); }
+#mode-transition.to-red      { background:radial-gradient(circle at 50% 50%,rgba(255,51,51,.4) 0%,rgba(30,0,0,.65) 60%,transparent 100%); }
+#glitch-bands { position:absolute; inset:0; z-index:203; pointer-events:none; opacity:0; overflow:hidden; }
+#glitch-bands.active { animation:glitchBandsAnim .65s steps(1) forwards; }
+@keyframes glitchBandsAnim { 0%{opacity:0}5%{opacity:1}15%{opacity:0}22%{opacity:1}30%{opacity:0}38%{opacity:1}50%{opacity:0}60%{opacity:.6}75%{opacity:0}100%{opacity:0} }
+.gb-band { position:absolute; left:0; right:0; background:currentColor; }
+#glitch-bands.to-standard { color:rgba(0,255,65,.35); }
+#glitch-bands.to-green    { color:rgba(0,255,65,.3); }
+#glitch-bands.to-red      { color:rgba(255,51,51,.35); }
+
+/* ── RED MODE video filter ── */
+video.mode-red { display:block; position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; filter:brightness(0.35) contrast(1.3) saturate(0.1) hue-rotate(200deg); }
+/* ── GREEN MODE scanlines extra ── */
+#scanlines-green { position:absolute; inset:0; pointer-events:none; z-index:9; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.12) 3px,rgba(0,0,0,.12) 4px); display:none; }
+#scanlines-red   { position:absolute; inset:0; pointer-events:none; z-index:9; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.18) 3px,rgba(0,0,0,.18) 4px); animation:scanScrollR 8s linear infinite; display:none; }
+@keyframes scanScrollR { from{background-position:0 0} to{background-position:0 100px} }
+#vignette-red { position:absolute; inset:0; pointer-events:none; z-index:4; background:radial-gradient(ellipse 80% 80% at 50% 50%,transparent 40%,rgba(0,0,0,.85) 100%); display:none; }
+
 #vp::after {
   content:''; position:absolute; inset:0; z-index:5; pointer-events:none;
   background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);
@@ -145,20 +172,18 @@ video { display:none; }
 #b-fps .bdot    { background:var(--b); box-shadow:0 0 5px var(--b); }
 #b-threat       { display:none; border-color:rgba(255,51,51,.4); color:var(--r); }
 #b-threat .bdot { background:var(--r); box-shadow:0 0 5px var(--r); animation-duration:.6s; }
-
-/* ════════════════════════════════════════
-   ДОБАВЛЕНИЕ: FACE badge + scan line
-════════════════════════════════════════ */
 #b-face { display:none; border-color:rgba(0,200,255,.35); color:rgba(0,200,255,.8); }
 #b-face .bdot { background:#00c8ff; box-shadow:0 0 5px #00c8ff; }
 #b-face.active { display:flex; }
-/* Анимация для сканирующего луча на сетке лица */
-@keyframes faceScanPulse {
-  0%,100%{ opacity:.7 } 50%{ opacity:1 }
-}
 #cache-badge { position:absolute; top:40px; left:14px; z-index:16; font-size:7px; color:rgba(0,255,65,.3); letter-spacing:.15em; pointer-events:none; }
 #statusbar { position:absolute; bottom:0; left:0; right:0; z-index:9; pointer-events:none; display:flex; justify-content:space-between; padding:4px 14px; background:linear-gradient(0deg,rgba(0,0,0,.7) 0%,transparent 100%); }
 .sbi { font-size:7px; color:rgba(0,255,65,.32); letter-spacing:.1em; }
+
+/* ── MODE INDICATOR (под FPS бейджем) ── */
+#b-mode-cur { border-color:rgba(0,255,65,.3); }
+#b-mode-cur.mode-green { border-color:rgba(0,255,65,.5); color:var(--g); }
+#b-mode-cur.mode-red   { border-color:rgba(255,51,51,.5); color:var(--r); }
+#b-mode-cur.mode-red .bdot { background:var(--r); box-shadow:0 0 5px var(--r); animation-duration:.7s; }
 
 /* ── SCREENSHOT ── */
 #shot-flash { position:absolute; inset:0; z-index:50; pointer-events:none; background:#fff; opacity:0; }
@@ -225,6 +250,85 @@ video { display:none; }
 .tc-type  { font-size:7.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .tc-group { font-size:7px; color:rgba(0,255,65,.38); }
 
+/* ── КНОПКА СМЕНЫ КАМЕРЫ ── */
+#btn-cam-switch {
+  pointer-events:all; background:rgba(2,8,4,.88); border:1px solid rgba(0,255,65,.32);
+  color:var(--g2); font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:.14em;
+  padding:3px 10px; cursor:pointer; display:flex; align-items:center; gap:5px;
+  backdrop-filter:blur(4px); transition:all .2s;
+}
+#btn-cam-switch:hover,#btn-cam-switch:active { border-color:var(--g); color:var(--g); background:rgba(0,255,65,.08); }
+#btn-cam-switch.switching { opacity:.45; pointer-events:none; border-color:var(--o); color:var(--o); }
+#btn-cam-switch .ci { font-size:11px; line-height:1; }
+
+/* ── КНОПКА РЕЖИМА ВИЗУАЛИЗАЦИИ ── */
+#btn-vision-mode {
+  pointer-events:all; background:rgba(2,8,4,.88); border:1px solid rgba(0,255,65,.32);
+  color:var(--g2); font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:.14em;
+  padding:3px 10px; cursor:pointer; display:flex; align-items:center; gap:5px;
+  backdrop-filter:blur(4px); transition:all .2s;
+}
+#btn-vision-mode:hover,#btn-vision-mode:active { border-color:var(--g); color:var(--g); background:rgba(0,255,65,.08); }
+#btn-vision-mode.mode-green { border-color:rgba(0,255,65,.55); color:var(--g); }
+#btn-vision-mode.mode-red   { border-color:rgba(255,51,51,.55); color:var(--r); background:rgba(255,0,0,.06); }
+#btn-vision-mode .ci { font-size:10px; line-height:1; }
+/* Весь блок кнопок в topbar выровнян вертикально, правая группа — flex-col */
+#topbar-right { display:flex; flex-direction:column; align-items:flex-end; gap:5px; pointer-events:all; }
+
+/* ── AUDIO STRIP ── */
+#audio-strip { flex:0 0 100px; height:100px; background:rgba(0,2,0,.98); border-top:1px solid rgba(0,70,25,.7); position:relative; z-index:25; overflow:hidden; }
+#audio-strip::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,255,65,.22),transparent); pointer-events:none; }
+#audio-canvas { display:block; width:100%; height:100%; }
+#audio-overlay { position:absolute; inset:0; pointer-events:none; display:flex; align-items:flex-end; justify-content:space-between; padding:0 10px 4px; }
+#audio-lbl  { font-size:6.5px; color:rgba(0,255,65,.2); letter-spacing:.22em; }
+#audio-db   { font-size:7.5px; color:rgba(0,255,65,.32); letter-spacing:.1em; font-variant-numeric:tabular-nums; min-width:54px; text-align:right; }
+#audio-speech-badge { position:absolute; top:6px; right:10px; font-size:6.5px; letter-spacing:.2em; padding:2px 7px; border:1px solid transparent; color:rgba(0,255,65,.18); transition:all .12s; pointer-events:none; }
+#audio-speech-badge.on { border-color:rgba(0,255,65,.45); color:var(--g); background:rgba(0,255,65,.06); text-shadow:0 0 7px var(--g); }
+#b-mic .bdot        { background:var(--b); box-shadow:0 0 5px var(--b); }
+#b-mic.speech       { border-color:rgba(0,255,65,.4); color:var(--g); }
+#b-mic.speech .bdot { background:var(--g); box-shadow:0 0 8px var(--g); }
+#b-mic.muted        { opacity:.3; }
+
+/* ── AUDIO ROW IN CARD ── */
+#ic-audio-row { margin-top:5px; display:flex; align-items:center; gap:12px; border-top:1px solid var(--border); padding-top:4px; }
+.ica-lbl { font-size:6.5px; color:rgba(0,255,65,.35); letter-spacing:.1em; }
+.ica-val { font-size:8px; color:var(--g); letter-spacing:.06em; font-variant-numeric:tabular-nums; }
+.ica-val.warn { color:var(--o); }
+#ic-speech-pill { font-size:6.5px; letter-spacing:.18em; padding:1px 7px; border:1px solid rgba(0,255,65,.18); color:rgba(0,255,65,.22); transition:all .15s; }
+#ic-speech-pill.on { border-color:rgba(0,255,65,.5); color:var(--g); background:rgba(0,255,65,.07); text-shadow:0 0 6px var(--g); }
+
+/* ── RED MODE OVERLAY ELEMENTS ── */
+#red-tap-hint { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); font-size:9px; letter-spacing:4px; text-transform:uppercase; color:rgba(255,51,51,.55); z-index:15; pointer-events:none; opacity:0; transition:opacity .4s; white-space:nowrap; animation:hintPulse 2s ease-in-out infinite; display:none; }
+#red-tap-hint.show { opacity:1; }
+@keyframes hintPulse { 0%,100%{opacity:.4}50%{opacity:.75} }
+#red-tap-hint::before { content:'[ '; color:var(--r); }
+#red-tap-hint::after  { content:' ]'; color:var(--r); }
+
+/* ── RED CAPTURE CARD ── */
+#red-capture-card { position:absolute; top:14px; left:14px; z-index:20; display:none; flex-direction:column; opacity:0; pointer-events:none; transition:opacity .3s ease; filter:drop-shadow(0 0 8px rgba(255,51,51,.35)); }
+#red-capture-card.show { opacity:1; pointer-events:auto; }
+#red-portrait-wrap { position:relative; width:200px; flex-shrink:0; background:#000; border:1px solid rgba(255,51,51,.5); overflow:hidden; }
+#red-portrait-canvas { width:100%; display:block; filter:brightness(1.1) contrast(1.25) saturate(0.12) hue-rotate(180deg); }
+.rpc { position:absolute; width:9px; height:9px; border-color:var(--r); border-style:solid; z-index:2; }
+.rpc.tl{top:3px;left:3px;border-width:1.5px 0 0 1.5px;}
+.rpc.tr{top:3px;right:3px;border-width:1.5px 1.5px 0 0;}
+.rpc.bl{bottom:3px;left:3px;border-width:0 0 1.5px 1.5px;}
+.rpc.br{bottom:3px;right:3px;border-width:0 1.5px 1.5px 0;}
+#red-p-scan { position:absolute; inset:0; pointer-events:none; z-index:3; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.22) 2px,rgba(0,0,0,.22) 3px); }
+#red-captured-flash { position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; letter-spacing:4px; color:var(--r); opacity:0; pointer-events:none; }
+#red-captured-flash.flash { animation:capFlash .9s ease forwards; }
+@keyframes capFlash { 0%{opacity:1}60%{opacity:.7}100%{opacity:0} }
+#red-capture-meta { width:200px; background:rgba(0,0,0,.88); border:1px solid rgba(255,51,51,.25); border-top:none; padding:7px 9px; display:flex; flex-direction:column; }
+.rcm-header { font-size:8px; font-weight:700; letter-spacing:3px; color:var(--r); border-bottom:1px solid rgba(255,51,51,.3); padding-bottom:5px; margin-bottom:5px; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; }
+.rcm-blink  { width:5px; height:5px; border-radius:50%; background:var(--r); animation:dotBlink .6s steps(1) infinite; }
+.rcm-row { display:flex; justify-content:space-between; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.04); padding:2.5px 0; }
+.rcm-key { font-size:7px; letter-spacing:1.8px; color:rgba(255,255,255,.25); text-transform:uppercase; flex-shrink:0; }
+.rcm-val { font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(255,255,255,.65); letter-spacing:.8px; text-align:right; }
+.rcm-val.red { color:var(--r); text-shadow:0 0 5px var(--r); }
+
+/* ── GREEN MODE HUD INFO ── */
+#green-obj-count { position:absolute; bottom:20px; right:20px; font-size:8px; letter-spacing:2px; color:rgba(0,255,65,.6); z-index:15; display:none; pointer-events:none; }
+
 /* ── KEYFRAMES ── */
 @keyframes charDrop { 0%{opacity:0;transform:translateY(-18px) scaleY(2.2)} 100%{opacity:1;transform:none} }
 @keyframes glitchLoop {
@@ -240,102 +344,12 @@ video { display:none; }
 @keyframes dotBlink { 0%,100%{opacity:1} 50%{opacity:.15} }
 @keyframes alertFlash { 0%{opacity:1;background:rgba(255,51,51,.07)} 100%{opacity:0} }
 @keyframes rowIn    { from{opacity:0;transform:translateX(-5px)} to{opacity:1;transform:none} }
-
-/* ════════════════════════════════════════
-   ДОБАВЛЕНИЕ 1 — КНОПКА СМЕНЫ КАМЕРЫ
-   Позиционируется в topbar справа,
-   pointer-events:all переопределяет родителя
-════════════════════════════════════════ */
-#btn-cam-switch {
-  pointer-events:all;
-  background:rgba(2,8,4,.88);
-  border:1px solid rgba(0,255,65,.32);
-  color:var(--g2);
-  font-family:'Share Tech Mono',monospace;
-  font-size:8px; letter-spacing:.14em;
-  padding:3px 10px;
-  cursor:pointer;
-  display:flex; align-items:center; gap:5px;
-  backdrop-filter:blur(4px);
-  transition:all .2s;
-}
-#btn-cam-switch:hover,#btn-cam-switch:active {
-  border-color:var(--g); color:var(--g); background:rgba(0,255,65,.08);
-}
-#btn-cam-switch.switching {
-  opacity:.45; pointer-events:none;
-  border-color:var(--o); color:var(--o);
-}
-#btn-cam-switch .ci { font-size:11px; line-height:1; }
-
-/* ════════════════════════════════════════
-   ДОБАВЛЕНИЕ 2 — AUDIO STRIP (100px)
-   Вставляется между info-card и terminal
-════════════════════════════════════════ */
-#audio-strip {
-  flex:0 0 100px; height:100px;
-  background:rgba(0,2,0,.98);
-  border-top:1px solid rgba(0,70,25,.7);
-  position:relative; z-index:25; overflow:hidden;
-}
-#audio-strip::after {
-  content:''; position:absolute; top:0; left:0; right:0; height:1px;
-  background:linear-gradient(90deg,transparent,rgba(0,255,65,.22),transparent);
-  pointer-events:none;
-}
-#audio-canvas { display:block; width:100%; height:100%; }
-/* overlay labels поверх canvas */
-#audio-overlay {
-  position:absolute; inset:0; pointer-events:none;
-  display:flex; align-items:flex-end; justify-content:space-between;
-  padding:0 10px 4px;
-}
-#audio-lbl  { font-size:6.5px; color:rgba(0,255,65,.2); letter-spacing:.22em; }
-#audio-db   { font-size:7.5px; color:rgba(0,255,65,.32); letter-spacing:.1em;
-              font-variant-numeric:tabular-nums; min-width:54px; text-align:right; }
-#audio-speech-badge {
-  position:absolute; top:6px; right:10px;
-  font-size:6.5px; letter-spacing:.2em; padding:2px 7px;
-  border:1px solid transparent; color:rgba(0,255,65,.18);
-  transition:all .12s; pointer-events:none;
-}
-#audio-speech-badge.on {
-  border-color:rgba(0,255,65,.45); color:var(--g);
-  background:rgba(0,255,65,.06); text-shadow:0 0 7px var(--g);
-}
-/* MIC badge в topbar */
-#b-mic .bdot        { background:var(--b); box-shadow:0 0 5px var(--b); }
-#b-mic.speech       { border-color:rgba(0,255,65,.4); color:var(--g); }
-#b-mic.speech .bdot { background:var(--g); box-shadow:0 0 8px var(--g); }
-#b-mic.muted        { opacity:.3; }
-
-/* ════════════════════════════════════════
-   ДОБАВЛЕНИЕ 3 — АУДИО-СТРОКА В INFO-CARD
-════════════════════════════════════════ */
-#ic-audio-row {
-  margin-top:5px;
-  display:flex; align-items:center; gap:12px;
-  border-top:1px solid var(--border); padding-top:4px;
-}
-.ica-lbl { font-size:6.5px; color:rgba(0,255,65,.35); letter-spacing:.1em; }
-.ica-val { font-size:8px; color:var(--g); letter-spacing:.06em;
-           font-variant-numeric:tabular-nums; }
-.ica-val.warn { color:var(--o); }
-#ic-speech-pill {
-  font-size:6.5px; letter-spacing:.18em; padding:1px 7px;
-  border:1px solid rgba(0,255,65,.18); color:rgba(0,255,65,.22);
-  transition:all .15s;
-}
-#ic-speech-pill.on {
-  border-color:rgba(0,255,65,.5); color:var(--g);
-  background:rgba(0,255,65,.07); text-shadow:0 0 6px var(--g);
-}
 </style>
 
 </head>
 <body>
 
-<!-- ═══ BOOT ═══ (оригинал без изменений) -->
+<!-- ═══ BOOT ═══ -->
 
 <div id="boot">
   <div id="boot-hex">
@@ -366,7 +380,18 @@ video { display:none; }
 <div id="app">
   <div id="vp">
     <video id="input_video" playsinline muted></video>
+    <!-- Three.js canvas (green/red modes) -->
+    <canvas id="three-canvas"></canvas>
+    <!-- Standard myEYE canvas -->
     <canvas id="output_canvas"></canvas>
+    <!-- Red mode canvas -->
+    <canvas id="red-canvas"></canvas>
+    <!-- Mode overlays -->
+    <div id="scanlines-green"></div>
+    <div id="scanlines-red"></div>
+    <div id="vignette-red"></div>
+    <div id="mode-transition"></div>
+    <div id="glitch-bands"></div>
     <div id="grid-ov"></div>
     <div id="vignette"></div>
     <div id="alert-flash"></div>
@@ -374,31 +399,57 @@ video { display:none; }
     <div id="shot-indicator">◉ CAPTURED</div>
     <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
     <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-    <div id="topbar">
-      <div id="sys-id">myEYE</div>
-      <div id="badges">
-        <div class="badge" id="b-fps"><span class="bdot"></span><span id="fps-txt">-- FPS</span></div>
-        <div class="badge" id="b-obj"><span class="bdot"></span><span id="obj-txt">SCANNING</span></div>
-        <!-- ДОБАВЛЕНИЕ: MIC badge -->
-        <div class="badge" id="b-mic"><span class="bdot"></span><span id="mic-txt">MIC</span></div>
-        <!-- ДОБАВЛЕНИЕ: FACE MESH badge -->
-        <div class="badge" id="b-face"><span class="bdot"></span>FACE</div>
-        <div class="badge" id="b-threat"><span class="bdot"></span>THREAT</div>
-        <!-- ДОБАВЛЕНИЕ: кнопка смены камеры -->
-        <button id="btn-cam-switch" onclick="switchCamera()">
-          <span class="ci">⟳</span><span id="cam-label">REAR</span>
-        </button>
-      </div>
-    </div>
-    <div id="cache-badge">CACHE: 0 CLASSES</div>
-    <div id="statusbar">
-      <div class="sbi" id="sb-time">--:--:--</div>
-      <div class="sbi" id="sb-mode">STANDARD</div>
-      <div class="sbi">myEYE</div>
-    </div>
+
+```
+<!-- Red mode UI -->
+<div id="red-tap-hint">TAP TARGET TO CAPTURE</div>
+<div id="red-capture-card">
+  <div id="red-portrait-wrap">
+    <canvas id="red-portrait-canvas"></canvas>
+    <div class="rpc tl"></div><div class="rpc tr"></div>
+    <div class="rpc bl"></div><div class="rpc br"></div>
+    <div id="red-p-scan"></div>
+    <div id="red-captured-flash">CAPTURED</div>
+  </div>
+  <div id="red-capture-meta">
+    <div class="rcm-header"><span>TARGET DATA</span><div class="rcm-blink"></div></div>
+    <div id="red-cm-rows"></div>
+  </div>
+</div>
+
+<!-- Green mode obj count -->
+<div id="green-obj-count"></div>
+
+<div id="topbar">
+  <div id="sys-id">myEYE <small id="mode-label-sm">// STANDARD</small></div>
+  <div id="badges">
+    <div class="badge" id="b-fps"><span class="bdot"></span><span id="fps-txt">-- FPS</span></div>
+    <div class="badge" id="b-obj"><span class="bdot"></span><span id="obj-txt">SCANNING</span></div>
+    <div class="badge" id="b-mic"><span class="bdot"></span><span id="mic-txt">MIC</span></div>
+    <div class="badge" id="b-face"><span class="bdot"></span>FACE</div>
+    <div class="badge" id="b-threat"><span class="bdot"></span>THREAT</div>
+  </div>
+  <!-- Right controls column -->
+  <div id="topbar-right">
+    <button id="btn-cam-switch" onclick="switchCamera()">
+      <span class="ci">⟳</span><span id="cam-label">REAR</span>
+    </button>
+    <button id="btn-vision-mode" onclick="cycleVisionMode()">
+      <span class="ci">◈</span><span id="vision-mode-label">STANDARD</span>
+    </button>
+  </div>
+</div>
+<div id="cache-badge">CACHE: 0 CLASSES</div>
+<div id="statusbar">
+  <div class="sbi" id="sb-time">--:--:--</div>
+  <div class="sbi" id="sb-mode">STANDARD</div>
+  <div class="sbi">myEYE</div>
+</div>
+```
+
   </div>
 
-  <!-- INFO CARD (оригинал + добавлена аудио-строка) -->
+  <!-- INFO CARD -->
 
   <div id="info-card">
     <button id="ic-close" onclick="closeCard()">✕ CLOSE</button>
@@ -416,7 +467,6 @@ video { display:none; }
         <img id="ic-thumb" alt="shot" />
         <button id="ic-shot-btn" onclick="downloadScreenshot()">⬇ SAVE PNG</button>
       </div>
-      <!-- ДОБАВЛЕНИЕ: строка аудио-окружения -->
       <div id="ic-audio-row">
         <div style="display:flex;align-items:center;gap:4px">
           <span class="ica-lbl">NOISE</span>
@@ -434,7 +484,7 @@ video { display:none; }
     </div>
   </div>
 
-  <!-- ДОБАВЛЕНИЕ: Audio strip — между info-card и terminal -->
+  <!-- AUDIO STRIP -->
 
   <div id="audio-strip">
     <canvas id="audio-canvas"></canvas>
@@ -445,7 +495,7 @@ video { display:none; }
     <div id="audio-speech-badge">▶ SPEECH</div>
   </div>
 
-  <!-- TERMINAL (оригинал без изменений) -->
+  <!-- TERMINAL -->
 
   <div id="terminal-wrap">
     <div id="term-header">
@@ -463,11 +513,9 @@ video { display:none; }
 <script>
 'use strict';
 
-/* ════════════════════════════════════════════════════
-   ОРИГИНАЛЬНЫЙ КОД — БЕЗ ИЗМЕНЕНИЙ
-════════════════════════════════════════════════════ */
-
-/* USER CACHE */
+/* ═══════════════════════════════════════
+   USER CACHE
+═══════════════════════════════════════ */
 const CACHE_KEY = 'myeye_v53';
 let UC = (() => {
   try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch(e) { return {}; }
@@ -475,7 +523,6 @@ let UC = (() => {
 ['aliases','counts','lastSeen','events'].forEach(k => {
   if (!UC[k]) UC[k] = k === 'events' ? [] : {};
 });
-
 function saveCache() {
   if (UC.events.length > 300) UC.events = UC.events.slice(-300);
   try { localStorage.setItem(CACHE_KEY, JSON.stringify(UC)); } catch(e) {}
@@ -483,22 +530,22 @@ function saveCache() {
   if (el) el.textContent = `CACHE: ${Object.keys(UC.counts).length} CLASSES / ${UC.events.length} EVT`;
 }
 
-/* KNOWLEDGE BASE */
+/* ═══════════════════════════════════════
+   KNOWLEDGE BASE
+═══════════════════════════════════════ */
 const GROUPS = {
-  person:'HUMAN',
-  car:'VEHICLE',truck:'VEHICLE',bus:'VEHICLE',motorcycle:'VEHICLE',
+  person:'HUMAN', car:'VEHICLE',truck:'VEHICLE',bus:'VEHICLE',motorcycle:'VEHICLE',
   bicycle:'VEHICLE',train:'VEHICLE',airplane:'VEHICLE',boat:'VEHICLE',
-  dog:'ANIMAL',cat:'ANIMAL',bird:'ANIMAL',horse:'ANIMAL',
-  sheep:'ANIMAL',cow:'ANIMAL',elephant:'ANIMAL',bear:'ANIMAL',
-  zebra:'ANIMAL',giraffe:'ANIMAL',
+  dog:'ANIMAL',cat:'ANIMAL',bird:'ANIMAL',horse:'ANIMAL',sheep:'ANIMAL',cow:'ANIMAL',
+  elephant:'ANIMAL',bear:'ANIMAL',zebra:'ANIMAL',giraffe:'ANIMAL',
   'cell phone':'DEVICE',laptop:'DEVICE',mouse:'DEVICE',remote:'DEVICE',
   keyboard:'DEVICE',tv:'DEVICE',microwave:'DEVICE',clock:'DEVICE',
   chair:'FURNITURE',couch:'FURNITURE',bed:'FURNITURE','dining table':'FURNITURE',
   toilet:'FURNITURE',bench:'FURNITURE',sink:'FURNITURE',
-  bottle:'KITCHENWARE',cup:'KITCHENWARE',fork:'KITCHENWARE',
-  knife:'KITCHENWARE',spoon:'KITCHENWARE',bowl:'KITCHENWARE',
-  backpack:'ACCESSORY',umbrella:'ACCESSORY',handbag:'ACCESSORY',
-  suitcase:'ACCESSORY','sports ball':'ACCESSORY',skateboard:'ACCESSORY',
+  bottle:'KITCHENWARE',cup:'KITCHENWARE',fork:'KITCHENWARE',knife:'KITCHENWARE',
+  spoon:'KITCHENWARE',bowl:'KITCHENWARE',
+  backpack:'ACCESSORY',umbrella:'ACCESSORY',handbag:'ACCESSORY',suitcase:'ACCESSORY',
+  'sports ball':'ACCESSORY',skateboard:'ACCESSORY',
   banana:'FOOD',apple:'FOOD',sandwich:'FOOD',pizza:'FOOD',cake:'FOOD'
 };
 const GCOL = {
@@ -506,37 +553,460 @@ const GCOL = {
   FURNITURE:'#cc44ff',KITCHENWARE:'#ff44aa',ACCESSORY:'#ff9900',FOOD:'#00ff88',OBJECT:'#ffffff'
 };
 const KB = {
-  person:      {threat:.72, desc:'Homo sapiens. Скелет + кисти рук активны. Вектор вычисляется.'},
-  car:         {threat:.55, desc:'Колёсное ТС. Гражданский класс. Масса ~1200 кг.'},
-  truck:       {threat:.68, desc:'Тяжёлое грузовое ТС. Зона повышенной опасности.'},
-  bus:         {threat:.50, desc:'Пассажирский транспорт. Мониторинг пешеходных зон.'},
-  motorcycle:  {threat:.62, desc:'Двухколёсное моторизованное ТС. Высокая манёвренность.'},
-  dog:         {threat:.32, desc:'Canis lupus familiaris. Поведенческий вектор оценивается.'},
-  cat:         {threat:.10, desc:'Felis catus. Автономный агент. Высокая мобильность.'},
-  'cell phone':{threat:.18, desc:'EMF-источник. Возможна активная передача данных.'},
-  backpack:    {threat:.38, desc:'Носимый контейнер. Содержимое неизвестно.'},
-  _d:          {threat:.20, desc:'Объект идентифицирован. Расширенный анализ выполняется.'}
+  person:     {threat:.72,desc:'Homo sapiens. Скелет + кисти рук активны.'},
+  car:        {threat:.55,desc:'Колёсное ТС. Гражданский класс. Масса ~1200 кг.'},
+  truck:      {threat:.68,desc:'Тяжёлое грузовое ТС. Зона повышенной опасности.'},
+  bus:        {threat:.50,desc:'Пассажирский транспорт. Мониторинг пешеходных зон.'},
+  motorcycle: {threat:.62,desc:'Двухколёсное моторизованное ТС. Высокая манёвренность.'},
+  dog:        {threat:.32,desc:'Canis lupus familiaris. Поведенческий вектор оценивается.'},
+  cat:        {threat:.10,desc:'Felis catus. Автономный агент. Высокая мобильность.'},
+  'cell phone':{threat:.18,desc:'EMF-источник. Возможна активная передача данных.'},
+  backpack:   {threat:.38,desc:'Носимый контейнер. Содержимое неизвестно.'},
+  _d:         {threat:.20,desc:'Объект идентифицирован. Расширенный анализ выполняется.'}
 };
+const THREAT_HIGH   = ['person','car','truck','bus','motorcycle','airplane','boat','train'];
+const THREAT_MEDIUM = ['bicycle','horse','cow','dog','cat','bird','sheep','bear','elephant'];
+function getThreat(c){ return THREAT_HIGH.includes(c)?'HIGH':THREAT_MEDIUM.includes(c)?'MED':'LOW'; }
 
 const getGroup = cls => GROUPS[cls] || 'OBJECT';
 const getCol   = cls => GCOL[getGroup(cls)] || '#fff';
 const getKB    = cls => KB[cls] || KB._d;
 const getAlias = cls => UC.aliases[cls] || cls.toUpperCase();
 
-/* ELEMENTS */
+/* ═══════════════════════════════════════
+   ELEMENTS
+═══════════════════════════════════════ */
 const video    = document.getElementById('input_video');
 const canvas   = document.getElementById('output_canvas');
 const ctx      = canvas.getContext('2d');
 const termBody = document.getElementById('term-body');
 
-/* STATE */
+/* ═══════════════════════════════════════
+   VISION MODE STATE
+   Modes: 'standard' | 'green' | 'red'
+═══════════════════════════════════════ */
+const VISION_MODES = ['standard','green','red'];
+const VISION_LABELS = { standard:'STANDARD', green:'GREEN', red:'RED TARGET' };
+let currentVisionMode = 'standard';
+let isTransitioning = false;
+
+/* ═══════════════════════════════════════
+   THREE.JS SHADER (Green / Red)
+═══════════════════════════════════════ */
+const VERT_SH = `varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.);}`;
+const FRAG_SH = `
+precision mediump float;
+uniform sampler2D t;uniform vec2 res;uniform float edgeInt;uniform float tint;
+uniform int numBoxes;uniform vec4 boxes[20];
+varying vec2 vUv;
+float insideAny(){
+  for(int i=0;i<20;i++){if(i>=numBoxes)break;vec4 b=boxes[i];
+  if(vUv.x>=b.x&&vUv.x<=b.x+b.z&&vUv.y>=b.y&&vUv.y<=b.y+b.w)return 1.;}return 0.;}
+void main(){
+  vec2 p=vec2(1./res.x,1./res.y);
+  float s11=texture2D(t,vUv+vec2(-p.x,-p.y)).r,s12=texture2D(t,vUv+vec2(0.,-p.y)).r,
+        s13=texture2D(t,vUv+vec2(p.x,-p.y)).r,s21=texture2D(t,vUv+vec2(-p.x,0.)).r,
+        s23=texture2D(t,vUv+vec2(p.x,0.)).r,s31=texture2D(t,vUv+vec2(-p.x,p.y)).r,
+        s32=texture2D(t,vUv+vec2(0.,p.y)).r,s33=texture2D(t,vUv+vec2(p.x,p.y)).r;
+  float gx=s13+2.*s23+s33-(s11+2.*s21+s31),gy=s31+2.*s32+s33-(s11+2.*s12+s13);
+  float e=sqrt(gx*gx+gy*gy),sc=sin(vUv.y*res.y*3.14159)*.04+.96;
+  float inside=insideAny(),effInt=mix(edgeInt*0.06,edgeInt,inside);
+  float bright=e*effInt*sc;
+  vec3 col;
+  if(tint<1.)col=mix(vec3(0.,bright,bright*.09),vec3(bright),tint);
+  else if(tint<2.)col=mix(vec3(bright),vec3(bright,bright*.55,0.),tint-1.);
+  else col=vec3(bright,bright*.55,0.);
+  gl_FragColor=vec4(col,1.);}`;
+
+let threeRenderer = null, threeMat = null;
+const boxesUniform = new Array(20).fill(null).map(()=>new THREE.Vector4(0,0,0,0));
+
+function setupThree(){
+  const scene=new THREE.Scene(), cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  threeRenderer=new THREE.WebGLRenderer({canvas:document.getElementById('three-canvas'),antialias:false});
+  threeRenderer.setSize(window.innerWidth,window.innerHeight);
+  threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  const vt=new THREE.VideoTexture(video);
+  threeMat=new THREE.ShaderMaterial({
+    uniforms:{t:{value:vt},res:{value:new THREE.Vector2(window.innerWidth,window.innerHeight)},
+      edgeInt:{value:4.5},tint:{value:0.0},numBoxes:{value:0},boxes:{value:boxesUniform}},
+    vertexShader:VERT_SH,fragmentShader:FRAG_SH
+  });
+  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),threeMat));
+  (function loop(){ requestAnimationFrame(loop); if(threeRenderer)threeRenderer.render(scene,cam); })();
+}
+
+function pushBoxesToShader(dets){
+  if(!threeMat) return;
+  const W=window.innerWidth,H=window.innerHeight,vW=video.videoWidth||W,vH=video.videoHeight||H;
+  const sx=W/vW,sy=H/vH,n=Math.min(dets.length,20);
+  for(let i=0;i<20;i++){
+    if(i<n){const[bx,by,bw,bh]=dets[i].bbox;boxesUniform[i].set(bx*sx/W,1-(by+bh)*sy/H,bw*sx/W,bh*sy/H);}
+    else boxesUniform[i].set(0,0,0,0);
+  }
+  threeMat.uniforms.numBoxes.value=n;threeMat.uniforms.boxes.value=boxesUniform;
+}
+
+/* ═══════════════════════════════════════
+   GREEN MODE BOX DRAWING
+═══════════════════════════════════════ */
+function drawGreenBoxes(dets){
+  const detCanvas=document.getElementById('output_canvas');
+  const dctx=detCanvas.getContext('2d');
+  const W=detCanvas.width, H=detCanvas.height;
+  dctx.clearRect(0,0,W,H);
+  if(!dets||!dets.length){ document.getElementById('green-obj-count').style.display='none'; return; }
+  const vW=video.videoWidth||W, vH=video.videoHeight||H, sx=W/vW, sy=H/vH;
+  const now=performance.now();
+  dets.forEach((det,i)=>{
+    const[bx,by,bw,bh]=det.bbox, x=bx*sx, y=by*sy, w=bw*sx, h=bh*sy;
+    const score=Math.round(det.score*100), label=(det.class||'OBJ').toUpperCase();
+    const phase=(now/1200+i*0.37)%(Math.PI*2), alpha=0.4+0.25*Math.sin(phase);
+    dctx.shadowBlur=5; dctx.shadowColor=`rgba(0,255,65,${alpha*.8})`;
+    dctx.strokeStyle=`rgba(0,255,65,${alpha})`; dctx.lineWidth=1.2;
+    dctx.setLineDash([6,4]); dctx.strokeRect(x,y,w,h); dctx.setLineDash([]);
+    const tk=Math.min(w,h,22); dctx.lineWidth=1.8;
+    [[x,y,tk,0,0,tk],[x+w,y,-tk,0,0,tk],[x,y+h,tk,0,0,-tk],[x+w,y+h,-tk,0,0,-tk]].forEach(([ox,oy,dx1,dy1,dx2,dy2])=>{
+      dctx.beginPath(); dctx.moveTo(ox+dx1,oy+dy1); dctx.lineTo(ox,oy); dctx.lineTo(ox+dx2,oy+dy2); dctx.stroke();
+    });
+    dctx.shadowBlur=0;
+    const fs=9; dctx.font=`${fs}px 'Share Tech Mono',monospace`;
+    const tw=dctx.measureText(`${label} ${score}%`).width+10;
+    dctx.fillStyle='rgba(0,8,0,.82)'; dctx.fillRect(x-1,y-fs-8,tw,fs+8);
+    dctx.fillStyle=`rgba(0,255,65,${alpha})`; dctx.shadowBlur=4; dctx.shadowColor='#00ff41';
+    dctx.fillText(`${label} ${score}%`,x+4,y-4); dctx.shadowBlur=0;
+  });
+  const oc=document.getElementById('green-obj-count');
+  oc.textContent=`OBJECTS: ${dets.length}`; oc.style.display='block';
+}
+
+/* ═══════════════════════════════════════
+   RED MODE RETICLE / DRAW
+═══════════════════════════════════════ */
+const R = {
+  predictions:[], cPos:{x:0,y:0}, tgtPos:{x:0,y:0,active:false},
+  isLocked:false, lockFactor:0, pulseTime:0, scanAngle:0, textTick:0,
+  infoLines:[], glitchActive:0, ewTimer:0, ewI:0,
+  cardVisible:false, primary:null, captureCount:0, running:false
+};
+
+function hexA(hex,a){
+  if(!hex||hex[0]!=='#') return `rgba(255,255,255,${a})`;
+  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+function drawRedMode(){
+  if(currentVisionMode!=='red'){ R.running=false; return; }
+  const dpr=window.devicePixelRatio||1;
+  const rc=document.getElementById('red-canvas');
+  const W=rc.width, H=rc.height;
+  const rctx=rc.getContext('2d');
+  rctx.clearRect(0,0,W,H);
+
+  R.primary = R.predictions[0] || null;
+  const p = R.primary;
+
+  if(p){
+    const[bx,by,bw,bh]=p.bbox, sX=innerWidth/(video.videoWidth||1), sY=innerHeight/(video.videoHeight||1);
+    R.tgtPos.x=(bx+bw/2)*sX; R.tgtPos.y=(by+bh/2)*sY; R.tgtPos.active=true;
+    const dist=Math.hypot(R.cPos.x-R.tgtPos.x, R.cPos.y-R.tgtPos.y);
+    const wasLocked=R.isLocked; R.isLocked=dist<150;
+    if(R.isLocked&&!wasLocked){
+      R.textTick=0; buildRedInfo(p);
+      document.getElementById('red-tap-hint').classList.add('show');
+      R.glitchActive=10;
+    }
+    if(!R.isLocked&&wasLocked) document.getElementById('red-tap-hint').classList.remove('show');
+  } else {
+    R.tgtPos.active=false; R.isLocked=false;
+    document.getElementById('red-tap-hint').classList.remove('show');
+  }
+
+  if(R.predictions.length>1){
+    rctx.save();
+    for(let i=1;i<R.predictions.length;i++){
+      const pred=R.predictions[i],[bx,by,bw,bh]=pred.bbox;
+      const sX=innerWidth/(video.videoWidth||1), sY=innerHeight/(video.videoHeight||1);
+      const rx=bx*sX*dpr, ry=by*sY*dpr, rw=bw*sX*dpr, rh=bh*sY*dpr;
+      const t=getThreat(pred.class.toLowerCase());
+      rctx.strokeStyle=t==='HIGH'?'rgba(255,80,80,.4)':t==='MED'?'rgba(255,160,0,.35)':'rgba(200,200,255,.25)';
+      rctx.lineWidth=dpr; rctx.setLineDash([4*dpr,4*dpr]);
+      rctx.strokeRect(rx,ry,rw,rh); rctx.setLineDash([]);
+      rctx.fillStyle=rctx.strokeStyle; rctx.font=`${9*dpr}px 'Share Tech Mono'`;
+      rctx.fillText(pred.class.toUpperCase(),rx+4*dpr,ry-4*dpr);
+    }
+    rctx.restore();
+  }
+
+  const dX=R.tgtPos.active?R.tgtPos.x:innerWidth/2, dY=R.tgtPos.active?R.tgtPos.y:innerHeight/2;
+  R.cPos.x+=(dX-R.cPos.x)*.1; R.cPos.y+=(dY-R.cPos.y)*.1;
+  R.lockFactor=R.isLocked?Math.min(1,R.lockFactor+.08):Math.max(0,R.lockFactor-.04);
+  R.pulseTime+=.05; R.scanAngle+=.02;
+
+  const tier=p?getThreat(p.class.toLowerCase()):null;
+  let rr=200,rg=220,rb=255;
+  if(R.isLocked){ if(tier==='HIGH'){rr=255;rg=20;rb=20;} else if(tier==='MED'){rr=255;rg=140;rb=0;} else{rr=255;rg=220;rb=50;} }
+  const mc=`rgba(${rr},${rg},${rb},${.6+.4*R.lockFactor})`;
+
+  R.ewTimer++;
+  if(R.ewTimer%280===0) R.ewI=18;
+  if(R.ewI>0) R.ewI=Math.max(0,R.ewI-.7);
+
+  rctx.save();
+  if(R.glitchActive>0){ rctx.translate((Math.random()-.5)*10*dpr,(Math.random()-.5)*5*dpr); R.glitchActive--; }
+  if(R.ewI>5) rctx.translate((Math.random()-.5)*6*dpr*(R.ewI/18),0);
+
+  if(p&&R.tgtPos.active){
+    const[bx,by,bw,bh]=p.bbox, sX=innerWidth/(video.videoWidth||1), sY=innerHeight/(video.videoHeight||1);
+    const rx=bx*sX*dpr, ry=by*sY*dpr, rw=bw*sX*dpr, rh=bh*sY*dpr;
+    rctx.strokeStyle=mc; rctx.shadowColor=mc; rctx.lineWidth=1.5*dpr; rctx.shadowBlur=10*R.lockFactor;
+    const cl=Math.min(rw,rh)*.22;
+    rctx.beginPath();
+    rctx.moveTo(rx,ry+cl); rctx.lineTo(rx,ry); rctx.lineTo(rx+cl,ry);
+    rctx.moveTo(rx+rw-cl,ry); rctx.lineTo(rx+rw,ry); rctx.lineTo(rx+rw,ry+cl);
+    rctx.moveTo(rx+rw,ry+rh-cl); rctx.lineTo(rx+rw,ry+rh); rctx.lineTo(rx+rw-cl,ry+rh);
+    rctx.moveTo(rx+cl,ry+rh); rctx.lineTo(rx,ry+rh); rctx.lineTo(rx,ry+rh-cl);
+    rctx.stroke(); rctx.shadowBlur=0;
+    rctx.fillStyle=`rgba(${rr},${rg},${rb},.03)`; rctx.fillRect(rx,ry,rw,rh);
+  }
+
+  const cx=R.cPos.x*dpr, cy=R.cPos.y*dpr;
+  drawRedReticle(rctx,cx,cy,dpr,R.lockFactor,mc,rr,rg,rb);
+  if(R.lockFactor>.05){ rctx.globalAlpha=R.lockFactor; drawRedDataBlock(rctx,cx,cy,dpr,mc,rr,rg,rb); rctx.globalAlpha=1; }
+
+  if(R.ewI>3){
+    for(let i=0;i<Math.round(R.ewI*.6);i++){
+      rctx.fillStyle=`rgba(255,255,255,${Math.random()*.1})`;
+      rctx.fillRect(Math.random()*W,Math.random()*H,(1+Math.random()*2)*dpr,dpr);
+    }
+  }
+  const s=30*dpr; rctx.strokeStyle='rgba(255,255,255,.1)'; rctx.lineWidth=dpr; rctx.setLineDash([]);
+  [[0,0,1,1],[W,0,-1,1],[W,H,-1,-1],[0,H,1,-1]].forEach(([x,y,sx,sy])=>{
+    rctx.beginPath(); rctx.moveTo(x+sx*s,y); rctx.lineTo(x,y); rctx.lineTo(x,y+sy*s); rctx.stroke();
+  });
+  rctx.restore();
+  requestAnimationFrame(drawRedMode);
+}
+
+function drawRedReticle(rctx,cx,cy,dpr,lf,mc,rr,rg,rb){
+  rctx.save(); rctx.translate(cx,cy);
+  rctx.strokeStyle=`rgba(${rr},${rg},${rb},.2)`; rctx.lineWidth=.5*dpr;
+  rctx.beginPath(); rctx.arc(0,0,110*dpr,0,Math.PI*2); rctx.stroke();
+  if(lf>.15){
+    rctx.save(); rctx.rotate(R.pulseTime*1.5);
+    rctx.strokeStyle=`rgba(${rr},${rg},${rb},${.3+.3*lf})`; rctx.lineWidth=1.5*dpr;
+    rctx.shadowBlur=6*lf; rctx.shadowColor=mc; rctx.setLineDash([18*dpr,50*dpr]);
+    rctx.beginPath(); rctx.arc(0,0,95*dpr,0,Math.PI*2); rctx.stroke(); rctx.restore();
+  }
+  rctx.setLineDash([]);
+  const bS=(28-8*lf)*dpr, bD=(8+14*lf)*dpr;
+  rctx.strokeStyle=mc; rctx.lineWidth=2.5*dpr; rctx.shadowBlur=10*lf; rctx.shadowColor=mc;
+  for(let i=0;i<4;i++){
+    rctx.save(); rctx.rotate(i*Math.PI/2);
+    rctx.beginPath(); rctx.moveTo(bS,-bS+bD); rctx.lineTo(bS,-bS); rctx.lineTo(bS-bD,-bS); rctx.stroke();
+    rctx.restore();
+  }
+  rctx.lineWidth=1.5*dpr; const c=7*dpr, g=4*dpr;
+  rctx.beginPath(); rctx.moveTo(-c,0); rctx.lineTo(-g,0); rctx.moveTo(g,0); rctx.lineTo(c,0);
+  rctx.moveTo(0,-c); rctx.lineTo(0,-g); rctx.moveTo(0,g); rctx.lineTo(0,c); rctx.stroke();
+  rctx.shadowBlur=12*lf; rctx.fillStyle=mc; rctx.beginPath(); rctx.arc(0,0,2.5*dpr,0,Math.PI*2); rctx.fill();
+  rctx.strokeStyle=`rgba(${rr},${rg},${rb},.5)`; rctx.lineWidth=dpr; rctx.shadowBlur=0;
+  for(let a=0;a<360;a+=15){
+    const rad=a*Math.PI/180, inn=a%90===0?115:a%45===0?112:110.5;
+    rctx.beginPath(); rctx.moveTo(Math.cos(rad)*inn*dpr,Math.sin(rad)*inn*dpr); rctx.lineTo(Math.cos(rad)*118*dpr,Math.sin(rad)*118*dpr); rctx.stroke();
+  }
+  if(lf<.8){
+    rctx.save(); rctx.rotate(R.scanAngle);
+    const sg=rctx.createLinearGradient(0,-100*dpr,0,0);
+    sg.addColorStop(0,`rgba(${rr},${rg},${rb},0)`); sg.addColorStop(1,`rgba(${rr},${rg},${rb},${.08*(1-lf)})`);
+    rctx.fillStyle=sg; rctx.beginPath(); rctx.moveTo(0,0); rctx.arc(0,0,108*dpr,-.5,.5); rctx.closePath(); rctx.fill(); rctx.restore();
+  }
+  rctx.restore();
+}
+
+function drawRedDataBlock(rctx,cx,cy,dpr,mc,rr,rg,rb){
+  R.textTick+=.6; rctx.font=`${11*dpr}px 'Share Tech Mono'`; rctx.shadowBlur=4; rctx.shadowColor=mc; rctx.fillStyle=mc;
+  R.infoLines.forEach((l,i)=>{
+    const chars=Math.floor(R.textTick-i*4); if(chars<=0)return;
+    rctx.fillText('› '+(l.k+': '+l.v).substring(0,chars), cx+120*dpr, cy-30*dpr+i*(11*dpr)*1.6);
+  });
+}
+
+function buildRedInfo(p){
+  const tier=getThreat(p.class.toLowerCase());
+  R.infoLines=[
+    {k:'CLASS',v:p.class.toUpperCase()},{k:'THREAT',v:tier},
+    {k:'CONF',v:Math.round(p.score*100)+'%'},{k:'ID',v:'0x'+Math.random().toString(16).slice(2,8).toUpperCase()},
+    {k:'STATUS',v:'LOCKED'}
+  ];
+}
+
+function captureRedPortrait(pred){
+  if(!video.videoWidth) return;
+  const[bx,by,bw,bh]=pred.bbox, pad=.15;
+  const cx2=Math.max(0,bx-bw*pad), cy2=Math.max(0,by-bh*pad);
+  const cw=Math.min(video.videoWidth-cx2,bw*(1+pad*2)), ch=Math.min(video.videoHeight-cy2,bh*(1+pad*2));
+  const pc=document.getElementById('red-portrait-canvas'), pctx=pc.getContext('2d');
+  const aspectW=200, aspectH=Math.round(aspectW*(ch/cw));
+  pc.width=aspectW; pc.height=Math.max(aspectH,80);
+  document.getElementById('red-portrait-wrap').style.height=pc.height+'px';
+  pctx.fillStyle='#000'; pctx.fillRect(0,0,pc.width,pc.height);
+  pctx.drawImage(video,cx2,cy2,cw,ch,0,0,pc.width,pc.height);
+  const tier=getThreat(pred.class.toLowerCase());
+  const uid='0x'+Math.random().toString(16).slice(2,8).toUpperCase();
+  const rows=[
+    {k:'CLASS',v:pred.class.toUpperCase(),red:false},
+    {k:'THREAT',v:tier,red:tier==='HIGH'},
+    {k:'CONF',v:Math.round(pred.score*100)+'%',red:false},
+    {k:'UID',v:uid,red:false},
+    {k:'STATUS',v:'LOCKED',red:true}
+  ];
+  const cmRows=document.getElementById('red-cm-rows'); cmRows.innerHTML='';
+  rows.forEach(row=>{
+    const d=document.createElement('div'); d.className='rcm-row';
+    d.innerHTML=`<span class="rcm-key">${row.k}</span><span class="rcm-val${row.red?' red':''}">${row.v}</span>`;
+    cmRows.appendChild(d);
+  });
+  const cf=document.getElementById('red-captured-flash');
+  cf.classList.remove('flash'); void cf.offsetWidth; cf.classList.add('flash');
+  R.captureCount++;
+  sysLog(`RED CAPTURE: ${pred.class.toUpperCase()} [${tier}] ${uid}`, 'CAPTURE', 'SYS');
+}
+
+/* ═══════════════════════════════════════
+   VISION MODE SWITCHING
+═══════════════════════════════════════ */
+function buildGlitchBands(toMode){
+  const gb=document.getElementById('glitch-bands'); gb.innerHTML='';
+  for(let i=0;i<8+Math.floor(Math.random()*5);i++){
+    const band=document.createElement('div'); band.className='gb-band';
+    band.style.cssText=`top:${Math.random()*100}%;height:${2+Math.random()*16}px;transform:translateX(${(Math.random()-.5)*50}px);`;
+    gb.appendChild(band);
+  }
+}
+
+function triggerModeTransition(toMode, cb){
+  isTransitioning=true;
+  const ov=document.getElementById('mode-transition'), gb=document.getElementById('glitch-bands');
+  const cls='to-'+toMode;
+  ov.className='active '+cls; gb.className='active '+cls; buildGlitchBands(toMode);
+  setTimeout(()=>{ ov.className=''; gb.className=''; isTransitioning=false; }, 700);
+  setTimeout(cb, 120);
+}
+
+function applyVisionMode(mode){
+  currentVisionMode = mode;
+
+  // Reset overlays
+  const threeC=document.getElementById('three-canvas');
+  const redC=document.getElementById('red-canvas');
+  const stdC=document.getElementById('output_canvas');
+  const sgL=document.getElementById('scanlines-green');
+  const srL=document.getElementById('scanlines-red');
+  const vigR=document.getElementById('vignette-red');
+  const rTapH=document.getElementById('red-tap-hint');
+  const rCard=document.getElementById('red-capture-card');
+  const gOc=document.getElementById('green-obj-count');
+
+  // Stop red loop
+  R.running=false;
+
+  // Hide all mode-specific
+  threeC.style.display='none';
+  redC.style.display='none';
+  sgL.style.display='none';
+  srL.style.display='none';
+  vigR.style.display='none';
+  rTapH.style.display='none';
+  rCard.style.display='none';
+  gOc.style.display='none';
+  video.className='';
+
+  // Update button
+  const btn=document.getElementById('btn-vision-mode');
+  const lbl=document.getElementById('vision-mode-label');
+  const modeSmall=document.getElementById('mode-label-sm');
+  const sbMode=document.getElementById('sb-mode');
+
+  if(mode==='standard'){
+    stdC.style.display='block'; stdC.style.zIndex='2';
+    btn.className=''; lbl.textContent='STANDARD'; btn.querySelector('.ci').textContent='◈';
+    modeSmall.textContent='// STANDARD'; sbMode.textContent='STANDARD';
+    // Re-enable myEYE standard drawing
+    _standardModeActive=true;
+    pushBoxesToShader([]);
+  }
+  else if(mode==='green'){
+    threeC.style.display='block';
+    stdC.style.display='block'; stdC.style.zIndex='8'; // overlay boxes on top
+    sgL.style.display='block';
+    threeMat.uniforms.edgeInt.value=4.5; threeMat.uniforms.tint.value=0.0;
+    btn.className='mode-green'; lbl.textContent='GREEN'; btn.querySelector('.ci').textContent='◈';
+    modeSmall.textContent='// GREEN'; sbMode.textContent='GREEN EDGE';
+    _standardModeActive=false;
+    // Draw green boxes on standard canvas (already cleared in renderFrame)
+  }
+  else if(mode==='red'){
+    video.className='mode-red';
+    redC.style.display='block'; rCard.style.display='flex';
+    srL.style.display='block'; vigR.style.display='block';
+    const dpr=window.devicePixelRatio||1;
+    redC.width=innerWidth*dpr; redC.height=innerHeight*dpr;
+    R.cPos={x:innerWidth/2,y:innerHeight/2};
+    btn.className='mode-red'; lbl.textContent='RED'; btn.querySelector('.ci').textContent='◉';
+    modeSmall.textContent='// RED TARGET'; sbMode.textContent='RED TARGET';
+    _standardModeActive=false;
+    R.running=true; R.cardVisible=false;
+    document.getElementById('red-capture-card').classList.remove('show');
+    drawRedMode();
+    sysLog('MODE: TARGET ACQUISITION','MODE','SYS');
+  }
+}
+
+function cycleVisionMode(){
+  if(isTransitioning) return;
+  const idx=VISION_MODES.indexOf(currentVisionMode);
+  const next=VISION_MODES[(idx+1)%VISION_MODES.length];
+  triggerModeTransition(next, ()=>applyVisionMode(next));
+  sysLog(`VISION MODE → ${VISION_LABELS[next]}`, 'MODE', 'SYS');
+}
+
+/* Red canvas tap */
+let _redTapSetup=false;
+function setupRedTap(){
+  if(_redTapSetup) return; _redTapSetup=true;
+  const rc=document.getElementById('red-canvas');
+  function onRedTap(){
+    if(currentVisionMode!=='red'||R.cardVisible||!R.isLocked||!R.primary) return;
+    captureRedPortrait(R.primary);
+    document.getElementById('red-capture-card').classList.add('show');
+    R.cardVisible=true;
+    document.getElementById('red-tap-hint').classList.remove('show');
+  }
+  rc.addEventListener('click', onRedTap);
+  rc.addEventListener('touchstart', e=>{ e.preventDefault(); onRedTap(); }, {passive:false});
+  // Tap outside card to close
+  document.addEventListener('pointerdown', e=>{
+    if(currentVisionMode!=='red'||!R.cardVisible) return;
+    const r=document.getElementById('red-capture-card').getBoundingClientRect();
+    if(!(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom)){
+      document.getElementById('red-capture-card').classList.remove('show');
+      R.cardVisible=false;
+    }
+  });
+}
+
+/* ═══════════════════════════════════════
+   STATE (myEYE original)
+═══════════════════════════════════════ */
 let detector   = null;
 let mpPose     = null;
 let mpHands    = null;
 let poseReady  = false;
 let handsReady = false;
-let lastPoseResult  = null;
-let lastHandsResult = null;
+let lastPoseResult   = null;
+let lastHandsResult  = null;
 let lastObjects  = [];
 let selectedCls  = null;
 let threatActive = false;
@@ -547,956 +1017,606 @@ let lastFpsT = 0;
 let lastScreenshot = null;
 let screenshotBlob = null;
 const logThrottle = {};
+let _standardModeActive = true;
 
-/* ДОБАВЛЕНИЕ: FaceMesh state */
+// FaceMesh
 let mpFaceMesh    = null;
 let faceReady     = false;
 let faceRunning   = false;
 let lastFaceResult = null;
-let faceScanLineY  = 0;  // 0..1, анимированная сканирующая линия
 
-/* HELPERS */
-function hexA(hex, a) {
-  if (!hex || hex[0] !== '#') return `rgba(255,255,255,${a})`;
-  const r = parseInt(hex.slice(1,3),16);
-  const g = parseInt(hex.slice(3,5),16);
-  const b = parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-function nowStr() {
-  const n = new Date();
-  return {
-    t: n.toTimeString().slice(0,8),
-    d: `${String(n.getDate()).padStart(2,'0')}.${String(n.getMonth()+1).padStart(2,'0')}.${n.getFullYear()}`
-  };
-}
-
-/* TERMINAL */
-function sysLog(event, type='SYSTEM', group='SYS') {
-  const { t, d } = nowStr();
-  const cls = {HUMAN:'person',VEHICLE:'vehicle',ANIMAL:'animal',DEVICE:'device',SYS:'system'}[group] || 'other';
-  const row = document.createElement('div');
-  row.className = `trow ${cls}`;
-  row.innerHTML =
-    `<span class="tc-time">${t}</span>` +
-    `<span class="tc-date">${d}</span>` +
-    `<span class="tc-event">${event}</span>` +
-    `<span class="tc-type" style="color:${GCOL[group]||'var(--g)'}">${type}</span>` +
-    `<span class="tc-group">${group}</span>`;
-  termBody.appendChild(row);
-  if (termBody.scrollHeight - termBody.scrollTop - termBody.clientHeight < 50)
-    termBody.scrollTop = termBody.scrollHeight;
-  while (termBody.children.length > 300) termBody.firstElementChild.remove();
-}
-function clearLog() {
-  termBody.innerHTML = '';
-  sysLog('LOG CLEARED','SYSTEM','SYS');
-}
-
-/* SCREENSHOT */
-async function captureScreenshot() {
-  const frameDataURL = canvas.toDataURL('image/png');
-  try {
-    const shotCanvas = await html2canvas(document.getElementById('app'), {
-      backgroundColor: '#000', useCORS: true, allowTaint: true,
-      scale: Math.min(window.devicePixelRatio || 1, 2), logging: false,
-      ignoreElements: el => el.id === 'shot-flash' || el.id === 'shot-indicator',
-      onclone: (doc) => {
-        const cloneVideo  = doc.getElementById('input_video');
-        const cloneCanvas = doc.getElementById('output_canvas');
-        if (cloneVideo)  cloneVideo.style.display = 'none';
-        if (cloneCanvas) {
-          const img = doc.createElement('img');
-          img.src = frameDataURL;
-          img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;';
-          cloneCanvas.replaceWith(img);
-        }
-      }
-    });
-    return new Promise(resolve => {
-      shotCanvas.toBlob(blob => {
-        resolve({ blob, dataURL: shotCanvas.toDataURL('image/png') });
-      }, 'image/png');
-    });
-  } catch(err) {
-    return new Promise(resolve => {
-      canvas.toBlob(blob => {
-        resolve({ blob, dataURL: canvas.toDataURL('image/png') });
-      }, 'image/png');
-    });
-  }
-}
-function showShotFlash() {
-  const f = document.getElementById('shot-flash');
-  const i = document.getElementById('shot-indicator');
-  f.classList.remove('snap'); i.classList.remove('snap');
-  void f.offsetWidth;
-  f.classList.add('snap'); i.classList.add('snap');
-  setTimeout(() => { f.classList.remove('snap'); i.classList.remove('snap'); }, 900);
-}
-async function downloadScreenshot() {
-  if (!screenshotBlob) return;
-  const btn = document.getElementById('ic-shot-btn');
-  btn.classList.add('saving'); btn.textContent = '⏳ SAVING...';
-  await sleep(80);
-  const url = URL.createObjectURL(screenshotBlob);
-  const a   = document.createElement('a');
-  const now = new Date();
-  const ts  = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${now.toTimeString().slice(0,8).replace(/:/g,'')}`;
-  a.href = url; a.download = `myEYE_${selectedCls||'capture'}_${ts}.png`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(() => URL.revokeObjectURL(url), 3000);
-  btn.classList.remove('saving'); btn.textContent = '⬇ SAVE PNG';
-  sysLog(`SCREENSHOT SAVED: ${a.download}`, 'PNG', 'SYS');
-}
-
-/* BOOT SEQUENCE */
-async function initModels() {
-  const blogEl = document.getElementById('boot-log');
-  const pbEl   = document.getElementById('pb');
-  const pctEl  = document.getElementById('pb-pct');
-  const bLog = (txt, cls='ok') => {
-    const d = document.createElement('div');
-    d.className = 'bl '+cls; d.textContent = txt;
-    blogEl.appendChild(d);
-  };
-  const setPb = p => { pbEl.style.width = p+'%'; pctEl.textContent = p+'%'; };
-
-  bLog('INIT VISION OS v5.3'); setPb(5); await sleep(120);
-  bLog(`USER CACHE: ${Object.keys(UC.aliases).length} ALIASES`); setPb(10); await sleep(120);
-  if (typeof html2canvas !== 'undefined') {
-    bLog('SCREENSHOT ENGINE: READY');
-  } else {
-    bLog('SCREENSHOT ENGINE: FALLBACK MODE','warn');
-  }
-  setPb(18); await sleep(100);
-
-  try {
-    bLog('DETECTOR: COCO-SSD LOADING...','warn');
-    detector = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-    bLog('DETECTOR: READY'); setPb(50);
-  } catch(e) { bLog('DETECTOR ERROR: '+e.message,'err'); }
-
-  try {
-    if (typeof Pose === 'undefined') throw new Error('script not loaded');
-    bLog('POSE ENGINE: LOADING...','warn');
-    mpPose = new Pose({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}` });
-    mpPose.setOptions({ modelComplexity:1, smoothLandmarks:true, enableSegmentation:false,
-      minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
-    mpPose.onResults(res => { lastPoseResult = res; });
-    await mpPose.initialize();
-    poseReady = true;
-    bLog('POSE ENGINE: ACTIVE'); setPb(75);
-  } catch(e) { bLog('POSE: UNAVAILABLE -- '+e.message,'warn'); }
-
-  try {
-    if (typeof Hands === 'undefined') throw new Error('script not loaded');
-    bLog('HANDS ENGINE: LOADING...','warn');
-    mpHands = new Hands({ locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}` });
-    mpHands.setOptions({ maxNumHands:2, modelComplexity:1,
-      minDetectionConfidence:0.5, minTrackingConfidence:0.5 });
-    mpHands.onResults(res => { lastHandsResult = res; });
-    await mpHands.initialize();
-    handsReady = true;
-    bLog('HANDS ENGINE: ACTIVE'); setPb(92);
-  } catch(e) { bLog('HANDS: UNAVAILABLE -- '+e.message,'warn'); }
-
-  /* ДОБАВЛЕНИЕ: FaceMesh */
-  try {
-    if (typeof FaceMesh === 'undefined') throw new Error('script not loaded');
-    bLog('FACE MESH: LOADING...','warn');
-    mpFaceMesh = new FaceMesh({
-      locateFile: f => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`
-    });
-    mpFaceMesh.setOptions({
-      maxNumFaces:           2,
-      refineLandmarks:       true,
-      minDetectionConfidence: 0.5,
-      minTrackingConfidence:  0.5
-    });
-    mpFaceMesh.onResults(res => { lastFaceResult = res; });
-    await mpFaceMesh.initialize();
-    faceReady = true;
-    bLog('FACE MESH: ACTIVE'); setPb(96);
-  } catch(e) { bLog('FACE MESH: UNAVAILABLE -- '+e.message,'warn'); }
-
-  /* ДОБАВЛЕНИЕ: микрофон запрашивается при старте */
-  bLog('MICROPHONE: WILL REQUEST ON ACTIVATE','warn');
-  setPb(100); await sleep(150);
-  bLog('ALL SYSTEMS OPERATIONAL');
-  document.getElementById('btn-start').style.display = 'block';
-}
-
-/* START APP */
-function startApp() {
-  document.getElementById('boot').style.display = 'none';
-  document.getElementById('app').style.display  = 'flex';
-  saveCache();
-  sysLog('SYSTEM START: SUCCESS','SYSTEM','SYS');
-
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
-  /* ДОБАВЛЕНИЕ: выставляем начальный лейбл камеры */
-  currentFacingMode = isMobile ? 'environment' : 'user';
-  document.getElementById('cam-label').textContent = currentFacingMode === 'environment' ? 'REAR' : 'FRONT';
-
-  /* ДОБАВЛЕНИЕ: запрос микрофона */
-  initMic();
-
-  async function onFrame() {
-    if (!detecting && detector) {
-      detecting = true;
-      try { lastObjects = await detector.detect(video, 50, 0.32); }
-      catch(e) {}
-      detecting = false;
-    }
-    /* ДОБАВЛЕНИЕ: скелет/руки — только если COCO видит человека */
-    const hasPerson = lastObjects.some(o => o.class === 'person');
-    if (poseReady && hasPerson)  { try { await mpPose.send({ image: video });  } catch(e) {} }
-    if (handsReady && hasPerson) { try { await mpHands.send({ image: video }); } catch(e) {} }
-    /* ДОБАВЛЕНИЕ: сетка лица — только при наличии человека, один запрос за раз */
-    if (faceReady && hasPerson && !faceRunning) {
-      faceRunning = true;
-      try { await mpFaceMesh.send({ image: video }); } catch(e) {}
-      faceRunning = false;
-    }
-    /* если человека нет — сбрасываем чтобы скелет не завис */
-    if (!hasPerson) { lastPoseResult = null; lastHandsResult = null; lastFaceResult = null; }
-    renderFrame();
-  }
-
-  /* ДОБАВЛЕНИЕ: используем startCamera() вместо жёстко прописанного Camera */
-  startCamera(onFrame, isMobile);
-
-  setInterval(() => {
-    document.getElementById('sb-time').textContent = new Date().toTimeString().slice(0,8);
-  }, 1000);
-}
-
-/* RENDER FRAME (оригинал без изменений) */
-function renderFrame() {
-  const vw = video.videoWidth, vh = video.videoHeight;
-  if (!vw) return;
-  canvas.width  = vw;
-  canvas.height = vh;
-  ctx.drawImage(video, 0, 0, vw, vh);
-  const vig = ctx.createRadialGradient(vw/2,vh/2,vw*.22, vw/2,vh/2,vw*.68);
-  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.52)');
-  ctx.fillStyle = vig; ctx.fillRect(0,0,vw,vh);
-  fpsN++;
-  const now = performance.now();
-  if (now - lastFpsT > 1000) {
-    document.getElementById('fps-txt').textContent = fpsN + ' FPS';
-    fpsN = 0; lastFpsT = now;
-  }
-  frameN++;
-  drawObjects(vw, vh);
-  if (lastPoseResult)  drawPose(vw, vh);
-  if (lastHandsResult) drawHands(vw, vh);
-  /* ДОБАВЛЕНИЕ: сетка лица — рисуется поверх скелета, только при наличии результата */
-  if (lastFaceResult)  drawFaceMesh(vw, vh);
-}
-
-/* DRAW OBJECTS (оригинал без изменений) */
-function drawObjects(vw, vh) {
-  const t = frameN;
-  const hasThreat = lastObjects.some(o =>
-    ['person','car','truck','bus','motorcycle'].includes(o.class));
-  const tb = document.getElementById('b-threat');
-  if (hasThreat !== threatActive) {
-    threatActive = hasThreat;
-    tb.style.display = hasThreat ? 'flex' : 'none';
-    if (hasThreat) {
-      const af = document.getElementById('alert-flash');
-      af.classList.remove('on'); void af.offsetWidth; af.classList.add('on');
-    }
-  }
-  document.getElementById('obj-txt').textContent = lastObjects.length + ' TARGETS';
-  lastObjects.forEach(obj => {
-    const [bx, by, bw, bh] = obj.bbox;
-    const col   = getCol(obj.class);
-    const isSel = obj.class === selectedCls;
-    const isThrt = ['person','car','truck','bus','motorcycle'].includes(obj.class);
-    const alpha  = isThrt && !isSel ? 0.6 + 0.4*Math.sin(t*0.11) : 1;
-    ctx.strokeStyle = hexA(col,alpha); ctx.lineWidth = isSel ? 4 : 3;
-    ctx.strokeRect(bx,by,bw,bh);
-    ctx.fillStyle = hexA(col, isSel ? 0.12 : 0.03); ctx.fillRect(bx,by,bw,bh);
-    const cs = Math.min(18, bw*0.2, bh*0.2);
-    const ao = isSel ? Math.sin(t*0.1)*2 : 0;
-    ctx.strokeStyle = col; ctx.lineWidth = isSel ? 3.5 : 2.5;
-    ctx.shadowColor = col; ctx.shadowBlur = isSel ? 12 : 5;
-    ctx.beginPath();
-    ctx.moveTo(bx-ao,by+cs-ao);      ctx.lineTo(bx-ao,by-ao);         ctx.lineTo(bx+cs-ao,by-ao);
-    ctx.moveTo(bx+bw-cs+ao,by-ao);   ctx.lineTo(bx+bw+ao,by-ao);      ctx.lineTo(bx+bw+ao,by+cs-ao);
-    ctx.moveTo(bx-ao,by+bh-cs+ao);   ctx.lineTo(bx-ao,by+bh+ao);      ctx.lineTo(bx+cs-ao,by+bh+ao);
-    ctx.moveTo(bx+bw-cs+ao,by+bh+ao);ctx.lineTo(bx+bw+ao,by+bh+ao);   ctx.lineTo(bx+bw+ao,by+bh-cs+ao);
-    ctx.stroke(); ctx.shadowBlur = 0;
-    if (isSel) {
-      const sy = by + ((t*2.5 % 100)/100)*bh;
-      const sg = ctx.createLinearGradient(bx,sy-10,bx,sy+10);
-      sg.addColorStop(0,hexA(col,0)); sg.addColorStop(.5,hexA(col,.4)); sg.addColorStop(1,hexA(col,0));
-      ctx.fillStyle = sg; ctx.fillRect(bx,sy-10,bw,20);
-    }
-    const alias  = getAlias(obj.class);
-    const pct    = Math.round(obj.score*100)+'%';
-    const upward = by > 34;
-    const lY     = upward ? by - 5 : by + bh + 20;
-    ctx.font = "bold 15px 'Share Tech Mono'";
-    const tw = ctx.measureText(alias).width + 10;
-    ctx.fillStyle = hexA(col,.92); ctx.fillRect(bx, upward?lY-23:lY-16, tw, 24);
-    ctx.fillStyle = '#000'; ctx.fillText(alias, bx+4, upward?lY-10:lY-3);
-    ctx.font = "11px 'Share Tech Mono'";
-    ctx.fillStyle = hexA(col,.8); ctx.fillText(pct, bx+tw+4, upward?lY-10:lY-3);
-    if (bw > 70) {
-      ctx.fillStyle = hexA(col,.1); ctx.fillRect(bx+bw-62,by+3,60,13);
-      ctx.fillStyle = hexA(col,.65); ctx.font = "7.5px 'Share Tech Mono'";
-      ctx.fillText(getGroup(obj.class), bx+bw-60, by+13);
-    }
-    const lk = obj.class, ts = Date.now();
-    if (!logThrottle[lk] || ts - logThrottle[lk] > 8000) {
-      logThrottle[lk] = ts;
-      sysLog(alias, obj.class.toUpperCase(), getGroup(obj.class));
-      UC.counts[lk]   = (UC.counts[lk]||0) + 1;
-      UC.lastSeen[lk] = ts;
-      UC.events.push({ ts, cls:lk, score:Math.round(obj.score*100), group:getGroup(lk) });
-      saveCache();
-    }
-  });
-}
-
-/* DRAW POSE (оригинал без изменений) */
-const SKEL_FALLBACK = [
-  [11,12],[11,13],[13,15],[12,14],[14,16],
-  [11,23],[12,24],[23,24],
-  [23,25],[25,27],[27,29],[27,31],
-  [24,26],[26,28],[28,30],[28,32]
-];
-function drawPose(vw, vh) {
-  const res = lastPoseResult;
-  if (!res || !res.poseLandmarks) return;
-  const lm    = res.poseLandmarks;
-  const G     = '#00ff41';
-  const conns = (typeof POSE_CONNECTIONS !== 'undefined') ? POSE_CONNECTIONS : SKEL_FALLBACK;
-  const pts = lm.map(p => ({
-    x: p.x * vw, y: p.y * vh,
-    v: (p.visibility != null) ? p.visibility : 1
-  }));
-  ctx.save();
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-
-  /* Кости — пропускаем соединения с точками головы (0-10) */
-  ctx.strokeStyle = G; ctx.lineWidth = 2;
-  ctx.shadowColor = G; ctx.shadowBlur = 6;
-  conns.forEach(pair => {
-    const a = Array.isArray(pair) ? pair[0] : pair.start;
-    const b = Array.isArray(pair) ? pair[1] : pair.end;
-    /* Точки 0-10 — нос, глаза, уши, рот — пропускаем */
-    if (a <= 10 || b <= 10) return;
-    const pa = pts[a], pb = pts[b];
-    if (!pa || !pb) return;
-    const minV = Math.min(pa.v, pb.v);
-    if (minV < 0.4) return;
-    ctx.globalAlpha = Math.max(0.3, minV);
-    ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
-  });
-
-  /* Суставы — только тело (11+), без головы */
-  ctx.shadowBlur = 8;
-  const JOINTS = [11,12,13,14,15,16,23,24,25,26,27,28,29,30,31,32];
-  JOINTS.forEach(i => {
-    if (!pts[i] || pts[i].v < 0.4) return;
-    ctx.globalAlpha = Math.max(0.4, pts[i].v);
-    ctx.fillStyle = G;
-    ctx.beginPath(); ctx.arc(pts[i].x, pts[i].y, 4, 0, Math.PI*2); ctx.fill();
-  });
-
-  /* Овал головы, нос, метки — УДАЛЕНЫ (заменены сеткой лица) */
-
-  ctx.globalAlpha = 1; ctx.shadowBlur = 0;
-  ctx.restore();
-}
-
-/* ════════════════════════════════════════════════════
-   ДОБАВЛЕНИЕ: DRAW FACE MESH
-   Зелёная тесселяция без анимации сканирующей линии.
-   Заменяет овал головы из скелета.
-   Рисуется только при hasPerson.
-════════════════════════════════════════════════════ */
-function drawFaceMesh(vw, vh) {
-  const res = lastFaceResult;
-  if (!res || !res.multiFaceLandmarks || !res.multiFaceLandmarks.length) {
-    document.getElementById('b-face').classList.remove('active');
-    return;
-  }
-  document.getElementById('b-face').classList.add('active');
-
-  const G = '#00ff41';
-  ctx.save();
-
-  for (const landmarks of res.multiFaceLandmarks) {
-
-    /* ── Тесселяция — зелёная, статичная ── */
-    const tesselation = (typeof FACEMESH_TESSELATION !== 'undefined')
-      ? FACEMESH_TESSELATION : [];
-
-    ctx.strokeStyle = 'rgba(0,255,65,0.22)';
-    ctx.lineWidth   = 0.5;
-    for (const conn of tesselation) {
-      const s = landmarks[conn[0]];
-      const e = landmarks[conn[1]];
-      if (!s || !e) continue;
-      ctx.beginPath();
-      ctx.moveTo(s.x * vw, s.y * vh);
-      ctx.lineTo(e.x * vw, e.y * vh);
-      ctx.stroke();
-    }
-
-    /* ── Контуры: губы + глаза — ярче, зелёный ── */
-    const featureConns = [];
-    if (typeof FACEMESH_LIPS      !== 'undefined') featureConns.push(...FACEMESH_LIPS);
-    if (typeof FACEMESH_LEFT_EYE  !== 'undefined') featureConns.push(...FACEMESH_LEFT_EYE);
-    if (typeof FACEMESH_RIGHT_EYE !== 'undefined') featureConns.push(...FACEMESH_RIGHT_EYE);
-
-    ctx.strokeStyle = 'rgba(0,255,65,0.65)';
-    ctx.lineWidth   = 1.0;
-    ctx.shadowColor = G;
-    ctx.shadowBlur  = 3;
-    for (const conn of featureConns) {
-      const s = landmarks[conn[0]], e = landmarks[conn[1]];
-      if (!s || !e) continue;
-      ctx.beginPath();
-      ctx.moveTo(s.x * vw, s.y * vh);
-      ctx.lineTo(e.x * vw, e.y * vh);
-      ctx.stroke();
-    }
-    ctx.shadowBlur = 0;
-
-    /* ── Угловая рамка захвата — зелёная ── */
-    const xArr = landmarks.map(l => l.x * vw);
-    const yArr = landmarks.map(l => l.y * vh);
-    const fxMin = Math.min(...xArr) - 18;
-    const fxMax = Math.max(...xArr) + 18;
-    const fyMin = Math.min(...yArr) - 32;
-    const fyMax = Math.max(...yArr) + 16;
-    const fw = fxMax - fxMin;
-    const fh = fyMax - fyMin;
-    const cs = Math.min(20, fw * 0.2, fh * 0.2);
-
-    ctx.strokeStyle = hexA(G, 0.82);
-    ctx.lineWidth   = 1.5;
-    ctx.shadowColor = G;
-    ctx.shadowBlur  = 5;
-    ctx.beginPath();
-    ctx.moveTo(fxMin, fyMin + cs); ctx.lineTo(fxMin, fyMin); ctx.lineTo(fxMin + cs, fyMin);
-    ctx.moveTo(fxMax - cs, fyMin); ctx.lineTo(fxMax, fyMin); ctx.lineTo(fxMax, fyMin + cs);
-    ctx.moveTo(fxMin, fyMax - cs); ctx.lineTo(fxMin, fyMax); ctx.lineTo(fxMin + cs, fyMax);
-    ctx.moveTo(fxMax - cs, fyMax); ctx.lineTo(fxMax, fyMax); ctx.lineTo(fxMax, fyMax - cs);
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-
-    /* Метка FACE_MESH */
-    ctx.font        = "9px 'Share Tech Mono'";
-    ctx.fillStyle   = hexA(G, 0.65);
-    ctx.globalAlpha = 0.85;
-    ctx.fillText('FACE_MESH', fxMin, fyMin > 14 ? fyMin - 5 : fyMax + 12);
-    ctx.globalAlpha = 1;
-  }
-
-  ctx.restore();
-}
-
-/* DRAW HANDS (оригинал без изменений) */
-const HAND_FALLBACK = [
-  [0,1],[1,2],[2,3],[3,4],
-  [0,5],[5,6],[6,7],[7,8],
-  [5,9],[9,10],[10,11],[11,12],
-  [9,13],[13,14],[14,15],[15,16],
-  [13,17],[17,18],[18,19],[19,20],[0,17]
-];
-function drawHands(vw, vh) {
-  const res = lastHandsResult;
-  if (!res || !res.multiHandLandmarks || !res.multiHandLandmarks.length) return;
-  const conns = (typeof HAND_CONNECTIONS !== 'undefined') ? HAND_CONNECTIONS : HAND_FALLBACK;
-  const H_LINE  = '#00ff41';
-  const H_JOINT = '#ff0055';
-  ctx.save();
-  ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-  res.multiHandLandmarks.forEach(landmarks => {
-    const pts = landmarks.map(p => ({ x: p.x * vw, y: p.y * vh }));
-    ctx.strokeStyle = H_LINE; ctx.lineWidth = 2;
-    ctx.shadowColor = H_LINE; ctx.shadowBlur = 6;
-    ctx.globalAlpha = 0.9;
-    conns.forEach(pair => {
-      const a = Array.isArray(pair) ? pair[0] : pair.start;
-      const b = Array.isArray(pair) ? pair[1] : pair.end;
-      if (!pts[a] || !pts[b]) return;
-      ctx.beginPath(); ctx.moveTo(pts[a].x,pts[a].y); ctx.lineTo(pts[b].x,pts[b].y); ctx.stroke();
-    });
-    ctx.shadowBlur = 8;
-    pts.forEach(p => {
-      ctx.fillStyle = H_JOINT; ctx.globalAlpha = 0.9;
-      ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill();
-    });
-    if (pts[0]) {
-      ctx.strokeStyle = H_LINE; ctx.lineWidth = 1.5; ctx.globalAlpha = 0.6;
-      ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,8,0,Math.PI*2); ctx.stroke();
-    }
-  });
-  ctx.globalAlpha = 1; ctx.shadowBlur = 0;
-  ctx.restore();
-}
-
-/* CANVAS TAP (оригинал без изменений) */
-canvas.addEventListener('click', async (e) => {
-  const rect = canvas.getBoundingClientRect();
-  const sx = canvas.width  / rect.width;
-  const sy = canvas.height / rect.height;
-  const cx = (e.clientX - rect.left) * sx;
-  const cy = (e.clientY - rect.top)  * sy;
-  const hit = lastObjects.find(o => {
-    const [bx,by,bw,bh] = o.bbox;
-    return cx >= bx && cx <= bx+bw && cy >= by && cy <= by+bh;
-  });
-  if (hit) {
-    selectedCls = hit.class;
-    openCard(hit);
-    sysLog(`LOCK-ON: ${getAlias(hit.class)}`, hit.class.toUpperCase(), getGroup(hit.class));
-    showShotFlash();
-    sysLog('CAPTURING SCREENSHOT...','SNAP','SYS');
-    try {
-      const result = await captureScreenshot();
-      screenshotBlob = result.blob;
-      lastScreenshot = result.dataURL;
-      updateCardScreenshot(result.dataURL);
-      sysLog('SCREENSHOT READY','SNAP','SYS');
-    } catch(err) {
-      sysLog('SCREENSHOT FAILED: '+err.message,'ERROR','SYS');
-    }
-  } else {
-    closeCard();
-  }
-});
-
-/* INFO CARD (оригинал + заполнение аудио-строки) */
-function openCard(obj) {
-  const col   = getCol(obj.class);
-  const kb    = getKB(obj.class);
-  const alias = getAlias(obj.class);
-  const group = getGroup(obj.class);
-  const [bx,by,bw,bh] = obj.bbox;
-  const score  = Math.round(obj.score*100);
-  const threat = Math.round(kb.threat*100);
-  const seen   = UC.counts[obj.class] || 0;
-  const nameEl = document.getElementById('ic-name');
-  nameEl.textContent = alias; nameEl.style.color = col;
-  nameEl.style.textShadow = `0 0 18px ${col}`; nameEl.dataset.cls = obj.class;
-  document.getElementById('ic-grid').innerHTML =
-    `<div class="ick">КЛАСС</div>  <div class="icv">${obj.class.toUpperCase()}</div>` +
-    `<div class="ick">ГРУППА</div> <div class="icv">${group}</div>` +
-    `<div class="ick">СИГНАЛ</div> <div class="icv">${score}%</div>` +
-    `<div class="ick">В КЭШЕ</div> <div class="icv">${seen}×</div>` +
-    `<div class="ick">РАЗМЕР</div> <div class="icv">${Math.round(bw)}×${Math.round(bh)}</div>` +
-    `<div class="ick">ПОЗИЦИЯ</div><div class="icv">${Math.round(bx)},${Math.round(by)}</div>`;
-  document.getElementById('ic-desc').textContent = kb.desc;
-  const tf = document.getElementById('ic-tf');
-  const tcol = threat > 60 ? 'var(--r)' : threat > 35 ? 'var(--o)' : 'var(--g)';
-  tf.style.width = threat+'%'; tf.style.background = tcol; tf.style.boxShadow = `0 0 8px ${tcol}`;
-  document.getElementById('ic-tv').textContent = threat+'%';
-  const shotBtn = document.getElementById('ic-shot-btn');
-  const thumb   = document.getElementById('ic-thumb');
-  shotBtn.classList.remove('ready','saving'); shotBtn.textContent = '⬇ SAVE PNG';
-  thumb.classList.remove('ready');
-
-  /* ДОБАВЛЕНИЕ: заполнить аудио-строку текущими данными */
-  _updateCardAudio();
-
-  document.getElementById('info-card').classList.add('open');
-}
-function updateCardScreenshot(dataURL) {
-  const thumb   = document.getElementById('ic-thumb');
-  const shotBtn = document.getElementById('ic-shot-btn');
-  thumb.src = dataURL; thumb.classList.add('ready'); shotBtn.classList.add('ready');
-}
-function closeCard() {
-  selectedCls = null; lastScreenshot = null; screenshotBlob = null;
-  document.getElementById('info-card').classList.remove('open');
-  document.getElementById('ic-thumb').classList.remove('ready');
-  document.getElementById('ic-shot-btn').classList.remove('ready','saving');
-}
-document.getElementById('ic-name').addEventListener('click', renameObj);
-function renameObj() {
-  const nameEl = document.getElementById('ic-name');
-  const cls    = nameEl.dataset.cls;
-  if (!cls) return;
-  const cur = UC.aliases[cls] || cls.toUpperCase();
-  const nv  = prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" →`, cur);
-  if (nv !== null && nv.trim()) {
-    const nm = nv.trim().toUpperCase();
-    UC.aliases[cls] = nm; saveCache();
-    nameEl.textContent = nm;
-    sysLog(`ALIAS: ${cls.toUpperCase()} → ${nm}`, 'RENAME', 'SYS');
-  }
-}
-
-/* ════════════════════════════════════════════════════
-   ДОБАВЛЕНИЕ: СМЕНА КАМЕРЫ
-════════════════════════════════════════════════════ */
+// Camera
 let currentFacingMode = 'environment';
 let activeStream = null;
 let activeMpCamera = null;
 let isSwitchingCam = false;
 
-function startCamera(onFrameCb, isMobile) {
-  /* используем currentFacingMode */
-  if (typeof Camera !== 'undefined') {
-    activeMpCamera = new Camera(video, {
-      onFrame: onFrameCb,
-      facingMode: currentFacingMode,
-      width: 1280, height: 720
-    });
-    activeMpCamera.start().catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  } else {
-    navigator.mediaDevices.getUserMedia({
-      video: { facingMode: currentFacingMode, width:{ideal:1280}, height:{ideal:720} }
-    }).then(stream => {
-      activeStream = stream;
-      video.srcObject = stream;
-      video.onloadedmetadata = () => {
-        video.play();
-        const loop = async () => { await onFrameCb(); requestAnimationFrame(loop); };
-        requestAnimationFrame(loop);
-      };
-    }).catch(e => sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  }
+// Audio
+let audioCtxNode=null, analyser=null, micStream=null;
+let freqData=null, timeData=null, micReady=false, barSmooth=null;
+const BAR_N=90, SPEECH_ON=0.36, SPEECH_OFF=0.20;
+let speechHyst=false, speechDetected=false, speechLogT=0;
+let lastDbVal=-60, lastEnvStr='QUIET';
+
+/* ═══════════════════════════════════════
+   HELPERS
+═══════════════════════════════════════ */
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function nowStr(){
+  const n=new Date();
+  return { t:n.toTimeString().slice(0,8),
+    d:`${String(n.getDate()).padStart(2,'0')}.${String(n.getMonth()+1).padStart(2,'0')}.${n.getFullYear()}` };
 }
 
-async function switchCamera() {
-  if (isSwitchingCam) return;
-  isSwitchingCam = true;
-  const btn = document.getElementById('btn-cam-switch');
-  btn.classList.add('switching');
-  sysLog('SWITCHING CAMERA...','CAM','SYS');
+/* ═══════════════════════════════════════
+   TERMINAL
+═══════════════════════════════════════ */
+function sysLog(event,type='SYSTEM',group='SYS'){
+  const{t,d}=nowStr();
+  const cls={HUMAN:'person',VEHICLE:'vehicle',ANIMAL:'animal',DEVICE:'device',SYS:'system'}[group]||'other';
+  const row=document.createElement('div'); row.className=`trow ${cls}`;
+  row.innerHTML=`<span class="tc-time">${t}</span><span class="tc-date">${d}</span><span class="tc-event">${event}</span><span class="tc-type" style="color:${GCOL[group]||'var(--g)'}">${type}</span><span class="tc-group">${group}</span>`;
+  termBody.appendChild(row);
+  if(termBody.scrollHeight-termBody.scrollTop-termBody.clientHeight<50) termBody.scrollTop=termBody.scrollHeight;
+  while(termBody.children.length>300) termBody.firstElementChild.remove();
+}
+function clearLog(){ termBody.innerHTML=''; sysLog('LOG CLEARED','SYSTEM','SYS'); }
 
-  /* Остановить текущую камеру */
-  if (activeMpCamera) {
-    try { await activeMpCamera.stop(); } catch(e) {}
-    activeMpCamera = null;
+/* ═══════════════════════════════════════
+   SCREENSHOT
+═══════════════════════════════════════ */
+async function captureScreenshot(){
+  const frameDataURL=canvas.toDataURL('image/png');
+  try{
+    const shotCanvas=await html2canvas(document.getElementById('app'),{
+      backgroundColor:'#000',useCORS:true,allowTaint:true,
+      scale:Math.min(window.devicePixelRatio||1,2),logging:false,
+      ignoreElements:el=>el.id==='shot-flash'||el.id==='shot-indicator',
+      onclone:(doc)=>{
+        const cloneVideo=doc.getElementById('input_video'), cloneCanvas=doc.getElementById('output_canvas');
+        if(cloneVideo) cloneVideo.style.display='none';
+        if(cloneCanvas){ const img=doc.createElement('img'); img.src=frameDataURL;
+          img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;';
+          cloneCanvas.replaceWith(img); }
+      }
+    });
+    return new Promise(resolve=>{ shotCanvas.toBlob(blob=>{ resolve({blob,dataURL:shotCanvas.toDataURL('image/png')}); },'image/png'); });
+  }catch(err){
+    return new Promise(resolve=>{ canvas.toBlob(blob=>{ resolve({blob,dataURL:canvas.toDataURL('image/png')}); },'image/png'); });
   }
-  if (activeStream) {
-    activeStream.getTracks().forEach(t => t.stop());
-    activeStream = null;
-  }
+}
+function showShotFlash(){
+  const f=document.getElementById('shot-flash'), i=document.getElementById('shot-indicator');
+  f.classList.remove('snap'); i.classList.remove('snap'); void f.offsetWidth;
+  f.classList.add('snap'); i.classList.add('snap');
+  setTimeout(()=>{ f.classList.remove('snap'); i.classList.remove('snap'); },900);
+}
+async function downloadScreenshot(){
+  if(!screenshotBlob) return;
+  const btn=document.getElementById('ic-shot-btn');
+  btn.classList.add('saving'); btn.textContent='⏳ SAVING...';
+  await sleep(80);
+  const url=URL.createObjectURL(screenshotBlob);
+  const a=document.createElement('a');
+  const now=new Date();
+  const ts=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${now.toTimeString().slice(0,8).replace(/:/g,'')}`;
+  a.href=url; a.download=`myEYE_${selectedCls||'capture'}_${ts}.png`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url),3000);
+  btn.classList.remove('saving'); btn.textContent='⬇ SAVE PNG';
+  sysLog(`SCREENSHOT SAVED: ${a.download}`,'PNG','SYS');
+}
 
-  /* Сбросить MP-результаты */
-  lastPoseResult = null; lastHandsResult = null; lastObjects = []; lastFaceResult = null;
+/* ═══════════════════════════════════════
+   BOOT SEQUENCE
+═══════════════════════════════════════ */
+async function initModels(){
+  const blogEl=document.getElementById('boot-log'), pbEl=document.getElementById('pb'), pctEl=document.getElementById('pb-pct');
+  const bLog=(txt,cls='ok')=>{ const d=document.createElement('div'); d.className='bl '+cls; d.textContent=txt; blogEl.appendChild(d); };
+  const setPb=p=>{ pbEl.style.width=p+'%'; pctEl.textContent=p+'%'; };
 
-  /* Переключить */
-  currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
-  document.getElementById('cam-label').textContent =
-    currentFacingMode === 'environment' ? 'REAR' : 'FRONT';
+  bLog('INIT VISION OS v5.4'); setPb(5); await sleep(120);
+  bLog(`USER CACHE: ${Object.keys(UC.aliases).length} ALIASES`); setPb(10); await sleep(100);
+  bLog('THREE.JS RENDERER: '+(typeof THREE!=='undefined'?'READY':'UNAVAILABLE'), typeof THREE!=='undefined'?'ok':'warn');
+  setPb(15); await sleep(80);
+  if(typeof html2canvas!=='undefined') bLog('SCREENSHOT ENGINE: READY');
+  else bLog('SCREENSHOT ENGINE: FALLBACK','warn');
+  setPb(20); await sleep(80);
 
-  await sleep(300);
+  try{
+    bLog('DETECTOR: COCO-SSD LOADING...','warn');
+    detector=await cocoSsd.load({base:'lite_mobilenet_v2'});
+    bLog('DETECTOR: READY'); setPb(50);
+  }catch(e){ bLog('DETECTOR ERROR: '+e.message,'err'); }
 
-  /* Восстановить onFrame (нужен замыкающий вариант) */
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  async function onFrame() {
-    if (!detecting && detector) {
-      detecting = true;
-      try { lastObjects = await detector.detect(video, 50, 0.32); } catch(e) {}
-      detecting = false;
+  try{
+    if(typeof Pose==='undefined') throw new Error('script not loaded');
+    bLog('POSE ENGINE: LOADING...','warn');
+    mpPose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
+    mpPose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+    mpPose.onResults(res=>{ lastPoseResult=res; });
+    await mpPose.initialize(); poseReady=true;
+    bLog('POSE ENGINE: ACTIVE'); setPb(68);
+  }catch(e){ bLog('POSE: UNAVAILABLE -- '+e.message,'warn'); }
+
+  try{
+    if(typeof Hands==='undefined') throw new Error('script not loaded');
+    bLog('HANDS ENGINE: LOADING...','warn');
+    mpHands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
+    mpHands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+    mpHands.onResults(res=>{ lastHandsResult=res; });
+    await mpHands.initialize(); handsReady=true;
+    bLog('HANDS ENGINE: ACTIVE'); setPb(80);
+  }catch(e){ bLog('HANDS: UNAVAILABLE -- '+e.message,'warn'); }
+
+  try{
+    if(typeof FaceMesh==='undefined') throw new Error('script not loaded');
+    bLog('FACE MESH: LOADING...','warn');
+    mpFaceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
+    mpFaceMesh.setOptions({maxNumFaces:2,refineLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
+    mpFaceMesh.onResults(res=>{ lastFaceResult=res; });
+    await mpFaceMesh.initialize(); faceReady=true;
+    bLog('FACE MESH: ACTIVE'); setPb(93);
+  }catch(e){ bLog('FACE MESH: UNAVAILABLE -- '+e.message,'warn'); }
+
+  bLog('MICROPHONE: WILL REQUEST ON ACTIVATE','warn');
+  setPb(100); await sleep(150);
+  bLog('ALL SYSTEMS OPERATIONAL');
+  document.getElementById('btn-start').style.display='block';
+}
+
+/* ═══════════════════════════════════════
+   START APP
+═══════════════════════════════════════ */
+function startApp(){
+  document.getElementById('boot').style.display='none';
+  document.getElementById('app').style.display='flex';
+  saveCache();
+  sysLog('SYSTEM START: SUCCESS','SYSTEM','SYS');
+
+  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  currentFacingMode=isMobile?'environment':'user';
+  document.getElementById('cam-label').textContent=currentFacingMode==='environment'?'REAR':'FRONT';
+
+  // Setup Three.js
+  if(typeof THREE!=='undefined') setupThree();
+
+  // Setup red tap handler
+  setupRedTap();
+
+  // Start microphone
+  initMic();
+
+  // Red detect loop (runs continuously in background)
+  (async function redDetLoop(){
+    if(detector && video.readyState>=2){
+      try{ R.predictions=await detector.detect(video,10,0.3); }catch(_){}
     }
-    const hasPerson = lastObjects.some(o => o.class === 'person');
-    if (poseReady  && hasPerson) { try { await mpPose.send({ image: video });  } catch(e) {} }
-    if (handsReady && hasPerson) { try { await mpHands.send({ image: video }); } catch(e) {} }
-    if (faceReady  && hasPerson && !faceRunning) {
-      faceRunning = true;
-      try { await mpFaceMesh.send({ image: video }); } catch(e) {}
-      faceRunning = false;
+    setTimeout(redDetLoop, 80);
+  })();
+
+  async function onFrame(){
+    if(!detecting&&detector){
+      detecting=true;
+      try{ lastObjects=await detector.detect(video,50,0.32); }catch(e){}
+      detecting=false;
     }
-    if (!hasPerson) { lastPoseResult = null; lastHandsResult = null; lastFaceResult = null; }
+    const hasPerson=lastObjects.some(o=>o.class==='person');
+    if(poseReady&&hasPerson)  { try{ await mpPose.send({image:video}); }catch(e){} }
+    if(handsReady&&hasPerson) { try{ await mpHands.send({image:video}); }catch(e){} }
+    if(faceReady&&hasPerson&&!faceRunning){
+      faceRunning=true;
+      try{ await mpFaceMesh.send({image:video}); }catch(e){}
+      faceRunning=false;
+    }
+    if(!hasPerson){ lastPoseResult=null; lastHandsResult=null; lastFaceResult=null; }
     renderFrame();
   }
+
   startCamera(onFrame, isMobile);
 
-  sysLog(`CAMERA: ${currentFacingMode.toUpperCase()} ACTIVE`, 'CAM', 'SYS');
-  btn.classList.remove('switching');
-  isSwitchingCam = false;
+  setInterval(()=>{ document.getElementById('sb-time').textContent=new Date().toTimeString().slice(0,8); },1000);
 }
 
-/* ════════════════════════════════════════════════════
-   ДОБАВЛЕНИЕ: МИКРОФОН + АУДИО STRIP
-════════════════════════════════════════════════════ */
-const audioCanv = document.getElementById('audio-canvas');
-const actx      = audioCanv.getContext('2d');
+/* ═══════════════════════════════════════
+   RENDER FRAME
+═══════════════════════════════════════ */
+function renderFrame(){
+  const vw=video.videoWidth, vh=video.videoHeight;
+  if(!vw) return;
 
-let audioCtxNode = null, analyser = null, micStream = null;
-let freqData = null, timeData = null;
-let micReady = false;
-let barSmooth = null;
-const BAR_N = 90;
-const SPEECH_ON = 0.36, SPEECH_OFF = 0.20;
-let speechHyst = false, speechDetected = false, speechLogT = 0;
-let lastDbVal = -60, lastEnvStr = 'QUIET';
-
-async function initMic() {
-  try {
-    micStream = await navigator.mediaDevices.getUserMedia({
-      audio: { echoCancellation: true, noiseSuppression: false }, video: false
-    });
-    audioCtxNode = new (window.AudioContext || window.webkitAudioContext)();
-    const src = audioCtxNode.createMediaStreamSource(micStream);
-    analyser = audioCtxNode.createAnalyser();
-    analyser.fftSize = 1024;
-    analyser.smoothingTimeConstant = 0.75;
-    analyser.minDecibels = -90;
-    analyser.maxDecibels = -10;
-    src.connect(analyser);
-    freqData  = new Uint8Array(analyser.frequencyBinCount);
-    timeData  = new Uint8Array(analyser.fftSize);
-    barSmooth = new Float32Array(BAR_N).fill(0);
-    micReady  = true;
-    document.getElementById('b-mic').classList.remove('muted');
-    document.getElementById('mic-txt').textContent = 'MIC ●';
-    sysLog('MICROPHONE: ACTIVE','AUDIO','SYS');
-    requestAnimationFrame(renderAudio);
-    /* Запускаем распознавание речи */
-    if (window._startSpeechRec) window._startSpeechRec();
-  } catch(e) {
-    document.getElementById('b-mic').classList.add('muted');
-    document.getElementById('mic-txt').textContent = 'MIC ✕';
-    sysLog('MIC DENIED: ' + e.message,'WARN','SYS');
-    requestAnimationFrame(renderAudioDead);
-  }
-}
-
-function drawAudioGrid(W, H) {
-  actx.strokeStyle = 'rgba(0,55,18,0.5)'; actx.lineWidth = 0.5;
-  for (let i = 1; i < 4; i++) {
-    const y = Math.round(H / 4 * i) + 0.5;
-    actx.beginPath(); actx.moveTo(0, y); actx.lineTo(W, y); actx.stroke();
-  }
-  for (let j = 1; j < 10; j++) {
-    const x = Math.round(W / 10 * j) + 0.5;
-    actx.beginPath(); actx.moveTo(x, 0); actx.lineTo(x, H); actx.stroke();
-  }
-  actx.strokeStyle = 'rgba(0,80,25,0.65)';
-  actx.beginPath(); actx.moveTo(0, H/2); actx.lineTo(W, H/2); actx.stroke();
-}
-
-function renderAudioDead() {
-  const W = audioCanv.offsetWidth, H = audioCanv.offsetHeight;
-  if (audioCanv.width !== W || audioCanv.height !== H) { audioCanv.width = W; audioCanv.height = H; }
-  if (!W || !H) { requestAnimationFrame(renderAudioDead); return; }
-  actx.fillStyle = 'rgba(0,2,0,0.98)'; actx.fillRect(0, 0, W, H);
-  drawAudioGrid(W, H);
-  actx.strokeStyle = 'rgba(0,255,65,0.18)'; actx.lineWidth = 1;
-  actx.beginPath(); actx.moveTo(0, H/2); actx.lineTo(W, H/2); actx.stroke();
-  requestAnimationFrame(renderAudioDead);
-}
-
-function renderAudio() {
-  if (!micReady) { requestAnimationFrame(renderAudio); return; }
-  const W = audioCanv.offsetWidth, H = audioCanv.offsetHeight;
-  if (audioCanv.width !== W || audioCanv.height !== H) { audioCanv.width = W; audioCanv.height = H; }
-  if (!W || !H) { requestAnimationFrame(renderAudio); return; }
-
-  analyser.getByteFrequencyData(freqData);
-  analyser.getByteTimeDomainData(timeData);
-
-  const sr   = audioCtxNode.sampleRate;
-  const bins = analyser.frequencyBinCount;
-
-  /* Фон */
-  actx.fillStyle = 'rgba(0,2,0,0.92)'; actx.fillRect(0, 0, W, H);
-  drawAudioGrid(W, H);
-
-  /* Детекция речи 200–3400 Гц */
-  const loIdx = Math.floor(200 / sr * bins * 2);
-  const hiIdx = Math.min(Math.floor(3400 / sr * bins * 2), bins - 1);
-  let spSum = 0, spCnt = 0;
-  for (let i = loIdx; i <= hiIdx; i++) { spSum += freqData[i] / 255; spCnt++; }
-  const spNorm = spCnt > 0 ? spSum / spCnt : 0;
-  if (!speechHyst && spNorm > SPEECH_ON)  speechHyst = true;
-  if (speechHyst  && spNorm < SPEECH_OFF) speechHyst = false;
-  if (speechHyst !== speechDetected) {
-    speechDetected = speechHyst;
-    document.getElementById('audio-speech-badge').classList.toggle('on', speechDetected);
-    document.getElementById('b-mic').classList.toggle('speech', speechDetected);
-    /* синхронизируем пилюлю в карточке */
-    const pill = document.getElementById('ic-speech-pill');
-    if (pill) {
-      pill.textContent = speechDetected ? 'SPEECH' : 'SILENT';
-      pill.classList.toggle('on', speechDetected);
-    }
-    const ts = Date.now();
-    if (speechDetected && ts - speechLogT > 4000) {
-      speechLogT = ts; sysLog('SPEECH DETECTED','AUDIO','SYS');
-    }
-  }
-
-  /* dB RMS */
-  let sq = 0;
-  for (let i = 0; i < timeData.length; i++) { const s = (timeData[i]-128)/128; sq += s*s; }
-  const rms = Math.sqrt(sq / timeData.length);
-  const db  = rms > 0 ? Math.max(-60, 20 * Math.log10(rms)) : -60;
-  lastDbVal  = db;
-  lastEnvStr = db > -20 ? 'LOUD' : db > -35 ? 'MEDIUM' : db > -50 ? 'LOW' : 'QUIET';
-  document.getElementById('audio-db').textContent = db > -55 ? db.toFixed(1) + ' dB' : '--  dB';
-  /* живое обновление карточки */
-  const icDb  = document.getElementById('ic-db-val');
-  const icEnv = document.getElementById('ic-env-val');
-  if (icDb)  icDb.textContent  = db > -55 ? db.toFixed(1) + ' dB' : '-- dB';
-  if (icEnv) { icEnv.textContent = lastEnvStr; icEnv.className = 'ica-val' + (db > -20 ? ' warn' : ''); }
-
-  /* FFT бары */
-  const maxBin = Math.floor(bins * 0.55);
-  const barW   = W / BAR_N;
-  const pad    = barW > 3 ? 0.8 : 0.2;
-  for (let i = 0; i < BAR_N; i++) {
-    const binIdx = Math.floor(i / BAR_N * maxBin);
-    const raw    = freqData[binIdx] / 255;
-    barSmooth[i] = raw > barSmooth[i]
-      ? raw * 0.65 + barSmooth[i] * 0.35
-      : raw * 0.07 + barSmooth[i] * 0.93;
-    const v  = barSmooth[i];
-    const bh = v * (H - 2);
-    const bx = i * barW;
-    const by = H - bh;
-    const freq = binIdx / bins * sr * 0.5;
-    let col;
-    if      (freq < 250)  col = [0, 120, 255];
-    else if (freq < 900)  col = [0, 200, 80];
-    else if (freq < 3500) col = [0, 255, 65];
-    else if (freq < 7000) col = [0, 220, 200];
-    else                  col = [0, 160, 200];
-    const a = 0.3 + v * 0.7;
-    actx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},${a})`;
-    actx.fillRect(bx + pad, by, barW - pad*2, bh);
-    if (v > 0.12) {
-      actx.fillStyle = `rgba(${col[0]},${col[1]},${col[2]},0.9)`;
-      actx.fillRect(bx + pad, by, barW - pad*2, 1.5);
-    }
-  }
-
-  /* Осциллограмма (тонкая циановая линия) */
-  actx.beginPath();
-  actx.strokeStyle = 'rgba(80,255,220,0.50)';
-  actx.lineWidth   = 1.2;
-  actx.shadowColor = 'rgba(0,255,200,0.25)';
-  actx.shadowBlur  = 2;
-  for (let x = 0; x < W; x++) {
-    const idx = Math.floor(x / W * timeData.length);
-    const vv  = (timeData[idx] - 128) / 128;
-    const yy  = H/2 + vv * (H/2 - 3);
-    x === 0 ? actx.moveTo(x, yy) : actx.lineTo(x, yy);
-  }
-  actx.stroke(); actx.shadowBlur = 0;
-
-  requestAnimationFrame(renderAudio);
-}
-
-/* Заполнить аудио-строку в карточке последними значениями */
-function _updateCardAudio() {
-  const icDb   = document.getElementById('ic-db-val');
-  const icEnv  = document.getElementById('ic-env-val');
-  const icPill = document.getElementById('ic-speech-pill');
-  if (icDb)   icDb.textContent   = lastDbVal > -55 ? lastDbVal.toFixed(1) + ' dB' : '-- dB';
-  if (icEnv)  { icEnv.textContent = lastEnvStr; icEnv.className = 'ica-val' + (lastDbVal > -20 ? ' warn' : ''); }
-  if (icPill) { icPill.textContent = speechDetected ? 'SPEECH' : 'SILENT'; icPill.classList.toggle('on', speechDetected); }
-}
-
-/* ════════════════════════════════════════════════════
-   ДОБАВЛЕНИЕ: SPEECH RECOGNITION → ТЕРМИНАЛ
-   Двухязычный режим: ru-RU → en-US автоматически.
-   Финальные фразы выводятся в sysLog как VOICE-событие.
-   Промежуточный результат обновляет MIC-бейдж.
-════════════════════════════════════════════════════ */
-(function initSpeechRecognition() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    sysLog('SPEECH API: NOT SUPPORTED','WARN','SYS');
+  if(currentVisionMode==='green'){
+    // Three.js handles background; use output_canvas for green box overlay only
+    canvas.width=vw; canvas.height=vh;
+    ctx.clearRect(0,0,vw,vh);
+    fpsN++;
+    const now=performance.now();
+    if(now-lastFpsT>1000){ document.getElementById('fps-txt').textContent=fpsN+' FPS'; fpsN=0; lastFpsT=now; }
+    frameN++;
+    pushBoxesToShader(lastObjects);
+    drawGreenBoxes(lastObjects);
+    // No pose/hands/face overlay in green mode for clean look
     return;
   }
 
-  /* Создаём два экземпляра — один для RU, один для EN.
-     Работают поочерёдно: при ошибке/паузе передают управление. */
-  function makeRec(lang) {
-    const r = new SR();
-    r.continuous      = true;
-    r.interimResults  = true;
-    r.lang            = lang;
-    r.maxAlternatives = 1;
-    return r;
+  if(currentVisionMode==='red'){
+    // Video handled by CSS filter; canvas is transparent
+    canvas.width=vw; canvas.height=vh;
+    ctx.clearRect(0,0,vw,vh);
+    fpsN++;
+    const now=performance.now();
+    if(now-lastFpsT>1000){ document.getElementById('fps-txt').textContent=fpsN+' FPS'; fpsN=0; lastFpsT=now; }
+    frameN++;
+    // Red reticle drawn on red-canvas by its own loop
+    return;
   }
 
-  const recRU = makeRec('ru-RU');
-  const recEN = makeRec('en-US');
-  let activeRec = recRU;
-  let srRunning = false;
-  let interimTimeout = null;
+  // STANDARD mode
+  canvas.width=vw; canvas.height=vh;
+  ctx.drawImage(video,0,0,vw,vh);
+  const vig=ctx.createRadialGradient(vw/2,vh/2,vw*.22,vw/2,vh/2,vw*.68);
+  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.52)');
+  ctx.fillStyle=vig; ctx.fillRect(0,0,vw,vh);
+  fpsN++;
+  const now=performance.now();
+  if(now-lastFpsT>1000){ document.getElementById('fps-txt').textContent=fpsN+' FPS'; fpsN=0; lastFpsT=now; }
+  frameN++;
+  drawObjects(vw,vh);
+  if(lastPoseResult)  drawPose(vw,vh);
+  if(lastHandsResult) drawHands(vw,vh);
+  if(lastFaceResult)  drawFaceMesh(vw,vh);
+}
 
-  function startSR() {
-    if (srRunning) return;
-    srRunning = true;
-    try { activeRec.start(); } catch(e) { srRunning = false; }
+/* ═══════════════════════════════════════
+   DRAW OBJECTS (standard mode)
+═══════════════════════════════════════ */
+function drawObjects(vw,vh){
+  const t=frameN;
+  const hasThreat=lastObjects.some(o=>['person','car','truck','bus','motorcycle'].includes(o.class));
+  const tb=document.getElementById('b-threat');
+  if(hasThreat!==threatActive){
+    threatActive=hasThreat; tb.style.display=hasThreat?'flex':'none';
+    if(hasThreat){ const af=document.getElementById('alert-flash'); af.classList.remove('on'); void af.offsetWidth; af.classList.add('on'); }
   }
+  document.getElementById('obj-txt').textContent=lastObjects.length+' TARGETS';
+  lastObjects.forEach(obj=>{
+    const[bx,by,bw,bh]=obj.bbox, col=getCol(obj.class), isSel=obj.class===selectedCls;
+    const isThrt=['person','car','truck','bus','motorcycle'].includes(obj.class);
+    const alpha=isThrt&&!isSel?0.6+0.4*Math.sin(t*0.11):1;
+    ctx.strokeStyle=hexA(col,alpha); ctx.lineWidth=isSel?4:3;
+    ctx.strokeRect(bx,by,bw,bh);
+    ctx.fillStyle=hexA(col,isSel?0.12:0.03); ctx.fillRect(bx,by,bw,bh);
+    const cs=Math.min(18,bw*.2,bh*.2), ao=isSel?Math.sin(t*.1)*2:0;
+    ctx.strokeStyle=col; ctx.lineWidth=isSel?3.5:2.5; ctx.shadowColor=col; ctx.shadowBlur=isSel?12:5;
+    ctx.beginPath();
+    ctx.moveTo(bx-ao,by+cs-ao); ctx.lineTo(bx-ao,by-ao); ctx.lineTo(bx+cs-ao,by-ao);
+    ctx.moveTo(bx+bw-cs+ao,by-ao); ctx.lineTo(bx+bw+ao,by-ao); ctx.lineTo(bx+bw+ao,by+cs-ao);
+    ctx.moveTo(bx-ao,by+bh-cs+ao); ctx.lineTo(bx-ao,by+bh+ao); ctx.lineTo(bx+cs-ao,by+bh+ao);
+    ctx.moveTo(bx+bw-cs+ao,by+bh+ao); ctx.lineTo(bx+bw+ao,by+bh+ao); ctx.lineTo(bx+bw+ao,by+bh-cs+ao);
+    ctx.stroke(); ctx.shadowBlur=0;
+    if(isSel){ const sy=by+((t*2.5%100)/100)*bh; const sg=ctx.createLinearGradient(bx,sy-10,bx,sy+10); sg.addColorStop(0,hexA(col,0)); sg.addColorStop(.5,hexA(col,.4)); sg.addColorStop(1,hexA(col,0)); ctx.fillStyle=sg; ctx.fillRect(bx,sy-10,bw,20); }
+    const alias=getAlias(obj.class), pct=Math.round(obj.score*100)+'%', upward=by>34, lY=upward?by-5:by+bh+20;
+    ctx.font="bold 15px 'Share Tech Mono'";
+    const tw=ctx.measureText(alias).width+10;
+    ctx.fillStyle=hexA(col,.92); ctx.fillRect(bx,upward?lY-23:lY-16,tw,24);
+    ctx.fillStyle='#000'; ctx.fillText(alias,bx+4,upward?lY-10:lY-3);
+    ctx.font="11px 'Share Tech Mono'"; ctx.fillStyle=hexA(col,.8); ctx.fillText(pct,bx+tw+4,upward?lY-10:lY-3);
+    if(bw>70){ ctx.fillStyle=hexA(col,.1); ctx.fillRect(bx+bw-62,by+3,60,13); ctx.fillStyle=hexA(col,.65); ctx.font="7.5px 'Share Tech Mono'"; ctx.fillText(getGroup(obj.class),bx+bw-60,by+13); }
+    const lk=obj.class, ts2=Date.now();
+    if(!logThrottle[lk]||ts2-logThrottle[lk]>8000){
+      logThrottle[lk]=ts2; sysLog(alias,obj.class.toUpperCase(),getGroup(obj.class));
+      UC.counts[lk]=(UC.counts[lk]||0)+1; UC.lastSeen[lk]=ts2;
+      UC.events.push({ts:ts2,cls:lk,score:Math.round(obj.score*100),group:getGroup(lk)}); saveCache();
+    }
+  });
+}
 
-  function onResult(lang) {
-    return function(event) {
-      let interim = '';
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const t = event.results[i][0].transcript.trim();
-        if (!t) continue;
-        if (event.results[i].isFinal) {
-          /* Финальная фраза — в терминал */
-          sysLog('VOICE [' + lang + ']: ' + t, 'VOICE', 'SYS');
-          document.getElementById('mic-txt').textContent = 'MIC ●';
-        } else {
-          interim += t;
-        }
-      }
-      if (interim) {
-        /* Промежуточный — показываем в бейдже, не спамим терминал */
-        const short = interim.length > 22 ? interim.slice(-22) + '…' : interim;
-        document.getElementById('mic-txt').textContent = short;
-        /* сбрасываем через 2с если замолчали */
-        clearTimeout(interimTimeout);
-        interimTimeout = setTimeout(() => {
-          document.getElementById('mic-txt').textContent = 'MIC ●';
-        }, 2000);
-      }
-    };
+/* ═══════════════════════════════════════
+   DRAW POSE
+═══════════════════════════════════════ */
+const SKEL_FALLBACK=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[27,29],[27,31],[24,26],[26,28],[28,30],[28,32]];
+function drawPose(vw,vh){
+  const res=lastPoseResult; if(!res||!res.poseLandmarks) return;
+  const lm=res.poseLandmarks, G='#00ff41';
+  const conns=(typeof POSE_CONNECTIONS!=='undefined')?POSE_CONNECTIONS:SKEL_FALLBACK;
+  const pts=lm.map(p=>({x:p.x*vw,y:p.y*vh,v:(p.visibility!=null)?p.visibility:1}));
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  ctx.strokeStyle=G; ctx.lineWidth=2; ctx.shadowColor=G; ctx.shadowBlur=6;
+  conns.forEach(pair=>{
+    const a=Array.isArray(pair)?pair[0]:pair.start, b=Array.isArray(pair)?pair[1]:pair.end;
+    if(a<=10||b<=10) return;
+    const pa=pts[a], pb=pts[b]; if(!pa||!pb) return;
+    const minV=Math.min(pa.v,pb.v); if(minV<0.4) return;
+    ctx.globalAlpha=Math.max(0.3,minV); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
+  });
+  ctx.shadowBlur=8;
+  [11,12,13,14,15,16,23,24,25,26,27,28,29,30,31,32].forEach(i=>{
+    if(!pts[i]||pts[i].v<0.4) return;
+    ctx.globalAlpha=Math.max(0.4,pts[i].v); ctx.fillStyle=G;
+    ctx.beginPath(); ctx.arc(pts[i].x,pts[i].y,4,0,Math.PI*2); ctx.fill();
+  });
+  ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.restore();
+}
+
+/* ═══════════════════════════════════════
+   DRAW FACE MESH
+═══════════════════════════════════════ */
+function drawFaceMesh(vw,vh){
+  const res=lastFaceResult;
+  if(!res||!res.multiFaceLandmarks||!res.multiFaceLandmarks.length){
+    document.getElementById('b-face').classList.remove('active'); return;
   }
-
-  function onEnd(switchTo) {
-    return function() {
-      srRunning = false;
-      /* Переключаем на другой язык при завершении */
-      activeRec = switchTo;
-      setTimeout(startSR, 300);
-    };
+  document.getElementById('b-face').classList.add('active');
+  const G='#00ff41';
+  ctx.save();
+  for(const landmarks of res.multiFaceLandmarks){
+    const tesselation=(typeof FACEMESH_TESSELATION!=='undefined')?FACEMESH_TESSELATION:[];
+    ctx.strokeStyle='rgba(0,255,65,0.22)'; ctx.lineWidth=0.5;
+    for(const conn of tesselation){
+      const s=landmarks[conn[0]], e=landmarks[conn[1]]; if(!s||!e) continue;
+      ctx.beginPath(); ctx.moveTo(s.x*vw,s.y*vh); ctx.lineTo(e.x*vw,e.y*vh); ctx.stroke();
+    }
+    const featureConns=[];
+    if(typeof FACEMESH_LIPS!=='undefined') featureConns.push(...FACEMESH_LIPS);
+    if(typeof FACEMESH_LEFT_EYE!=='undefined') featureConns.push(...FACEMESH_LEFT_EYE);
+    if(typeof FACEMESH_RIGHT_EYE!=='undefined') featureConns.push(...FACEMESH_RIGHT_EYE);
+    ctx.strokeStyle='rgba(0,255,65,0.65)'; ctx.lineWidth=1.0; ctx.shadowColor=G; ctx.shadowBlur=3;
+    for(const conn of featureConns){
+      const s=landmarks[conn[0]],e=landmarks[conn[1]]; if(!s||!e) continue;
+      ctx.beginPath(); ctx.moveTo(s.x*vw,s.y*vh); ctx.lineTo(e.x*vw,e.y*vh); ctx.stroke();
+    }
+    ctx.shadowBlur=0;
+    const xArr=landmarks.map(l=>l.x*vw), yArr=landmarks.map(l=>l.y*vh);
+    const fxMin=Math.min(...xArr)-18, fxMax=Math.max(...xArr)+18, fyMin=Math.min(...yArr)-32, fyMax=Math.max(...yArr)+16;
+    const fw=fxMax-fxMin, fh=fyMax-fyMin, cs=Math.min(20,fw*.2,fh*.2);
+    ctx.strokeStyle=hexA(G,0.82); ctx.lineWidth=1.5; ctx.shadowColor=G; ctx.shadowBlur=5;
+    ctx.beginPath();
+    ctx.moveTo(fxMin,fyMin+cs); ctx.lineTo(fxMin,fyMin); ctx.lineTo(fxMin+cs,fyMin);
+    ctx.moveTo(fxMax-cs,fyMin); ctx.lineTo(fxMax,fyMin); ctx.lineTo(fxMax,fyMin+cs);
+    ctx.moveTo(fxMin,fyMax-cs); ctx.lineTo(fxMin,fyMax); ctx.lineTo(fxMin+cs,fyMax);
+    ctx.moveTo(fxMax-cs,fyMax); ctx.lineTo(fxMax,fyMax); ctx.lineTo(fxMax,fyMax-cs);
+    ctx.stroke(); ctx.shadowBlur=0;
+    ctx.font="9px 'Share Tech Mono'"; ctx.fillStyle=hexA(G,0.65); ctx.globalAlpha=0.85;
+    ctx.fillText('FACE_MESH',fxMin,fyMin>14?fyMin-5:fyMax+12); ctx.globalAlpha=1;
   }
+  ctx.restore();
+}
 
-  function onError() {
-    srRunning = false;
-    setTimeout(startSR, 500);
+/* ═══════════════════════════════════════
+   DRAW HANDS
+═══════════════════════════════════════ */
+const HAND_FALLBACK=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
+function drawHands(vw,vh){
+  const res=lastHandsResult; if(!res||!res.multiHandLandmarks||!res.multiHandLandmarks.length) return;
+  const conns=(typeof HAND_CONNECTIONS!=='undefined')?HAND_CONNECTIONS:HAND_FALLBACK;
+  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
+  res.multiHandLandmarks.forEach(landmarks=>{
+    const pts=landmarks.map(p=>({x:p.x*vw,y:p.y*vh}));
+    ctx.strokeStyle='#00ff41'; ctx.lineWidth=2; ctx.shadowColor='#00ff41'; ctx.shadowBlur=6; ctx.globalAlpha=0.9;
+    conns.forEach(pair=>{ const a=Array.isArray(pair)?pair[0]:pair.start, b=Array.isArray(pair)?pair[1]:pair.end; if(!pts[a]||!pts[b]) return; ctx.beginPath(); ctx.moveTo(pts[a].x,pts[a].y); ctx.lineTo(pts[b].x,pts[b].y); ctx.stroke(); });
+    ctx.shadowBlur=8;
+    pts.forEach(p=>{ ctx.fillStyle='#ff0055'; ctx.globalAlpha=0.9; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); });
+    if(pts[0]){ ctx.strokeStyle='#00ff41'; ctx.lineWidth=1.5; ctx.globalAlpha=0.6; ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,8,0,Math.PI*2); ctx.stroke(); }
+  });
+  ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.restore();
+}
+
+/* ═══════════════════════════════════════
+   CANVAS TAP (standard mode)
+═══════════════════════════════════════ */
+canvas.addEventListener('click', async(e)=>{
+  if(currentVisionMode!=='standard') return;
+  const rect=canvas.getBoundingClientRect(), sx=canvas.width/rect.width, sy=canvas.height/rect.height;
+  const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
+  const hit=lastObjects.find(o=>{ const[bx,by,bw,bh]=o.bbox; return cx>=bx&&cx<=bx+bw&&cy>=by&&cy<=by+bh; });
+  if(hit){
+    selectedCls=hit.class; openCard(hit);
+    sysLog(`LOCK-ON: ${getAlias(hit.class)}`,hit.class.toUpperCase(),getGroup(hit.class));
+    showShotFlash();
+    sysLog('CAPTURING SCREENSHOT...','SNAP','SYS');
+    try{
+      const result=await captureScreenshot();
+      screenshotBlob=result.blob; lastScreenshot=result.dataURL;
+      updateCardScreenshot(result.dataURL); sysLog('SCREENSHOT READY','SNAP','SYS');
+    }catch(err){ sysLog('SCREENSHOT FAILED: '+err.message,'ERROR','SYS'); }
+  } else { closeCard(); }
+});
+
+/* ═══════════════════════════════════════
+   INFO CARD
+═══════════════════════════════════════ */
+function openCard(obj){
+  const col=getCol(obj.class), kb=getKB(obj.class), alias=getAlias(obj.class), group=getGroup(obj.class);
+  const[bx,by,bw,bh]=obj.bbox, score=Math.round(obj.score*100), threat=Math.round(kb.threat*100), seen=UC.counts[obj.class]||0;
+  const nameEl=document.getElementById('ic-name');
+  nameEl.textContent=alias; nameEl.style.color=col; nameEl.style.textShadow=`0 0 18px ${col}`; nameEl.dataset.cls=obj.class;
+  document.getElementById('ic-grid').innerHTML=
+    `<div class="ick">КЛАСС</div><div class="icv">${obj.class.toUpperCase()}</div>`+
+    `<div class="ick">ГРУППА</div><div class="icv">${group}</div>`+
+    `<div class="ick">СИГНАЛ</div><div class="icv">${score}%</div>`+
+    `<div class="ick">В КЭШЕ</div><div class="icv">${seen}×</div>`+
+    `<div class="ick">РАЗМЕР</div><div class="icv">${Math.round(bw)}×${Math.round(bh)}</div>`+
+    `<div class="ick">ПОЗИЦИЯ</div><div class="icv">${Math.round(bx)},${Math.round(by)}</div>`;
+  document.getElementById('ic-desc').textContent=kb.desc;
+  const tf=document.getElementById('ic-tf');
+  const tcol=threat>60?'var(--r)':threat>35?'var(--o)':'var(--g)';
+  tf.style.width=threat+'%'; tf.style.background=tcol; tf.style.boxShadow=`0 0 8px ${tcol}`;
+  document.getElementById('ic-tv').textContent=threat+'%';
+  const shotBtn=document.getElementById('ic-shot-btn'), thumb=document.getElementById('ic-thumb');
+  shotBtn.classList.remove('ready','saving'); shotBtn.textContent='⬇ SAVE PNG'; thumb.classList.remove('ready');
+  _updateCardAudio();
+  document.getElementById('info-card').classList.add('open');
+}
+function updateCardScreenshot(dataURL){ const thumb=document.getElementById('ic-thumb'), shotBtn=document.getElementById('ic-shot-btn'); thumb.src=dataURL; thumb.classList.add('ready'); shotBtn.classList.add('ready'); }
+function closeCard(){ selectedCls=null; lastScreenshot=null; screenshotBlob=null; document.getElementById('info-card').classList.remove('open'); document.getElementById('ic-thumb').classList.remove('ready'); document.getElementById('ic-shot-btn').classList.remove('ready','saving'); }
+document.getElementById('ic-name').addEventListener('click',renameObj);
+function renameObj(){
+  const nameEl=document.getElementById('ic-name'), cls=nameEl.dataset.cls; if(!cls) return;
+  const cur=UC.aliases[cls]||cls.toUpperCase(), nv=prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" →`,cur);
+  if(nv!==null&&nv.trim()){ const nm=nv.trim().toUpperCase(); UC.aliases[cls]=nm; saveCache(); nameEl.textContent=nm; sysLog(`ALIAS: ${cls.toUpperCase()} → ${nm}`,'RENAME','SYS'); }
+}
+
+/* ═══════════════════════════════════════
+   CAMERA SWITCH
+═══════════════════════════════════════ */
+function startCamera(onFrameCb, isMobile){
+  if(typeof Camera!=='undefined'){
+    activeMpCamera=new Camera(video,{ onFrame:onFrameCb, facingMode:currentFacingMode, width:1280, height:720 });
+    activeMpCamera.start().catch(e=>sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
+  } else {
+    navigator.mediaDevices.getUserMedia({ video:{facingMode:currentFacingMode,width:{ideal:1280},height:{ideal:720}} })
+    .then(stream=>{ activeStream=stream; video.srcObject=stream; video.onloadedmetadata=()=>{ video.play(); const loop=async()=>{ await onFrameCb(); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }; })
+    .catch(e=>sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
   }
+}
 
-  recRU.onresult = onResult('RU');
-  recEN.onresult = onResult('EN');
-  recRU.onend    = onEnd(recEN);
-  recEN.onend    = onEnd(recRU);
-  recRU.onerror  = onError;
-  recEN.onerror  = onError;
+async function switchCamera(){
+  if(isSwitchingCam) return; isSwitchingCam=true;
+  const btn=document.getElementById('btn-cam-switch'); btn.classList.add('switching');
+  sysLog('SWITCHING CAMERA...','CAM','SYS');
+  if(activeMpCamera){ try{ await activeMpCamera.stop(); }catch(e){} activeMpCamera=null; }
+  if(activeStream){ activeStream.getTracks().forEach(t=>t.stop()); activeStream=null; }
+  lastPoseResult=null; lastHandsResult=null; lastObjects=[]; lastFaceResult=null;
+  currentFacingMode=currentFacingMode==='environment'?'user':'environment';
+  document.getElementById('cam-label').textContent=currentFacingMode==='environment'?'REAR':'FRONT';
+  await sleep(300);
+  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+  async function onFrame(){
+    if(!detecting&&detector){ detecting=true; try{ lastObjects=await detector.detect(video,50,0.32); }catch(e){} detecting=false; }
+    const hasPerson=lastObjects.some(o=>o.class==='person');
+    if(poseReady&&hasPerson)  { try{ await mpPose.send({image:video}); }catch(e){} }
+    if(handsReady&&hasPerson) { try{ await mpHands.send({image:video}); }catch(e){} }
+    if(faceReady&&hasPerson&&!faceRunning){ faceRunning=true; try{ await mpFaceMesh.send({image:video}); }catch(e){} faceRunning=false; }
+    if(!hasPerson){ lastPoseResult=null; lastHandsResult=null; lastFaceResult=null; }
+    renderFrame();
+  }
+  startCamera(onFrame,isMobile);
+  sysLog(`CAMERA: ${currentFacingMode.toUpperCase()} ACTIVE`,'CAM','SYS');
+  btn.classList.remove('switching'); isSwitchingCam=false;
+}
 
-  /* Запускаем после инициализации приложения */
-  window._startSpeechRec = startSR;
+/* ═══════════════════════════════════════
+   MICROPHONE + AUDIO STRIP
+═══════════════════════════════════════ */
+const audioCanv=document.getElementById('audio-canvas');
+const actx=audioCanv.getContext('2d');
+
+async function initMic(){
+  try{
+    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:false},video:false});
+    audioCtxNode=new(window.AudioContext||window.webkitAudioContext)();
+    const src=audioCtxNode.createMediaStreamSource(micStream);
+    analyser=audioCtxNode.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=0.75; analyser.minDecibels=-90; analyser.maxDecibels=-10;
+    src.connect(analyser);
+    freqData=new Uint8Array(analyser.frequencyBinCount); timeData=new Uint8Array(analyser.fftSize); barSmooth=new Float32Array(BAR_N).fill(0);
+    micReady=true; document.getElementById('b-mic').classList.remove('muted'); document.getElementById('mic-txt').textContent='MIC ●';
+    sysLog('MICROPHONE: ACTIVE','AUDIO','SYS');
+    requestAnimationFrame(renderAudio);
+    if(window._startSpeechRec) window._startSpeechRec();
+  }catch(e){
+    document.getElementById('b-mic').classList.add('muted'); document.getElementById('mic-txt').textContent='MIC ✕';
+    sysLog('MIC DENIED: '+e.message,'WARN','SYS');
+    requestAnimationFrame(renderAudioDead);
+  }
+}
+function drawAudioGrid(W,H){
+  actx.strokeStyle='rgba(0,55,18,0.5)'; actx.lineWidth=0.5;
+  for(let i=1;i<4;i++){ const y=Math.round(H/4*i)+.5; actx.beginPath(); actx.moveTo(0,y); actx.lineTo(W,y); actx.stroke(); }
+  for(let j=1;j<10;j++){ const x=Math.round(W/10*j)+.5; actx.beginPath(); actx.moveTo(x,0); actx.lineTo(x,H); actx.stroke(); }
+  actx.strokeStyle='rgba(0,80,25,0.65)'; actx.beginPath(); actx.moveTo(0,H/2); actx.lineTo(W,H/2); actx.stroke();
+}
+function renderAudioDead(){
+  const W=audioCanv.offsetWidth, H=audioCanv.offsetHeight;
+  if(audioCanv.width!==W||audioCanv.height!==H){ audioCanv.width=W; audioCanv.height=H; }
+  if(!W||!H){ requestAnimationFrame(renderAudioDead); return; }
+  actx.fillStyle='rgba(0,2,0,0.98)'; actx.fillRect(0,0,W,H); drawAudioGrid(W,H);
+  actx.strokeStyle='rgba(0,255,65,0.18)'; actx.lineWidth=1; actx.beginPath(); actx.moveTo(0,H/2); actx.lineTo(W,H/2); actx.stroke();
+  requestAnimationFrame(renderAudioDead);
+}
+function renderAudio(){
+  if(!micReady){ requestAnimationFrame(renderAudio); return; }
+  const W=audioCanv.offsetWidth, H=audioCanv.offsetHeight;
+  if(audioCanv.width!==W||audioCanv.height!==H){ audioCanv.width=W; audioCanv.height=H; }
+  if(!W||!H){ requestAnimationFrame(renderAudio); return; }
+  analyser.getByteFrequencyData(freqData); analyser.getByteTimeDomainData(timeData);
+  const sr=audioCtxNode.sampleRate, bins=analyser.frequencyBinCount;
+  actx.fillStyle='rgba(0,2,0,0.92)'; actx.fillRect(0,0,W,H); drawAudioGrid(W,H);
+  const loIdx=Math.floor(200/sr*bins*2), hiIdx=Math.min(Math.floor(3400/sr*bins*2),bins-1);
+  let spSum=0,spCnt=0;
+  for(let i=loIdx;i<=hiIdx;i++){ spSum+=freqData[i]/255; spCnt++; }
+  const spNorm=spCnt>0?spSum/spCnt:0;
+  if(!speechHyst&&spNorm>SPEECH_ON) speechHyst=true;
+  if(speechHyst&&spNorm<SPEECH_OFF) speechHyst=false;
+  if(speechHyst!==speechDetected){
+    speechDetected=speechHyst;
+    document.getElementById('audio-speech-badge').classList.toggle('on',speechDetected);
+    document.getElementById('b-mic').classList.toggle('speech',speechDetected);
+    const pill=document.getElementById('ic-speech-pill');
+    if(pill){ pill.textContent=speechDetected?'SPEECH':'SILENT'; pill.classList.toggle('on',speechDetected); }
+    const ts=Date.now();
+    if(speechDetected&&ts-speechLogT>4000){ speechLogT=ts; sysLog('SPEECH DETECTED','AUDIO','SYS'); }
+  }
+  let sq=0; for(let i=0;i<timeData.length;i++){ const s=(timeData[i]-128)/128; sq+=s*s; }
+  const rms=Math.sqrt(sq/timeData.length), db=rms>0?Math.max(-60,20*Math.log10(rms)):-60;
+  lastDbVal=db; lastEnvStr=db>-20?'LOUD':db>-35?'MEDIUM':db>-50?'LOW':'QUIET';
+  document.getElementById('audio-db').textContent=db>-55?db.toFixed(1)+' dB':'--  dB';
+  const icDb=document.getElementById('ic-db-val'), icEnv=document.getElementById('ic-env-val');
+  if(icDb) icDb.textContent=db>-55?db.toFixed(1)+' dB':'-- dB';
+  if(icEnv){ icEnv.textContent=lastEnvStr; icEnv.className='ica-val'+(db>-20?' warn':''); }
+  const maxBin=Math.floor(bins*.55), barW=W/BAR_N, pad=barW>3?0.8:0.2;
+  for(let i=0;i<BAR_N;i++){
+    const binIdx=Math.floor(i/BAR_N*maxBin), raw=freqData[binIdx]/255;
+    barSmooth[i]=raw>barSmooth[i]?raw*.65+barSmooth[i]*.35:raw*.07+barSmooth[i]*.93;
+    const v=barSmooth[i], bh=v*(H-2), bx=i*barW, by=H-bh;
+    const freq=binIdx/bins*sr*.5;
+    let col;
+    if(freq<250)col=[0,120,255]; else if(freq<900)col=[0,200,80]; else if(freq<3500)col=[0,255,65]; else if(freq<7000)col=[0,220,200]; else col=[0,160,200];
+    const a=0.3+v*0.7; actx.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},${a})`; actx.fillRect(bx+pad,by,barW-pad*2,bh);
+    if(v>0.12){ actx.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},0.9)`; actx.fillRect(bx+pad,by,barW-pad*2,1.5); }
+  }
+  actx.beginPath(); actx.strokeStyle='rgba(80,255,220,0.50)'; actx.lineWidth=1.2; actx.shadowColor='rgba(0,255,200,0.25)'; actx.shadowBlur=2;
+  for(let x=0;x<W;x++){ const idx=Math.floor(x/W*timeData.length), vv=(timeData[idx]-128)/128, yy=H/2+vv*(H/2-3); x===0?actx.moveTo(x,yy):actx.lineTo(x,yy); }
+  actx.stroke(); actx.shadowBlur=0;
+  requestAnimationFrame(renderAudio);
+}
+function _updateCardAudio(){
+  const icDb=document.getElementById('ic-db-val'), icEnv=document.getElementById('ic-env-val'), icPill=document.getElementById('ic-speech-pill');
+  if(icDb) icDb.textContent=lastDbVal>-55?lastDbVal.toFixed(1)+' dB':'-- dB';
+  if(icEnv){ icEnv.textContent=lastEnvStr; icEnv.className='ica-val'+(lastDbVal>-20?' warn':''); }
+  if(icPill){ icPill.textContent=speechDetected?'SPEECH':'SILENT'; icPill.classList.toggle('on',speechDetected); }
+}
+
+/* ═══════════════════════════════════════
+   SPEECH RECOGNITION
+═══════════════════════════════════════ */
+(function initSpeechRecognition(){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(!SR){ sysLog('SPEECH API: NOT SUPPORTED','WARN','SYS'); return; }
+  function makeRec(lang){ const r=new SR(); r.continuous=true; r.interimResults=true; r.lang=lang; r.maxAlternatives=1; return r; }
+  const recRU=makeRec('ru-RU'), recEN=makeRec('en-US');
+  let activeRec=recRU, srRunning=false, interimTimeout=null;
+  function startSR(){ if(srRunning) return; srRunning=true; try{ activeRec.start(); }catch(e){ srRunning=false; } }
+  function onResult(lang){ return function(event){ let interim=''; for(let i=event.resultIndex;i<event.results.length;i++){ const t=event.results[i][0].transcript.trim(); if(!t) continue; if(event.results[i].isFinal){ sysLog('VOICE ['+lang+']: '+t,'VOICE','SYS'); document.getElementById('mic-txt').textContent='MIC ●'; } else { interim+=t; } } if(interim){ const short=interim.length>22?interim.slice(-22)+'…':interim; document.getElementById('mic-txt').textContent=short; clearTimeout(interimTimeout); interimTimeout=setTimeout(()=>{ document.getElementById('mic-txt').textContent='MIC ●'; },2000); } }; }
+  function onEnd(switchTo){ return function(){ srRunning=false; activeRec=switchTo; setTimeout(startSR,300); }; }
+  function onError(){ srRunning=false; setTimeout(startSR,500); }
+  recRU.onresult=onResult('RU'); recEN.onresult=onResult('EN');
+  recRU.onend=onEnd(recEN); recEN.onend=onEnd(recRU);
+  recRU.onerror=onError; recEN.onerror=onError;
+  window._startSpeechRec=startSR;
 })();
 
-/* ════════════════════════════════════════════════════
+/* ═══════════════════════════════════════
+   RESIZE
+═══════════════════════════════════════ */
+window.addEventListener('resize',()=>{
+  if(threeRenderer){ threeRenderer.setSize(window.innerWidth,window.innerHeight); threeMat.uniforms.res.value.set(window.innerWidth,window.innerHeight); }
+  const rc=document.getElementById('red-canvas'); const dpr=window.devicePixelRatio||1;
+  rc.width=innerWidth*dpr; rc.height=innerHeight*dpr;
+});
+
+/* ═══════════════════════════════════════
    BOOT
-════════════════════════════════════════════════════ */
+═══════════════════════════════════════ */
 initModels();
 </script>
 
