@@ -1,1624 +1,1020 @@
 <!DOCTYPE html>
-
-<html lang="ru">
+<!-- myMONO v1 // MONO-HALFTONE витягнуто з myFIX v2 // DET: MediaPipe ObjectDetector + SEG: ImageSegmenter (DeepLab v3) + DEP: Depth Anything V2 Small (transformers.js, worker) + OCR: Tesseract.js eng+ukr // нейронки їдять чистий grayscale ДО халфтону // single-file, CDN-only, mobile-first -->
+<html lang="uk">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>myEYE Pro</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&display=swap">
-
-<!-- Three.js for Green/Red modes -->
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-
-<!-- COCO-SSD -->
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0/dist/tf.min.js"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.2/dist/coco-ssd.min.js"></script>
-
-<!-- MediaPipe -->
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js" crossorigin="anonymous"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/pose/pose.js" crossorigin="anonymous"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js" crossorigin="anonymous"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
-
-<script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.js" crossorigin="anonymous"></script>
-
-<!-- html2canvas -->
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#eceae2">
+<title>myMONO</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
 <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --g:  #00ff41;  --g2: #00cc33;  --g3: #003a12;
-  --b:  #00aaff;  --r:  #ff3333;  --y:  #ffe600;
-  --o:  #ff9900;  --p:  #cc44ff;
-  --panel:  rgba(2,8,4,.94);
-  --border: rgba(0,255,65,.18);
-  --card-h: 210px;
-  --term-h: 150px;
+    --ink: #14110b;
+    --paper: #eceae2;
+    --mono: 'Share Tech Mono', monospace;
+    --sans: 'Rajdhani', sans-serif;
 }
-*, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-html, body {
-  width:100%; height:100%; background:#000; overflow:hidden;
-  font-family:'Share Tech Mono','Courier New',monospace;
-  color:var(--g); -webkit-tap-highlight-color:transparent; user-select:none;
+html, body { overscroll-behavior: none; height: 100%; }
+body {
+    margin: 0; background: var(--paper); overflow: hidden;
+    font-family: var(--mono); user-select: none; -webkit-user-select: none; cursor: crosshair;
+}
+#container { position: relative; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
+
+/* Відео — texture source для шейдера; при живому WebGL ховається */
+video {
+    position: absolute; inset: 0; z-index: 0;
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: opacity 0.4s;
+}
+video.rawfallback { filter: grayscale(1) contrast(1.2) brightness(1.05); }
+#glCanvas  { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; background: var(--paper); }
+#hudCanvas { position: absolute; inset: 0; z-index: 6; width: 100%; height: 100%; pointer-events: none; }
+
+#scanlines {
+    position: absolute; inset: 0; pointer-events: none; z-index: 5;
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(38,34,24,0.07) 3px, rgba(38,34,24,0.07) 4px);
+    animation: scanScroll 8s linear infinite;
+}
+@keyframes scanScroll { from{background-position:0 0} to{background-position:0 100px} }
+
+#vignette {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0.3;
+    background: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.8) 100%);
+}
+
+/* BOTTOM BAR: тільки кнопки модулів */
+#botbar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, rgba(236,234,226,0.9), transparent);
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
+    z-index: 16; border-top: 1px solid rgba(38,34,24,0.2);
+}
+.hudBtn {
+    background: rgba(236,234,226,0.6); border: 1px solid rgba(38,34,24,0.4);
+    color: rgba(38,34,24,0.85); font-family: var(--sans);
+    font-size: 10px; font-weight: 700; letter-spacing: 2px;
+    padding: 8px 10px; cursor: pointer; text-transform: uppercase;
+    touch-action: manipulation; flex-shrink: 0; min-width: 52px;
+}
+.hudBtn.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.hudBtn.off { opacity: 0.35; text-decoration: line-through; }
+.hudBtn:disabled { opacity: 0.2; }
+#scnBtn { border-style: dashed; }
+
+/* TOAST: один рядок суржик-статусу над баром */
+#toast {
+    position: absolute; bottom: calc(58px + env(safe-area-inset-bottom));
+    left: 50%; transform: translateX(-50%);
+    max-width: 92vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase;
+    color: rgba(38,34,24,0.85);
+    background: rgba(236,234,226,0.9); border: 1px solid rgba(38,34,24,0.3);
+    padding: 5px 12px; z-index: 15; pointer-events: none;
+    opacity: 0; transition: opacity 0.3s;
+}
+#toast.show { opacity: 1; }
+#toast.warn { border-color: var(--ink); font-weight: 700; }
+
+/* PiP: дизерена міні-мапа глибини, тап — розгорнути */
+#pip {
+    position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px;
+    width: 120px; z-index: 14; display: none;
+    border: 1px solid rgba(38,34,24,0.55);
+    background: var(--paper);
+    image-rendering: pixelated; image-rendering: crisp-edges;
+    cursor: pointer; touch-action: manipulation;
+    transition: width 0.25s;
+}
+#pip.shown { display: block; }
+#pip.big { width: 62vw; }
+
+/* START: чорнильне кільце на папері */
+#startBtn {
+    position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
+    background: none; border: none; color: var(--ink);
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 5px; text-transform: uppercase;
+    cursor: pointer; z-index: 20; outline: none; padding: 0;
+}
+#startBtn .btn-inner { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+#startBtn .btn-ring  { width: 80px; height: 80px; position: relative; display: flex; align-items: center; justify-content: center; }
+.ring-svg  { position: absolute; inset: 0;   animation: spinRing 4s linear infinite; }
+.ring-svg2 { position: absolute; inset: 6px; animation: spinRing 7s linear infinite reverse; }
+@keyframes spinRing { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+#startBtn .btn-text { letter-spacing: 6px; opacity: 0.75; }
+#startBtn:hover .btn-text { opacity: 1; }
+#startBtn:hover .ring-svg  { animation-duration: 1.5s; }
+</style>
+</head>
+<body>
+<div id="container">
+
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="glCanvas"></canvas>
+    <canvas id="hudCanvas"></canvas>
+
+    <div id="vignette"></div>
+    <div id="scanlines"></div>
+
+    <button id="startBtn">
+        <div class="btn-inner">
+            <div class="btn-ring">
+                <svg class="ring-svg" viewBox="0 0 80 80" fill="none">
+                    <circle cx="40" cy="40" r="36" stroke="rgba(38,34,24,0.25)" stroke-width="1" stroke-dasharray="8 4"/>
+                    <circle cx="40" cy="40" r="36" stroke="rgba(38,34,24,0.7)" stroke-width="1.5" stroke-dasharray="20 160" stroke-linecap="round"/>
+                </svg>
+                <svg class="ring-svg2" viewBox="0 0 68 68" fill="none">
+                    <circle cx="34" cy="34" r="30" stroke="rgba(38,34,24,0.15)" stroke-width="1" stroke-dasharray="3 6"/>
+                </svg>
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="2" fill="#14110b" opacity="0.9"/>
+                    <line x1="12" y1="4"  x2="12" y2="8"  stroke="#14110b" stroke-width="1.5" opacity="0.6"/>
+                    <line x1="12" y1="16" x2="12" y2="20" stroke="#14110b" stroke-width="1.5" opacity="0.6"/>
+                    <line x1="4"  y1="12" x2="8"  y2="12" stroke="#14110b" stroke-width="1.5" opacity="0.6"/>
+                    <line x1="16" y1="12" x2="20" y2="12" stroke="#14110b" stroke-width="1.5" opacity="0.6"/>
+                </svg>
+            </div>
+            <span class="btn-text">initialize mono</span>
+        </div>
+    </button>
+
+    <canvas id="pip"></canvas>
+    <div id="toast"></div>
+
+    <div id="botbar" style="display:none">
+        <button class="hudBtn" id="detBtn">DET</button>
+        <button class="hudBtn" id="segBtn">SEG</button>
+        <button class="hudBtn" id="depBtn">DEP</button>
+        <button class="hudBtn" id="ocrBtn">OCR</button>
+        <button class="hudBtn" id="scnBtn" disabled>SCN</button>
+        <button class="hudBtn" id="sndBtn">SND</button>
+    </div>
+
+</div>
+<script type="module">
+import { FilesetResolver, ObjectDetector, ImageSegmenter } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+
+/*__PURE_BEGIN__*/
+/* ── Чиста логіка: без DOM, тестується headless ── */
+
+/* object-fit:cover мапінг: відео-пікселі -> екранні css-пікселі (з myFIX, дослівно) */
+function coverTransform(vw, vh, sw, sh){
+    const scale = Math.max(sw / vw, sh / vh);
+    return { scale, ox: (sw - vw * scale) / 2, oy: (sh - vh * scale) / 2 };
+}
+function v2s(x, y, T){
+    let sx = x * T.scale + T.ox, sy = y * T.scale + T.oy;
+    if (T.zoom && T.zoom !== 1){
+        sx = (sx - T.zcx) * T.zoom + T.zcx;
+        sy = (sy - T.zcy) * T.zoom + T.zcy;
+    }
+    return { x: sx, y: sy };
+}
+
+function iou(a, b){
+    const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
+    const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
+    const iw = Math.max(0, x2 - x1), ih = Math.max(0, y2 - y1);
+    const inter = iw * ih;
+    const uni = a.w * a.h + b.w * b.h - inter;
+    return uni > 0 ? inter / uni : 0;
+}
+function lerpBox(a, b, k){
+    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, w: a.w + (b.w - a.w) * k, h: a.h + (b.h - a.h) * k };
+}
+
+let __uid = 0;
+function nextUid(){ __uid = (__uid + 1) % 4096; return '0x' + __uid.toString(16).toUpperCase().padStart(3, '0'); }
+
+/* IoU-трекер: стабільні ID, згладжування боксів, голосування класу (з myFIX, дослівно) */
+function updateTracks(tracks, dets, now, opts){
+    const o = opts || {};
+    const iouThr  = o.iouThr  !== undefined ? o.iouThr  : 0.3;
+    const ttl     = o.ttl     !== undefined ? o.ttl     : 700;
+    const smooth  = o.smooth  !== undefined ? o.smooth  : 0.4;
+    const unmatched = new Set(dets.map((_, i) => i));
+    const order = tracks.slice().sort((a, b) => b.hits - a.hits);
+    for (const t of order){
+        let best = -1, bestV = iouThr;
+        for (const i of unmatched){
+            const v = iou(t.box, dets[i].box);
+            if (v > bestV){ bestV = v; best = i; }
+        }
+        if (best >= 0){
+            const d = dets[best];
+            unmatched.delete(best);
+            t.box = lerpBox(t.box, d.box, smooth);
+            t.score = t.score * (1 - smooth) + d.score * smooth;
+            t.votes[d.cls] = (t.votes[d.cls] || 0) + 1;
+            if (d.cls !== t.cls && t.votes[d.cls] > (t.votes[t.cls] || 0)) t.cls = d.cls;
+            t.seen = now; t.hits++;
+        }
+    }
+    for (const i of unmatched){
+        const d = dets[i];
+        tracks.push({
+            id: nextUid(),
+            box: { x: d.box.x, y: d.box.y, w: d.box.w, h: d.box.h },
+            cls: d.cls, score: d.score,
+            votes: { [d.cls]: 1 },
+            born: now, seen: now, hits: 1
+        });
+    }
+    return tracks.filter(t => now - t.seen < ttl);
+}
+
+/* Планувальник слотів: одна найпрострочніша модель за тік.
+   mods: [{key, on, busy, last, interval}] -> key або null */
+function nextSlot(now, mods){
+    let best = null, bestR = 1;
+    for (const m of mods){
+        if (!m.on || m.busy) continue;
+        const r = (now - m.last) / m.interval;
+        if (r >= 1 && r > bestR){ bestR = r; best = m.key; }
+    }
+    return best;
+}
+
+/* Медіана глибини всередині боксу. depth: Uint8 (dw x dh), box у відео-пікселях.
+   Повертає 0..255 або -1, якщо бокс поза мапою. */
+function medianDepthInBox(depth, dw, dh, box, vw, vh){
+    const sx = dw / vw, sy = dh / vh;
+    const x0 = Math.max(0, Math.floor(box.x * sx)), y0 = Math.max(0, Math.floor(box.y * sy));
+    const x1 = Math.min(dw - 1, Math.ceil((box.x + box.w) * sx));
+    const y1 = Math.min(dh - 1, Math.ceil((box.y + box.h) * sy));
+    if (x1 <= x0 || y1 <= y0) return -1;
+    const gs = Math.max(1, Math.floor(Math.max(x1 - x0, y1 - y0) / 14));
+    const vals = [];
+    for (let y = y0; y <= y1; y += gs)
+        for (let x = x0; x <= x1; x += gs) vals.push(depth[y * dw + x]);
+    if (!vals.length) return -1;
+    vals.sort((a, b) => a - b);
+    return vals[vals.length >> 1];
+}
+/* Depth Anything: 255 = близько. RANGE·REL: 0 близько .. 99 далеко. НЕ метри. */
+function depthToRange(v){
+    if (v < 0) return -1;
+    return Math.max(0, Math.min(99, Math.round((1 - v / 255) * 99)));
+}
+
+/* Частка семплів боксу, накритих SEG-маскою (клас > 0) */
+function segCoverage(mask, mw, mh, box, vw, vh){
+    const sx = mw / vw, sy = mh / vh, G = 10;
+    let n = 0, hit = 0;
+    for (let iy = 0; iy < G; iy++)
+        for (let ix = 0; ix < G; ix++){
+            const x = Math.floor((box.x + box.w * (ix + 0.5) / G) * sx);
+            const y = Math.floor((box.y + box.h * (iy + 0.5) / G) * sy);
+            if (x < 0 || y < 0 || x >= mw || y >= mh) continue;
+            n++;
+            if (mask[y * mw + x] > 0) hit++;
+        }
+    return n ? hit / n : 0;
+}
+
+/* OCR-геометрія */
+function scaleWords(words, k){
+    return words.map(w => ({ text: w.text, conf: w.conf, x: w.x * k, y: w.y * k, w: w.w * k, h: w.h * k }));
+}
+/* Групування слів у рядки: близькі по центру y, всередині рядка сортовані по x */
+function groupLines(words, yTol){
+    const tol = yTol === undefined ? 0.6 : yTol;
+    const ws = words.slice().sort((a, b) => (a.y + a.h / 2) - (b.y + b.h / 2));
+    const lines = [];
+    for (const w of ws){
+        const cy = w.y + w.h / 2;
+        let ln = null;
+        for (const L of lines){
+            if (Math.abs(cy - L.cy) < tol * Math.max(w.h, L.h)){ ln = L; break; }
+        }
+        if (!ln){ ln = { words: [], cy: cy, h: w.h }; lines.push(ln); }
+        ln.words.push(w);
+        ln.cy = (ln.cy * (ln.words.length - 1) + cy) / ln.words.length;
+        ln.h = Math.max(ln.h, w.h);
+    }
+    return lines.map(L => {
+        L.words.sort((a, b) => a.x - b.x);
+        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, cs = 0;
+        for (const w of L.words){
+            x0 = Math.min(x0, w.x); y0 = Math.min(y0, w.y);
+            x1 = Math.max(x1, w.x + w.w); y1 = Math.max(y1, w.y + w.h);
+            cs += w.conf;
+        }
+        return {
+            text: L.words.map(w => w.text).join(' '),
+            conf: cs / L.words.length,
+            x: x0, y: y0, w: x1 - x0, h: y1 - y0
+        };
+    });
+}
+/* Прив'язка рядків до треків: центр рядка в боксі -> найменший бокс, що містить.
+   Повертає { assigned: [[trackId, text]], free: [line] } */
+function attachText(tracks, lines){
+    const assigned = [], free = [];
+    for (const L of lines){
+        const cx = L.x + L.w / 2, cy = L.y + L.h / 2;
+        let hit = null;
+        for (const t of tracks){
+            const b = t.box;
+            if (cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h){
+                if (!hit || b.w * b.h < hit.box.w * hit.box.h) hit = t;
+            }
+        }
+        if (hit) assigned.push([hit.id, L.text]);
+        else free.push(L);
+    }
+    return { assigned: assigned, free: free };
+}
+
+/* Байєр 4x4 для PiP-дизерингу */
+const BAYER4 = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
+function bayer4(x, y){ return (BAYER4[y & 3][x & 3] + 0.5) / 16; }
+
+/* Санітар OCR: пробіли, мінімум 2 буквено-цифрові символи (лат/укр) */
+function cleanText(s){
+    const t = String(s).replace(/\s+/g, ' ').trim();
+    return /[A-Za-zА-Яа-яЄєІіЇїҐґ0-9]{2,}/.test(t) ? t : '';
+}
+/*__PURE_END__*/
+
+/* ── Конфіг ── */
+const CFG = {
+    detMs: 66, segMs: 200, depMs: 700, ocrMs: 3000,
+    trackTTL: 700, iouThr: 0.3, smooth: 0.4,
+    glMaxDpr: 1.5, hudMaxDpr: 2,
+    nnW: 640, ocrConf: 60, tickGap: 600,
+    maskTTL: 1200, depTTL: 4000, textTTL: 10000, freeTTL: 8000
+};
+const WASM_URL  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
+const MODEL_OBJ = 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
+const MODEL_SEG = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/1/deeplab_v3.tflite';
+const INK = '20,18,13';
+const PAPER = '236,234,226';
+
+/* ── DOM ── */
+const $ = id => document.getElementById(id);
+const container = $('container'), video = $('video');
+const canvas = $('hudCanvas'), glCanvas = $('glCanvas');
+const ctx = canvas.getContext('2d');
+const startBtn = $('startBtn'), botbar = $('botbar'), toastEl = $('toast'), pip = $('pip');
+const pipCx = pip.getContext('2d');
+const scnBtn = $('scnBtn'), sndBtn = $('sndBtn');
+
+/* ── Стан ── */
+const ST = {
+    running: false, booting: false,
+    tracks: [],
+    mask: null,      /* { data:Uint8Array, w, h, at } */
+    depth: null,     /* { data:Uint8Array, w, h, at } */
+    ocrFree: null,   /* { lines:[], at } */
+    wake: null, lastTick: 0, scanning: false
+};
+let objDet = null, segDet = null, ocrWorker = null, depWorker = null;
+let hudDpr = 1, lastFrame = performance.now(), lastGl = 0;
+
+function coverT(){
+    return coverTransform(video.videoWidth || 640, video.videoHeight || 480, innerWidth, innerHeight);
+}
+function resize(){
+    hudDpr = Math.min(devicePixelRatio || 1, CFG.hudMaxDpr);
+    canvas.width  = Math.round(innerWidth * hudDpr);
+    canvas.height = Math.round(innerHeight * hudDpr);
+}
+
+/* ── АУДІО: мінімум — принтерний бут + чорнильний тік нової цілі (ядро з myFIX) ── */
+const AU = {
+    ctx: null, master: null, on: true, noise: null,
+    init(){
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AC();
+            this.master = this.ctx.createGain();
+            this.master.gain.value = 0.6;
+            this.master.connect(this.ctx.destination);
+            const len = this.ctx.sampleRate;
+            const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+            const d = buf.getChannelData(0);
+            for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
+            this.noise = buf;
+            this.ctx.resume();
+        } catch (e) { this.ctx = null; }
+    },
+    now(){ return this.ctx.currentTime; },
+    env(g, t0, a, peak, d){
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(peak, t0 + a);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
+    },
+    osc(type, f0, f1, t0, dur, peak){
+        if (!this.ctx) return;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type;
+        o.frequency.setValueAtTime(Math.max(1, f0), t0);
+        if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t0 + dur);
+        this.env(g, t0, 0.005, peak, dur);
+        o.connect(g); g.connect(this.master);
+        o.start(t0); o.stop(t0 + dur + 0.1);
+    },
+    nz(t0, dur, peak, fType, f0, f1, q){
+        if (!this.ctx) return;
+        const s = this.ctx.createBufferSource(); s.buffer = this.noise; s.loop = true;
+        const f = this.ctx.createBiquadFilter(); f.type = fType;
+        f.frequency.setValueAtTime(Math.max(10, f0), t0);
+        if (f1 && f1 !== f0) f.frequency.exponentialRampToValueAtTime(Math.max(10, f1), t0 + dur);
+        f.Q.value = q || 1;
+        const g = this.ctx.createGain();
+        this.env(g, t0, 0.008, peak, dur);
+        s.connect(f); f.connect(g); g.connect(this.master);
+        s.start(t0); s.stop(t0 + dur + 0.1);
+    },
+    monoSwap(){
+        /* матричний принтер: черга тіків + дзвіночок каретки (з myFIX, дослівно) */
+        if (!this.ctx) return; const t = this.now();
+        for (let i = 0; i < 9; i++) this.osc('square', 2400 - i * 90, 2400 - i * 90, t + i * 0.045, 0.02, 0.04);
+        this.osc('sine', 1568, 1568, t + 0.48, 0.25, 0.06);
+    },
+    inkTick(){
+        if (!this.ctx) return; const t = this.now();
+        this.osc('square', 1900, 1900, t, 0.02, 0.04);
+        this.osc('square', 1300, 1300, t + 0.09, 0.03, 0.035);
+    },
+    setMute(m){ if (!this.ctx) return; this.on = !m; this.master.gain.setTargetAtTime(m ? 0 : 0.6, this.now(), 0.05); }
+};
+
+/* ── Тост: один рядок статусу ── */
+let toastT = null;
+function toast(msg, warn){
+    toastEl.textContent = msg;
+    toastEl.classList.toggle('warn', !!warn);
+    toastEl.classList.add('show');
+    clearTimeout(toastT);
+    toastT = setTimeout(() => toastEl.classList.remove('show'), 2600);
+}
+
+/* ── WebGL: тільки MONO — газетний halftone під 45 + Sobel-контури (гілка з myFIX, дослівно) ── */
+const FRAG = `
+precision mediump float;
+varying vec2 vUV;
+uniform sampler2D uTex;
+uniform vec2 uUVScale;
+uniform vec2 uUVOff;
+uniform vec2 uRes;
+uniform float uPx;
+uniform float uSob;
+
+vec2 suv(vec2 s){ return s * uUVScale + uUVOff; }
+float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
+
+void main(){
+    mat2 Rf = mat2(0.7071, 0.7071, -0.7071, 0.7071);
+    mat2 Ri = mat2(0.7071, -0.7071, 0.7071, 0.7071);
+    vec2 pr = Rf * gl_FragCoord.xy;
+    vec2 cM = floor(pr / uPx);
+    vec2 ctr = Ri * ((cM + 0.5) * uPx);
+    float lq = lum(texture2D(uTex, suv(ctr / uRes)).rgb);
+    lq = clamp((lq - 0.5) * 1.25 + 0.56, 0.0, 1.0);
+    float dk = 1.0 - lq;
+    vec2 fM = pr / uPx - (cM + 0.5);
+    float dotInk = step(length(fM), sqrt(dk) * 0.72);
+    vec2 e = vec2(uSob) / uRes;
+    float gx = lum(texture2D(uTex, suv(vUV + vec2(e.x, 0.0))).rgb) - lum(texture2D(uTex, suv(vUV - vec2(e.x, 0.0))).rgb);
+    float gy = lum(texture2D(uTex, suv(vUV + vec2(0.0, e.y))).rgb) - lum(texture2D(uTex, suv(vUV - vec2(0.0, e.y))).rgb);
+    float edge = smoothstep(0.13, 0.32, length(vec2(gx, gy)));
+    float ink = max(dotInk, edge);
+    vec3 col = mix(vec3(0.93, 0.92, 0.88), vec3(0.20, 0.18, 0.13), ink);
+    float d = length(vUV - vec2(0.5, 0.5));
+    float vig = smoothstep(0.95, 0.35, d) * 0.35 + 0.65;
+    col *= mix(vig, 1.0, 0.7);
+    gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+const GL = {
+    gl: null, uni: null, ok: false, cv: null,
+    init(cv){
+        this.cv = cv;
+        const gl = cv.getContext('webgl', { antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true });
+        if (!gl) return false;
+        const mk = (type, src) => {
+            const s = gl.createShader(type);
+            gl.shaderSource(s, src); gl.compileShader(s);
+            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); return null; }
+            return s;
+        };
+        const vs = mk(gl.VERTEX_SHADER, 'attribute vec2 aPos; varying vec2 vUV; void main(){ vUV = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }');
+        const fs = mk(gl.FRAGMENT_SHADER, FRAG);
+        if (!vs || !fs) return false;
+        const pr = gl.createProgram();
+        gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
+        if (!gl.getProgramParameter(pr, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(pr)); return false; }
+        gl.useProgram(pr);
+        const buf = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
+        const aPos = gl.getAttribLocation(pr, 'aPos');
+        gl.enableVertexAttribArray(aPos);
+        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
+        const tex = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, tex);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        const U = n => gl.getUniformLocation(pr, n);
+        this.uni = { uUVScale: U('uUVScale'), uUVOff: U('uUVOff'), uRes: U('uRes'), uPx: U('uPx'), uSob: U('uSob') };
+        gl.uniform1i(U('uTex'), 0);
+        this.gl = gl; this.ok = true;
+        cv.addEventListener('webglcontextlost', () => { this.ok = false; }, false);
+        return true;
+    },
+    render(now){
+        if (!this.ok || video.readyState < 2) return;
+        const gl = this.gl, cv = this.cv;
+        const dpr = Math.min(devicePixelRatio || 1, CFG.glMaxDpr);
+        const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
+        if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; gl.viewport(0, 0, W, H); }
+        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, video);
+        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+        const va = vw / vh, ca = innerWidth / innerHeight;
+        let sx = 1, sy = 1, ox = 0, oy = 0;
+        if (va > ca){ sx = ca / va; ox = (1 - sx) / 2; }
+        else        { sy = va / ca; oy = (1 - sy) / 2; }
+        gl.uniform2f(this.uni.uUVScale, sx, sy);
+        gl.uniform2f(this.uni.uUVOff, ox, oy);
+        gl.uniform2f(this.uni.uRes, W, H);
+        gl.uniform1f(this.uni.uPx, Math.max(4, Math.round(3 * dpr)));
+        gl.uniform1f(this.uni.uSob, Math.max(2, Math.round(1.5 * dpr)));
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+    }
+};
+
+/* ── Сірий тап для нейронок: luma ДО халфтону, коефіцієнти = шейдерним (0.299/0.587/0.114) ── */
+const loCv = document.createElement('canvas');
+const loCx = loCv.getContext('2d', { willReadFrequently: true });
+const hiCv = document.createElement('canvas');
+const hiCx = hiCv.getContext('2d', { willReadFrequently: true });
+let loStamp = -1, loCache = null;
+
+function toGray(d){
+    for (let i = 0; i < d.length; i += 4){
+        const g = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
+        d[i] = g; d[i + 1] = g; d[i + 2] = g;
+    }
+}
+function grayLo(stamp){
+    if (loStamp === stamp && loCache) return loCache;
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    const w = Math.min(CFG.nnW, vw), h = Math.round(w * vh / vw);
+    if (loCv.width !== w || loCv.height !== h){ loCv.width = w; loCv.height = h; }
+    loCx.drawImage(video, 0, 0, w, h);
+    const id = loCx.getImageData(0, 0, w, h);
+    toGray(id.data);
+    loCx.putImageData(id, 0, 0);
+    loStamp = stamp;
+    loCache = { cv: loCv, id: id, w: w, h: h };
+    return loCache;
+}
+function grayHi(){
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return null;
+    if (hiCv.width !== vw || hiCv.height !== vh){ hiCv.width = vw; hiCv.height = vh; }
+    hiCx.drawImage(video, 0, 0, vw, vh);
+    const id = hiCx.getImageData(0, 0, vw, vh);
+    toGray(id.data);
+    return { id: id, w: vw, h: vh };
+}
+
+/* ── DEP: Depth Anything V2 Small у module-воркері, щоб WASM не душив рендер ── */
+const DEP_WORKER_SRC = [
+"const CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';",
+"let pipe = null, RawImageC = null;",
+"async function boot(pref){",
+"    const M = await import(CDN);",
+"    M.env.allowLocalModels = false;",
+"    RawImageC = M.RawImage;",
+"    const tries = pref === 'webgpu'",
+"        ? [['webgpu', 'fp16'], ['wasm', 'q8'], ['wasm', 'fp32']]",
+"        : [['wasm', 'q8'], ['wasm', 'fp32']];",
+"    let last = null;",
+"    for (const t of tries){",
+"        try {",
+"            pipe = await M.pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small', {",
+"                device: t[0], dtype: t[1],",
+"                progress_callback: function(p){",
+"                    if (p && p.status === 'progress' && p.file && p.file.indexOf('.onnx') >= 0)",
+"                        postMessage({ type: 'prog', p: p.progress || 0 });",
+"                }",
+"            });",
+"            return t[0];",
+"        } catch (e){ last = e; pipe = null; }",
+"    }",
+"    throw last;",
+"}",
+"self.onmessage = async function(e){",
+"    const m = e.data;",
+"    if (m.type === 'init'){",
+"        try { const dev = await boot(m.device); postMessage({ type: 'ready', device: dev }); }",
+"        catch (err){ postMessage({ type: 'err', msg: String(err && err.message || err) }); }",
+"    } else if (m.type === 'frame'){",
+"        if (!pipe){ postMessage({ type: 'skip' }); return; }",
+"        try {",
+"            const img = new RawImageC(new Uint8ClampedArray(m.buf), m.w, m.h, 4);",
+"            const out = await pipe(img);",
+"            const d = out.depth;",
+"            const u8 = (d.data instanceof Uint8Array || d.data instanceof Uint8ClampedArray) ? new Uint8Array(d.data) : Uint8Array.from(d.data);",
+"            postMessage({ type: 'depth', buf: u8.buffer, w: d.width, h: d.height }, [u8.buffer]);",
+"        } catch (err){ postMessage({ type: 'err', msg: String(err && err.message || err) }); }",
+"    }",
+"};"
+].join('\n');
+
+/* ── Модулі: тогли, ліниве завантаження, прогрес на кнопці ── */
+const MODS = {
+    DET: { btn: $('detBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.detMs },
+    SEG: { btn: $('segBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.segMs },
+    DEP: { btn: $('depBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.depMs },
+    OCR: { btn: $('ocrBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.ocrMs }
+};
+function setBtn(key, state, extra){
+    const M = MODS[key], b = M.btn;
+    if (state === 'load'){ b.textContent = key + (extra !== undefined ? ' ' + extra + '%' : ' ..'); b.classList.remove('on'); return; }
+    if (state === 'err'){ b.textContent = key + ' ✗'; b.classList.remove('on'); return; }
+    b.textContent = key;
+    b.classList.toggle('on', M.on);
+}
+
+let visionFS = null;
+function ensureVision(){
+    if (!visionFS) visionFS = FilesetResolver.forVisionTasks(WASM_URL);
+    return visionFS;
+}
+/* GPU з чесним фолбеком на CPU (з myFIX) */
+async function mkDet(Cls, opts, label, vision){
+    try {
+        return await Cls.createFromOptions(vision, Object.assign({}, opts, { baseOptions: Object.assign({}, opts.baseOptions, { delegate: 'GPU' }) }));
+    } catch (e) {
+        toast(label + ': GPU КАПРИЗУЄ, ЇДУ НА CPU', true);
+        return await Cls.createFromOptions(vision, Object.assign({}, opts, { baseOptions: Object.assign({}, opts.baseOptions, { delegate: 'CPU' }) }));
+    }
+}
+function tsFor(o){ o._ts = Math.max((o._ts || 0) + 1, performance.now()); return o._ts; }
+
+const LOADERS = {
+    async DET(){
+        const vision = await ensureVision();
+        objDet = await mkDet(ObjectDetector, { runningMode: 'VIDEO', scoreThreshold: 0.4, maxResults: 10, baseOptions: { modelAssetPath: MODEL_OBJ } }, 'ДЕТЕКТОР', vision);
+        toast('ДЕТЕКТОР ПІДЇХАВ. ЛОВИМО');
+    },
+    async SEG(){
+        const vision = await ensureVision();
+        segDet = await mkDet(ImageSegmenter, { runningMode: 'VIDEO', outputCategoryMask: true, outputConfidenceMasks: false, baseOptions: { modelAssetPath: MODEL_SEG } }, 'МАСКИ', vision);
+        toast('МАСКИ В ДІЛІ. ШТРИХУЄМО');
+    },
+    DEP(){
+        return new Promise((res, rej) => {
+            const blob = new Blob([DEP_WORKER_SRC], { type: 'text/javascript' });
+            depWorker = new Worker(URL.createObjectURL(blob), { type: 'module' });
+            depWorker.onmessage = ev => {
+                const m = ev.data;
+                if (m.type === 'prog'){ setBtn('DEP', 'load', Math.round(m.p > 1 ? m.p : m.p * 100)); }
+                else if (m.type === 'ready'){
+                    toast(m.device === 'webgpu' ? 'ГЛИБИНА НА WEBGPU. ЛІТАЄ' : 'ГЛИБИНА НА WASM. ПОВЗЕ, АЛЕ ПАШЕ');
+                    depWorker.onmessage = onDepMsg;
+                    res();
+                }
+                else if (m.type === 'err'){ rej(new Error(m.msg)); }
+            };
+            depWorker.onerror = e => rej(new Error(e.message || 'worker'));
+            depWorker.postMessage({ type: 'init', device: navigator.gpu ? 'webgpu' : 'wasm' });
+        });
+    },
+    async OCR(){
+        const mod = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
+        const Tess = mod.default || mod;
+        ocrWorker = await Tess.createWorker(['eng', 'ukr'], 1, {
+            workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
+            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
+            logger: m => { if (m && m.progress !== undefined && m.status === 'loading language traineddata') setBtn('OCR', 'load', Math.round(m.progress * 100)); }
+        });
+        scnBtn.disabled = false;
+        toast('ЧИТАЛКА ГОТОВА. ENG+UKR');
+    }
+};
+const FAIL_MSG = { DET: 'ДЕТЕКТОР НЕ ПІДЇХАВ', SEG: 'МАСКИ НЕ ЗАВЕЛИСЬ', DEP: 'ГЛИБИНА ВПАЛА', OCR: 'ЧИТАЛКА НЕ ВСТАЛА' };
+
+async function toggleMod(key){
+    if (!ST.running) return;
+    const M = MODS[key];
+    if (M.loading) return;
+    if (!M.ready){
+        M.loading = true;
+        setBtn(key, 'load');
+        try {
+            await LOADERS[key]();
+            M.ready = true; M.on = true; M.last = 0;
+        } catch (e) {
+            console.error(e);
+            toast(FAIL_MSG[key], true);
+            M.loading = false;
+            setBtn(key, 'err');
+            return;
+        }
+        M.loading = false;
+        setBtn(key);
+        return;
+    }
+    M.on = !M.on;
+    if (!M.on){
+        if (key === 'SEG') ST.mask = null;
+        if (key === 'DEP'){ ST.depth = null; pip.classList.remove('shown'); }
+        if (key === 'OCR') ST.ocrFree = null;
+    }
+    setBtn(key);
+}
+
+/* ── Інжести ── */
+let lastPingAt = 0;
+function ingestDet(res, now, kv){
+    const dets = ((res && res.detections) || []).map(d => ({
+        box: { x: d.boundingBox.originX * kv, y: d.boundingBox.originY * kv, w: d.boundingBox.width * kv, h: d.boundingBox.height * kv },
+        cls: ((d.categories[0] && d.categories[0].categoryName) || '?').toLowerCase(),
+        score: (d.categories[0] && d.categories[0].score) || 0
+    }));
+    ST.tracks = updateTracks(ST.tracks, dets, now, { iouThr: CFG.iouThr, ttl: CFG.trackTTL, smooth: CFG.smooth });
+    for (const t of ST.tracks){
+        if (t.hits === 2 && !t.pinged){
+            t.pinged = true;
+            if (now - lastPingAt > CFG.tickGap){ lastPingAt = now; AU.inkTick(); }
+        }
+    }
+}
+
+const maskCv = document.createElement('canvas');
+const maskCx = maskCv.getContext('2d');
+function ingestSeg(res, now, g){
+    if (!res || !res.categoryMask) return;
+    const m = res.categoryMask;
+    const mw = m.width || g.w, mh = m.height || g.h;
+    let arr = null;
+    try { arr = m.getAsUint8Array(); } catch (e) {}
+    try { m.close(); } catch (e) {}
+    if (!arr) return;
+    ST.mask = { data: new Uint8Array(arr), w: mw, h: mh, at: now };
+    if (maskCv.width !== mw || maskCv.height !== mh){ maskCv.width = mw; maskCv.height = mh; }
+    const id = maskCx.createImageData(mw, mh);
+    const d = id.data, src = ST.mask.data;
+    for (let y = 0; y < mh; y++){
+        const row = y * mw;
+        for (let x = 0; x < mw; x++){
+            if (src[row + x] > 0 && ((x + y) % 6) < 2){
+                const i = (row + x) * 4;
+                d[i] = 20; d[i + 1] = 18; d[i + 2] = 13; d[i + 3] = 135;
+            }
+        }
+    }
+    maskCx.putImageData(id, 0, 0);
+}
+
+function onDepMsg(ev){
+    const m = ev.data;
+    if (m.type === 'depth'){
+        ST.depth = { data: new Uint8Array(m.buf), w: m.w, h: m.h, at: performance.now() };
+        buildPip();
+        MODS.DEP.busy = false;
+    } else if (m.type === 'err'){
+        toast('ГЛИБИНА СПІТКНУЛАСЬ', true);
+        MODS.DEP.busy = false;
+    } else if (m.type === 'skip'){
+        MODS.DEP.busy = false;
+    }
+}
+
+/* PiP: Байєр-дизер по мапі глибини, чорнило = близько */
+function buildPip(){
+    const D = ST.depth;
+    if (!D || !MODS.DEP.on) return;
+    const step = Math.max(1, Math.ceil(D.w / 160));
+    const w = Math.floor(D.w / step), h = Math.floor(D.h / step);
+    if (pip.width !== w || pip.height !== h){ pip.width = w; pip.height = h; }
+    const id = pipCx.createImageData(w, h);
+    const d = id.data;
+    for (let y = 0; y < h; y++){
+        for (let x = 0; x < w; x++){
+            const v = D.data[(y * step) * D.w + (x * step)] / 255;
+            const inkOn = v >= bayer4(x, y);
+            const i = (y * w + x) * 4;
+            if (inkOn){ d[i] = 20; d[i + 1] = 18; d[i + 2] = 13; }
+            else      { d[i] = 236; d[i + 1] = 234; d[i + 2] = 226; }
+            d[i + 3] = 255;
+        }
+    }
+    pipCx.putImageData(id, 0, 0);
+    pip.classList.add('shown');
+}
+
+/* OCR: спільний прогін для авто-слота і SCN */
+async function runOcr(imgData, kv, isScan){
+    try {
+        const res = await ocrWorker.recognize(imgData);
+        const words = [];
+        const src = (res && res.data && res.data.words) || [];
+        for (const w of src){
+            const txt = cleanText(w.text);
+            if (!txt || w.confidence < CFG.ocrConf) continue;
+            words.push({ text: txt, conf: w.confidence, x: w.bbox.x0, y: w.bbox.y0, w: w.bbox.x1 - w.bbox.x0, h: w.bbox.y1 - w.bbox.y0 });
+        }
+        const lines = groupLines(scaleWords(words, kv));
+        const vis = ST.tracks.filter(t => t.hits >= 2);
+        const at = attachText(vis, lines);
+        const now = performance.now();
+        const byId = {};
+        for (const p of at.assigned) byId[p[0]] = byId[p[0]] ? byId[p[0]] + ' · ' + p[1] : p[1];
+        for (const t of ST.tracks){
+            if (byId[t.id]){ t.text = byId[t.id].slice(0, 42); t.textAt = now; }
+        }
+        ST.ocrFree = { lines: at.free, at: now };
+        if (isScan) toast(lines.length ? ('ТЕКСТ Є: ' + lines.length + ' РЯДК.') : 'БУКВ НЕМА, ПУСТО');
+    } catch (e) {
+        if (isScan) toast('OCR СПІТКНУВСЯ', true);
+    }
+    MODS.OCR.busy = false;
+    ST.scanning = false;
+}
+
+/* ── Цикл детекції: зважена ротація, один слот за тік, рендер не чекає ── */
+function detectLoop(){
+    if (!ST.running) return;
+    setTimeout(detectLoop, 33);
+    if (document.hidden || video.readyState < 2) return;
+    const now = performance.now();
+    const slots = Object.keys(MODS).map(k => {
+        const m = MODS[k];
+        return { key: k, on: m.on && m.ready, busy: m.busy, last: m.last, interval: m.interval };
+    });
+    const pick = nextSlot(now, slots);
+    if (!pick) return;
+    const M = MODS[pick];
+    M.last = now;
+    const g = grayLo(now);
+    if (!g) return;
+    const kv = (video.videoWidth || CFG.nnW) / g.w;
+    try {
+        if (pick === 'DET' && objDet){
+            ingestDet(objDet.detectForVideo(g.cv, tsFor(objDet)), now, kv);
+        } else if (pick === 'SEG' && segDet){
+            ingestSeg(segDet.segmentForVideo(g.cv, tsFor(segDet)), now, g);
+        } else if (pick === 'DEP' && depWorker){
+            M.busy = true;
+            const buf = g.id.data.slice();
+            depWorker.postMessage({ type: 'frame', buf: buf.buffer, w: g.w, h: g.h }, [buf.buffer]);
+        } else if (pick === 'OCR' && ocrWorker && !ST.scanning){
+            M.busy = true;
+            runOcr(g.id, kv, false);
+        }
+    } catch (e) {}
+}
+
+/* ── Оверлеї: чорнило на папері ── */
+function plate(text, x, y, dpr, alpha, big){
+    const fs = (big ? 11 : 10) * dpr;
+    ctx.font = fs + "px 'Share Tech Mono'";
+    const tw = ctx.measureText(text).width;
+    const px = 4 * dpr, ph = fs + 6 * dpr;
+    ctx.fillStyle = 'rgba(' + PAPER + ',' + (0.88 * alpha) + ')';
+    ctx.fillRect(x - px, y - ph + 3 * dpr, tw + px * 2, ph);
+    ctx.strokeStyle = 'rgba(' + INK + ',' + (0.4 * alpha) + ')';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(x - px, y - ph + 3 * dpr, tw + px * 2, ph);
+    ctx.fillStyle = 'rgba(' + INK + ',' + (0.9 * alpha) + ')';
+    ctx.fillText(text, x, y);
+}
+function drawTrack(t, now, dpr, T){
+    const a = v2s(t.box.x, t.box.y, T), b = v2s(t.box.x + t.box.w, t.box.y + t.box.h, T);
+    const rx = a.x * dpr, ry = a.y * dpr, rw = (b.x - a.x) * dpr, rh = (b.y - a.y) * dpr;
+    const k = Math.min(1, t.hits / 6);
+    ctx.strokeStyle = 'rgba(' + INK + ',' + (0.45 + 0.4 * k) + ')';
+    ctx.lineWidth = 1.5 * dpr;
+    const cL = Math.min(rw, rh) * 0.22;
+    ctx.beginPath();
+    ctx.moveTo(rx, ry + cL); ctx.lineTo(rx, ry); ctx.lineTo(rx + cL, ry);
+    ctx.moveTo(rx + rw - cL, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + cL);
+    ctx.moveTo(rx + rw, ry + rh - cL); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw - cL, ry + rh);
+    ctx.moveTo(rx + cL, ry + rh); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx, ry + rh - cL);
+    ctx.stroke();
+    let rng = -1;
+    if (MODS.DEP.on && ST.depth && now - ST.depth.at < CFG.depTTL)
+        rng = depthToRange(medianDepthInBox(ST.depth.data, ST.depth.w, ST.depth.h, t.box, video.videoWidth, video.videoHeight));
+    let cov = 0;
+    if (MODS.SEG.on && ST.mask && now - ST.mask.at < CFG.maskTTL)
+        cov = segCoverage(ST.mask.data, ST.mask.w, ST.mask.h, t.box, video.videoWidth, video.videoHeight);
+    let label = t.id + '·' + t.cls.toUpperCase();
+    if (rng >= 0) label += '·R' + String(rng).padStart(2, '0');
+    if (cov > 0.25) label += '·▦';
+    plate(label, rx, ry - 6 * dpr, dpr, 1, false);
+    if (t.text && now - t.textAt < CFG.textTTL)
+        plate('› ' + t.text, rx, ry + rh + 16 * dpr, dpr, 1, false);
+}
+
+function draw(now){
+    requestAnimationFrame(draw);
+    if (document.hidden || !ST.running) return;
+    if (now - lastGl >= 30){ GL.render(now); lastGl = now; }
+    const dpr = hudDpr, W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+    const T = coverT();
+    const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
+    if (MODS.SEG.on && ST.mask && now - ST.mask.at < CFG.maskTTL){
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+        ctx.drawImage(maskCv, T.ox * dpr, T.oy * dpr, vw * T.scale * dpr, vh * T.scale * dpr);
+        ctx.restore();
+    }
+    for (const t of ST.tracks){
+        if (t.hits < 2) continue;
+        drawTrack(t, now, dpr, T);
+    }
+    if (ST.ocrFree && now - ST.ocrFree.at < CFG.freeTTL){
+        const alpha = 1 - (now - ST.ocrFree.at) / CFG.freeTTL;
+        for (const L of ST.ocrFree.lines){
+            const p = v2s(L.x, L.y + L.h, T);
+            plate(L.text.slice(0, 42), p.x * dpr, p.y * dpr, dpr, alpha, false);
+        }
+    }
 }
 
 /* ── BOOT ── */
-#boot {
-  position:fixed; inset:0; background:#000; z-index:300;
-  display:flex; flex-direction:column; justify-content:center; align-items:center; padding:24px;
-}
-#boot-hex { position:absolute; inset:0; overflow:hidden; opacity:.05; pointer-events:none; }
-#boot-hex svg { width:100%; height:100%; }
-#boot-logo-wrap { position:relative; margin-bottom:10px; line-height:1; }
-#boot-logo {
-  font-family:'Orbitron','Arial Black',sans-serif; font-weight:900;
-  font-size:clamp(42px,12vw,82px); letter-spacing:.18em; white-space:nowrap; color:transparent;
-}
-.bc {
-  display:inline-block; opacity:0; color:var(--g);
-  text-shadow:0 0 24px rgba(0,255,65,.55),0 0 60px rgba(0,255,65,.18);
-  animation:charDrop .55s cubic-bezier(.22,1,.36,1) forwards;
-}
-.bc:nth-child(1){animation-delay:.05s} .bc:nth-child(2){animation-delay:.18s}
-.bc:nth-child(3){animation-delay:.31s} .bc:nth-child(4){animation-delay:.44s}
-.bc:nth-child(5){animation-delay:.57s}
-#boot-logo-g {
-  position:absolute; inset:0; font-family:'Orbitron','Arial Black',sans-serif; font-weight:900;
-  font-size:clamp(42px,12vw,82px); letter-spacing:.18em; white-space:nowrap;
-  color:var(--g); opacity:0; pointer-events:none; animation:glitchLoop 5s 1.6s infinite;
-}
-#boot-scan {
-  position:absolute; left:0; right:0; height:2px; top:0;
-  background:linear-gradient(90deg,transparent,var(--g),transparent);
-  box-shadow:0 0 12px var(--g); animation:scanDown 3s ease-in-out infinite;
-}
-#boot-sub {
-  font-size:8px; letter-spacing:.45em; color:var(--g2); text-transform:uppercase;
-  margin:8px 0 22px; opacity:0; animation:fadeUp .5s .95s forwards;
-}
-#boot-log { width:min(360px,88vw); font-size:8.5px; color:var(--g2); min-height:90px; line-height:2; }
-#boot-log .bl {
-  opacity:0; animation:fadeUp .18s forwards;
-  padding-left:5px; border-left:2px solid var(--g3); margin-bottom:2px;
-}
-#boot-log .bl.ok::before   { content:'✔ '; color:var(--g); }
-#boot-log .bl.warn::before { content:'⚡ '; color:var(--o); }
-#boot-log .bl.err::before  { content:'✕ '; color:var(--r); }
-#pb-wrap { width:min(360px,88vw); margin-top:16px; }
-#pb-track { height:2px; background:var(--g3); }
-#pb { height:100%; width:0; background:linear-gradient(90deg,var(--g2),var(--g)); box-shadow:0 0 12px var(--g); transition:width .35s cubic-bezier(.22,1,.36,1); }
-#pb-pct { font-size:7px; color:var(--g2); text-align:right; margin-top:3px; letter-spacing:.2em; }
-#btn-start {
-  margin-top:32px; display:none; background:none; border:1px solid var(--g); color:var(--g);
-  font-family:'Orbitron',sans-serif; font-size:10px; letter-spacing:.35em; padding:13px 44px;
-  cursor:pointer; position:relative; overflow:hidden; transition:color .25s;
-}
-#btn-start::before {
-  content:''; position:absolute; inset:0; background:var(--g);
-  transform:scaleX(0); transform-origin:left; transition:transform .28s cubic-bezier(.22,1,.36,1); z-index:-1;
-}
-#btn-start:hover::before,#btn-start:active::before { transform:scaleX(1); }
-#btn-start:hover,#btn-start:active { color:#000; }
-
-/* ── APP ── */
-#app { position:fixed; inset:0; display:none; flex-direction:column; }
-#vp  { position:relative; flex:1 1 0; min-height:0; overflow:hidden; background:#000; }
-video { display:none; }
-#output_canvas { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:2; cursor:crosshair; }
-
-/* ── VISION MODE CANVASES (green/red from my3DS) ── */
-#three-canvas { position:absolute; inset:0; width:100%; height:100%; z-index:1; display:none; }
-#red-canvas   { position:absolute; inset:0; width:100%; height:100%; pointer-events:none; z-index:7; display:none; }
-
-/* ── MODE TRANSITION ── */
-#mode-transition { position:absolute; inset:0; z-index:202; pointer-events:none; opacity:0; }
-#mode-transition.active { animation:modeFlash .7s ease forwards; }
-@keyframes modeFlash { 0%{opacity:0}12%{opacity:1}38%{opacity:.8}55%{opacity:.3}100%{opacity:0} }
-#mode-transition.to-standard { background:radial-gradient(circle at 50% 50%,rgba(0,255,65,.4) 0%,rgba(0,30,0,.65) 60%,transparent 100%); }
-#mode-transition.to-green    { background:radial-gradient(circle at 50% 50%,rgba(0,255,65,.35) 0%,rgba(0,20,0,.6) 60%,transparent 100%); }
-#mode-transition.to-red      { background:radial-gradient(circle at 50% 50%,rgba(255,51,51,.4) 0%,rgba(30,0,0,.65) 60%,transparent 100%); }
-#glitch-bands { position:absolute; inset:0; z-index:203; pointer-events:none; opacity:0; overflow:hidden; }
-#glitch-bands.active { animation:glitchBandsAnim .65s steps(1) forwards; }
-@keyframes glitchBandsAnim { 0%{opacity:0}5%{opacity:1}15%{opacity:0}22%{opacity:1}30%{opacity:0}38%{opacity:1}50%{opacity:0}60%{opacity:.6}75%{opacity:0}100%{opacity:0} }
-.gb-band { position:absolute; left:0; right:0; background:currentColor; }
-#glitch-bands.to-standard { color:rgba(0,255,65,.35); }
-#glitch-bands.to-green    { color:rgba(0,255,65,.3); }
-#glitch-bands.to-red      { color:rgba(255,51,51,.35); }
-
-/* ── RED MODE video filter ── */
-video.mode-red { display:block; position:absolute; inset:0; width:100%; height:100%; object-fit:cover; z-index:0; filter:brightness(0.35) contrast(1.3) saturate(0.1) hue-rotate(200deg); }
-/* ── GREEN MODE scanlines extra ── */
-#scanlines-green { position:absolute; inset:0; pointer-events:none; z-index:9; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.12) 3px,rgba(0,0,0,.12) 4px); display:none; }
-#scanlines-red   { position:absolute; inset:0; pointer-events:none; z-index:9; background:repeating-linear-gradient(0deg,transparent,transparent 3px,rgba(0,0,0,.18) 3px,rgba(0,0,0,.18) 4px); animation:scanScrollR 8s linear infinite; display:none; }
-@keyframes scanScrollR { from{background-position:0 0} to{background-position:0 100px} }
-#vignette-red { position:absolute; inset:0; pointer-events:none; z-index:4; background:radial-gradient(ellipse 80% 80% at 50% 50%,transparent 40%,rgba(0,0,0,.85) 100%); display:none; }
-
-#vp::after {
-  content:''; position:absolute; inset:0; z-index:5; pointer-events:none;
-  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.12) 2px,rgba(0,0,0,.12) 4px);
-  animation:scanroll 8s linear infinite;
-}
-#vignette { position:absolute; inset:0; z-index:4; pointer-events:none; background:radial-gradient(ellipse at center,transparent 36%,rgba(0,0,0,.88) 100%); }
-#grid-ov  { position:absolute; inset:0; z-index:3; pointer-events:none; opacity:.025; background-image:linear-gradient(var(--g) 1px,transparent 1px),linear-gradient(90deg,var(--g) 1px,transparent 1px); background-size:48px 48px; }
-#alert-flash { position:absolute; inset:0; z-index:6; pointer-events:none; opacity:0; }
-#alert-flash.on { animation:alertFlash 1.2s ease-out forwards; }
-.hc { position:absolute; width:52px; height:52px; z-index:10; pointer-events:none; }
-.hc::before,.hc::after { content:''; position:absolute; background:var(--g); box-shadow:0 0 6px var(--g); }
-.hc::before { width:2px; height:18px; } .hc::after { width:18px; height:2px; }
-#hc-tl{top:0;left:0;} #hc-tl::before{top:0;left:0;} #hc-tl::after{top:0;left:0;}
-#hc-tr{top:0;right:0;} #hc-tr::before{top:0;right:0;} #hc-tr::after{top:0;right:0;}
-#hc-bl{bottom:0;left:0;} #hc-bl::before{bottom:0;left:0;} #hc-bl::after{bottom:0;left:0;}
-#hc-br{bottom:0;right:0;} #hc-br::before{bottom:0;right:0;} #hc-br::after{bottom:0;right:0;}
-#topbar {
-  position:absolute; top:0; left:0; right:0; z-index:15; pointer-events:none;
-  display:flex; align-items:center; justify-content:space-between; padding:10px 14px;
-  background:linear-gradient(180deg,rgba(0,0,0,.72) 0%,transparent 100%);
-}
-#sys-id { font-family:'Orbitron','Arial Black',sans-serif; font-size:13px; font-weight:900; letter-spacing:.2em; color:var(--g); text-shadow:0 0 20px rgba(0,255,65,.5); }
-#sys-id small { font-weight:400; font-size:9px; opacity:.4; letter-spacing:.08em; }
-#badges { display:flex; gap:5px; align-items:center; }
-.badge { font-size:7.5px; letter-spacing:.1em; padding:3px 8px; border:1px solid var(--border); background:var(--panel); color:var(--g2); display:flex; align-items:center; gap:4px; backdrop-filter:blur(4px); }
-.bdot { width:4px; height:4px; border-radius:50%; background:var(--g); flex-shrink:0; animation:dotBlink 1.5s ease-in-out infinite; box-shadow:0 0 5px var(--g); }
-#b-fps .bdot    { background:var(--b); box-shadow:0 0 5px var(--b); }
-#b-threat       { display:none; border-color:rgba(255,51,51,.4); color:var(--r); }
-#b-threat .bdot { background:var(--r); box-shadow:0 0 5px var(--r); animation-duration:.6s; }
-#b-face { display:none; border-color:rgba(0,200,255,.35); color:rgba(0,200,255,.8); }
-#b-face .bdot { background:#00c8ff; box-shadow:0 0 5px #00c8ff; }
-#b-face.active { display:flex; }
-#cache-badge { position:absolute; top:40px; left:14px; z-index:16; font-size:7px; color:rgba(0,255,65,.3); letter-spacing:.15em; pointer-events:none; }
-#statusbar { position:absolute; bottom:0; left:0; right:0; z-index:9; pointer-events:none; display:flex; justify-content:space-between; padding:4px 14px; background:linear-gradient(0deg,rgba(0,0,0,.7) 0%,transparent 100%); }
-.sbi { font-size:7px; color:rgba(0,255,65,.32); letter-spacing:.1em; }
-
-/* ── MODE INDICATOR (под FPS бейджем) ── */
-#b-mode-cur { border-color:rgba(0,255,65,.3); }
-#b-mode-cur.mode-green { border-color:rgba(0,255,65,.5); color:var(--g); }
-#b-mode-cur.mode-red   { border-color:rgba(255,51,51,.5); color:var(--r); }
-#b-mode-cur.mode-red .bdot { background:var(--r); box-shadow:0 0 5px var(--r); animation-duration:.7s; }
-
-/* ── SCREENSHOT ── */
-#shot-flash { position:absolute; inset:0; z-index:50; pointer-events:none; background:#fff; opacity:0; }
-#shot-flash.snap { animation:shotFlash .45s ease-out forwards; }
-@keyframes shotFlash { 0%{opacity:.85} 100%{opacity:0} }
-#shot-indicator { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); z-index:51; pointer-events:none; font-family:'Orbitron',sans-serif; font-size:11px; letter-spacing:.3em; color:#fff; text-shadow:0 0 20px rgba(255,255,255,.8); opacity:0; }
-#shot-indicator.snap { animation:shotInd .9s ease-out forwards; }
-@keyframes shotInd { 0%{opacity:1;transform:translate(-50%,-50%) scale(1.1)} 60%{opacity:1;transform:translate(-50%,-50%) scale(1)} 100%{opacity:0;transform:translate(-50%,-50%) scale(.95)} }
-
-/* ── INFO CARD ── */
-#info-card { flex:0 0 var(--card-h); height:var(--card-h); overflow:hidden; background:rgba(1,5,2,.99); border-top:1px solid rgba(0,255,65,.45); position:relative; z-index:30; max-height:0; transition:max-height .28s cubic-bezier(.22,1,.36,1),border-color .28s; border-top-color:transparent; pointer-events:none; }
-#info-card.open { max-height:var(--card-h); border-top-color:rgba(0,255,65,.45); pointer-events:all; }
-#info-card::before { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,var(--g),transparent); animation:sweepLine 3s linear infinite; }
-#ic-close { position:absolute; top:8px; right:12px; background:none; border:1px solid rgba(0,255,65,.3); color:var(--g2); font-family:'Share Tech Mono',monospace; font-size:8px; padding:3px 10px; cursor:pointer; letter-spacing:.12em; transition:all .2s; z-index:2; }
-#ic-close:hover { border-color:var(--g); color:var(--g); }
-#ic-body { padding:10px 14px 8px; height:100%; overflow:hidden; }
-#ic-row1 { display:flex; align-items:baseline; gap:10px; margin-bottom:5px; }
-#ic-name { font-family:'Orbitron','Arial Black',sans-serif; font-size:17px; font-weight:700; letter-spacing:.18em; cursor:pointer; transition:opacity .2s; }
-#ic-name:hover { opacity:.7; }
-#ic-sub { font-size:7px; color:rgba(0,255,65,.35); letter-spacing:.2em; }
-#ic-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:2px 8px; font-size:8px; margin-bottom:5px; }
-.ick { color:rgba(0,255,65,.38); font-size:7px; letter-spacing:.06em; }
-.icv { color:var(--g); } .icv.warn{color:var(--o)} .icv.alert{color:var(--r)}
-#ic-desc { font-size:7.5px; color:rgba(0,255,65,.45); line-height:1.6; border-top:1px solid var(--border); padding-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-#ic-tbar { margin-top:4px; display:flex; align-items:center; gap:8px; }
-#ic-tl   { font-size:7px; color:rgba(0,255,65,.38); letter-spacing:.1em; white-space:nowrap; }
-#ic-tt   { flex:1; height:2px; background:var(--g3); overflow:hidden; }
-#ic-tf   { height:100%; width:0; transition:width .5s,background .3s; }
-#ic-tv   { font-size:8px; color:var(--g); min-width:26px; text-align:right; }
-#ic-actions { margin-top:5px; display:flex; align-items:center; gap:10px; }
-#ic-rename { font-size:7px; color:rgba(0,255,65,.28); letter-spacing:.15em; cursor:pointer; transition:color .2s; }
-#ic-rename:hover { color:var(--g); }
-#ic-shot-btn { display:none; align-items:center; gap:5px; font-size:7px; letter-spacing:.15em; background:none; border:1px solid rgba(0,255,65,.35); color:var(--g2); padding:3px 9px; cursor:pointer; font-family:'Share Tech Mono',monospace; transition:all .2s; position:relative; overflow:hidden; }
-#ic-shot-btn::before { content:''; position:absolute; inset:0; background:var(--g); transform:scaleX(0); transform-origin:left; transition:transform .22s ease; z-index:-1; }
-#ic-shot-btn:hover::before { transform:scaleX(1); }
-#ic-shot-btn:hover { color:#000; border-color:var(--g); }
-#ic-shot-btn.ready  { display:flex; }
-#ic-shot-btn.saving { color:var(--o); border-color:var(--o); pointer-events:none; }
-#ic-thumb { display:none; width:32px; height:18px; border:1px solid rgba(0,255,65,.2); object-fit:cover; flex-shrink:0; }
-#ic-thumb.ready { display:block; }
-
-/* ── TERMINAL ── */
-#terminal-wrap { flex:0 0 var(--term-h); height:var(--term-h); background:rgba(0,0,0,.96); border-top:1px solid var(--border); z-index:20; display:flex; flex-direction:column; overflow:hidden; }
-#term-header { flex:0 0 auto; display:flex; align-items:center; justify-content:space-between; padding:4px 12px; border-bottom:1px solid rgba(0,255,65,.1); }
-#term-title { font-size:7px; letter-spacing:.25em; color:rgba(0,255,65,.3); }
-#term-clear { background:none; border:none; color:rgba(0,255,65,.28); font-family:'Share Tech Mono',monospace; font-size:7px; letter-spacing:.15em; cursor:pointer; padding:0; }
-#term-clear:hover { color:var(--g); }
-#term-cols { flex:0 0 auto; display:grid; grid-template-columns:60px 68px 1fr 68px 74px; gap:0 4px; padding:2px 12px; border-bottom:1px solid rgba(0,255,65,.07); }
-.tcl { font-size:6.5px; color:rgba(0,255,65,.22); letter-spacing:.15em; text-transform:uppercase; }
-#term-body { flex:1 1 0; min-height:0; overflow-y:auto; padding:2px 0; scrollbar-width:thin; scrollbar-color:var(--g3) transparent; }
-#term-body::-webkit-scrollbar { width:3px; }
-#term-body::-webkit-scrollbar-thumb { background:var(--g3); border-radius:2px; }
-.trow { display:grid; grid-template-columns:60px 68px 1fr 68px 74px; gap:0 4px; padding:2px 12px; font-size:8px; line-height:1.5; border-left:2px solid transparent; transition:background .12s; animation:rowIn .16s ease-out both; }
-.trow:hover { background:rgba(0,255,65,.04); }
-.trow.person  { border-left-color:var(--g); }
-.trow.vehicle { border-left-color:var(--r); }
-.trow.animal  { border-left-color:var(--y); }
-.trow.device  { border-left-color:var(--b); }
-.trow.system  { border-left-color:var(--p); }
-.trow.other   { border-left-color:rgba(255,255,255,.3); }
-.tc-time  { color:rgba(0,255,65,.32); font-size:7.5px; }
-.tc-date  { color:rgba(0,255,65,.22); font-size:7px; }
-.tc-event { color:var(--g); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tc-type  { font-size:7.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.tc-group { font-size:7px; color:rgba(0,255,65,.38); }
-
-/* ── КНОПКА СМЕНЫ КАМЕРЫ ── */
-#btn-cam-switch {
-  pointer-events:all; background:rgba(2,8,4,.88); border:1px solid rgba(0,255,65,.32);
-  color:var(--g2); font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:.14em;
-  padding:3px 10px; cursor:pointer; display:flex; align-items:center; gap:5px;
-  backdrop-filter:blur(4px); transition:all .2s;
-}
-#btn-cam-switch:hover,#btn-cam-switch:active { border-color:var(--g); color:var(--g); background:rgba(0,255,65,.08); }
-#btn-cam-switch.switching { opacity:.45; pointer-events:none; border-color:var(--o); color:var(--o); }
-#btn-cam-switch .ci { font-size:11px; line-height:1; }
-
-/* ── КНОПКА РЕЖИМА ВИЗУАЛИЗАЦИИ ── */
-#btn-vision-mode {
-  pointer-events:all; background:rgba(2,8,4,.88); border:1px solid rgba(0,255,65,.32);
-  color:var(--g2); font-family:'Share Tech Mono',monospace; font-size:8px; letter-spacing:.14em;
-  padding:3px 10px; cursor:pointer; display:flex; align-items:center; gap:5px;
-  backdrop-filter:blur(4px); transition:all .2s;
-}
-#btn-vision-mode:hover,#btn-vision-mode:active { border-color:var(--g); color:var(--g); background:rgba(0,255,65,.08); }
-#btn-vision-mode.mode-green { border-color:rgba(0,255,65,.55); color:var(--g); }
-#btn-vision-mode.mode-red   { border-color:rgba(255,51,51,.55); color:var(--r); background:rgba(255,0,0,.06); }
-#btn-vision-mode .ci { font-size:10px; line-height:1; }
-/* Весь блок кнопок в topbar выровнян вертикально, правая группа — flex-col */
-#topbar-right { display:flex; flex-direction:column; align-items:flex-end; gap:5px; pointer-events:all; }
-
-/* ── AUDIO STRIP ── */
-#audio-strip { flex:0 0 100px; height:100px; background:rgba(0,2,0,.98); border-top:1px solid rgba(0,70,25,.7); position:relative; z-index:25; overflow:hidden; }
-#audio-strip::after { content:''; position:absolute; top:0; left:0; right:0; height:1px; background:linear-gradient(90deg,transparent,rgba(0,255,65,.22),transparent); pointer-events:none; }
-#audio-canvas { display:block; width:100%; height:100%; }
-#audio-overlay { position:absolute; inset:0; pointer-events:none; display:flex; align-items:flex-end; justify-content:space-between; padding:0 10px 4px; }
-#audio-lbl  { font-size:6.5px; color:rgba(0,255,65,.2); letter-spacing:.22em; }
-#audio-db   { font-size:7.5px; color:rgba(0,255,65,.32); letter-spacing:.1em; font-variant-numeric:tabular-nums; min-width:54px; text-align:right; }
-#audio-speech-badge { position:absolute; top:6px; right:10px; font-size:6.5px; letter-spacing:.2em; padding:2px 7px; border:1px solid transparent; color:rgba(0,255,65,.18); transition:all .12s; pointer-events:none; }
-#audio-speech-badge.on { border-color:rgba(0,255,65,.45); color:var(--g); background:rgba(0,255,65,.06); text-shadow:0 0 7px var(--g); }
-#b-mic .bdot        { background:var(--b); box-shadow:0 0 5px var(--b); }
-#b-mic.speech       { border-color:rgba(0,255,65,.4); color:var(--g); }
-#b-mic.speech .bdot { background:var(--g); box-shadow:0 0 8px var(--g); }
-#b-mic.muted        { opacity:.3; }
-
-/* ── AUDIO ROW IN CARD ── */
-#ic-audio-row { margin-top:5px; display:flex; align-items:center; gap:12px; border-top:1px solid var(--border); padding-top:4px; }
-.ica-lbl { font-size:6.5px; color:rgba(0,255,65,.35); letter-spacing:.1em; }
-.ica-val { font-size:8px; color:var(--g); letter-spacing:.06em; font-variant-numeric:tabular-nums; }
-.ica-val.warn { color:var(--o); }
-#ic-speech-pill { font-size:6.5px; letter-spacing:.18em; padding:1px 7px; border:1px solid rgba(0,255,65,.18); color:rgba(0,255,65,.22); transition:all .15s; }
-#ic-speech-pill.on { border-color:rgba(0,255,65,.5); color:var(--g); background:rgba(0,255,65,.07); text-shadow:0 0 6px var(--g); }
-
-/* ── RED MODE OVERLAY ELEMENTS ── */
-#red-tap-hint { position:absolute; bottom:20px; left:50%; transform:translateX(-50%); font-size:9px; letter-spacing:4px; text-transform:uppercase; color:rgba(255,51,51,.55); z-index:15; pointer-events:none; opacity:0; transition:opacity .4s; white-space:nowrap; animation:hintPulse 2s ease-in-out infinite; display:none; }
-#red-tap-hint.show { opacity:1; }
-@keyframes hintPulse { 0%,100%{opacity:.4}50%{opacity:.75} }
-#red-tap-hint::before { content:'[ '; color:var(--r); }
-#red-tap-hint::after  { content:' ]'; color:var(--r); }
-
-/* ── RED CAPTURE CARD ── */
-#red-capture-card { position:absolute; top:14px; left:14px; z-index:20; display:none; flex-direction:column; opacity:0; pointer-events:none; transition:opacity .3s ease; filter:drop-shadow(0 0 8px rgba(255,51,51,.35)); }
-#red-capture-card.show { opacity:1; pointer-events:auto; }
-#red-portrait-wrap { position:relative; width:200px; flex-shrink:0; background:#000; border:1px solid rgba(255,51,51,.5); overflow:hidden; }
-#red-portrait-canvas { width:100%; display:block; filter:brightness(1.1) contrast(1.25) saturate(0.12) hue-rotate(180deg); }
-.rpc { position:absolute; width:9px; height:9px; border-color:var(--r); border-style:solid; z-index:2; }
-.rpc.tl{top:3px;left:3px;border-width:1.5px 0 0 1.5px;}
-.rpc.tr{top:3px;right:3px;border-width:1.5px 1.5px 0 0;}
-.rpc.bl{bottom:3px;left:3px;border-width:0 0 1.5px 1.5px;}
-.rpc.br{bottom:3px;right:3px;border-width:0 1.5px 1.5px 0;}
-#red-p-scan { position:absolute; inset:0; pointer-events:none; z-index:3; background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.22) 2px,rgba(0,0,0,.22) 3px); }
-#red-captured-flash { position:absolute; inset:0; z-index:6; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:700; letter-spacing:4px; color:var(--r); opacity:0; pointer-events:none; }
-#red-captured-flash.flash { animation:capFlash .9s ease forwards; }
-@keyframes capFlash { 0%{opacity:1}60%{opacity:.7}100%{opacity:0} }
-#red-capture-meta { width:200px; background:rgba(0,0,0,.88); border:1px solid rgba(255,51,51,.25); border-top:none; padding:7px 9px; display:flex; flex-direction:column; }
-.rcm-header { font-size:8px; font-weight:700; letter-spacing:3px; color:var(--r); border-bottom:1px solid rgba(255,51,51,.3); padding-bottom:5px; margin-bottom:5px; text-transform:uppercase; display:flex; justify-content:space-between; align-items:center; }
-.rcm-blink  { width:5px; height:5px; border-radius:50%; background:var(--r); animation:dotBlink .6s steps(1) infinite; }
-.rcm-row { display:flex; justify-content:space-between; align-items:baseline; border-bottom:1px solid rgba(255,255,255,.04); padding:2.5px 0; }
-.rcm-key { font-size:7px; letter-spacing:1.8px; color:rgba(255,255,255,.25); text-transform:uppercase; flex-shrink:0; }
-.rcm-val { font-family:'Share Tech Mono',monospace; font-size:8px; color:rgba(255,255,255,.65); letter-spacing:.8px; text-align:right; }
-.rcm-val.red { color:var(--r); text-shadow:0 0 5px var(--r); }
-
-/* ── GREEN MODE HUD INFO ── */
-#green-obj-count { position:absolute; bottom:20px; right:20px; font-size:8px; letter-spacing:2px; color:rgba(0,255,65,.6); z-index:15; display:none; pointer-events:none; }
-
-/* ── KEYFRAMES ── */
-@keyframes charDrop { 0%{opacity:0;transform:translateY(-18px) scaleY(2.2)} 100%{opacity:1;transform:none} }
-@keyframes glitchLoop {
-  0%,87%,100%{opacity:0;transform:none}
-  88%{opacity:.7;transform:translateX(-3px);clip-path:polygon(0 12%,100% 12%,100% 38%,0 38%);color:var(--r)}
-  90%{opacity:.5;transform:translateX(4px);clip-path:polygon(0 55%,100% 55%,100% 80%,0 80%);color:var(--b)}
-  92%{opacity:0}
-}
-@keyframes scanDown { 0%{top:0;opacity:0} 10%{opacity:1} 90%{opacity:1} 100%{top:100%;opacity:0} }
-@keyframes fadeUp   { from{opacity:0;transform:translateY(4px)} to{opacity:1;transform:none} }
-@keyframes sweepLine{ from{background-position:-200% 0} to{background-position:200% 0} }
-@keyframes scanroll { from{background-position:0 0} to{background-position:0 80px} }
-@keyframes dotBlink { 0%,100%{opacity:1} 50%{opacity:.15} }
-@keyframes alertFlash { 0%{opacity:1;background:rgba(255,51,51,.07)} 100%{opacity:0} }
-@keyframes rowIn    { from{opacity:0;transform:translateX(-5px)} to{opacity:1;transform:none} }
-</style>
-
-</head>
-<body>
-
-<!-- ═══ BOOT ═══ -->
-
-<div id="boot">
-  <div id="boot-hex">
-    <svg viewBox="0 0 800 600" preserveAspectRatio="xMidYMid slice">
-      <defs>
-        <pattern id="hxp" x="0" y="0" width="56" height="48" patternUnits="userSpaceOnUse">
-          <polygon points="28,2 54,16 54,44 28,46 2,44 2,16" fill="none" stroke="#00ff41" stroke-width=".5"/>
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#hxp)"/>
-    </svg>
-  </div>
-  <div id="boot-logo-wrap">
-    <div id="boot-logo" aria-label="myEYE">
-      <span class="bc">m</span><span class="bc">y</span><span class="bc">E</span><span class="bc">Y</span><span class="bc">E</span>
-    </div>
-    <div id="boot-logo-g" aria-hidden="true">myEYE</div>
-    <div id="boot-scan" aria-hidden="true"></div>
-  </div>
-  <div id="boot-sub">powered by bortin'2026</div>
-  <div id="boot-log"></div>
-  <div id="pb-wrap"><div id="pb-track"><div id="pb"></div></div><div id="pb-pct">0%</div></div>
-  <button id="btn-start" onclick="startApp()">ACTIVATE</button>
-</div>
-
-<!-- ═══ APP ═══ -->
-
-<div id="app">
-  <div id="vp">
-    <video id="input_video" playsinline muted></video>
-    <!-- Three.js canvas (green/red modes) -->
-    <canvas id="three-canvas"></canvas>
-    <!-- Standard myEYE canvas -->
-    <canvas id="output_canvas"></canvas>
-    <!-- Red mode canvas -->
-    <canvas id="red-canvas"></canvas>
-    <!-- Mode overlays -->
-    <div id="scanlines-green"></div>
-    <div id="scanlines-red"></div>
-    <div id="vignette-red"></div>
-    <div id="mode-transition"></div>
-    <div id="glitch-bands"></div>
-    <div id="grid-ov"></div>
-    <div id="vignette"></div>
-    <div id="alert-flash"></div>
-    <div id="shot-flash"></div>
-    <div id="shot-indicator">◉ CAPTURED</div>
-    <div class="hc" id="hc-tl"></div><div class="hc" id="hc-tr"></div>
-    <div class="hc" id="hc-bl"></div><div class="hc" id="hc-br"></div>
-
-```
-<!-- Red mode UI -->
-<div id="red-tap-hint">TAP TARGET TO CAPTURE</div>
-<div id="red-capture-card">
-  <div id="red-portrait-wrap">
-    <canvas id="red-portrait-canvas"></canvas>
-    <div class="rpc tl"></div><div class="rpc tr"></div>
-    <div class="rpc bl"></div><div class="rpc br"></div>
-    <div id="red-p-scan"></div>
-    <div id="red-captured-flash">CAPTURED</div>
-  </div>
-  <div id="red-capture-meta">
-    <div class="rcm-header"><span>TARGET DATA</span><div class="rcm-blink"></div></div>
-    <div id="red-cm-rows"></div>
-  </div>
-</div>
-
-<!-- Green mode obj count -->
-<div id="green-obj-count"></div>
-
-<div id="topbar">
-  <div id="sys-id">myEYE <small id="mode-label-sm">// STANDARD</small></div>
-  <div id="badges">
-    <div class="badge" id="b-fps"><span class="bdot"></span><span id="fps-txt">-- FPS</span></div>
-    <div class="badge" id="b-obj"><span class="bdot"></span><span id="obj-txt">SCANNING</span></div>
-    <div class="badge" id="b-mic"><span class="bdot"></span><span id="mic-txt">MIC</span></div>
-    <div class="badge" id="b-face"><span class="bdot"></span>FACE</div>
-    <div class="badge" id="b-threat"><span class="bdot"></span>THREAT</div>
-  </div>
-  <!-- Right controls column -->
-  <div id="topbar-right">
-    <button id="btn-cam-switch" onclick="switchCamera()">
-      <span class="ci">⟳</span><span id="cam-label">REAR</span>
-    </button>
-    <button id="btn-vision-mode" onclick="cycleVisionMode()">
-      <span class="ci">◈</span><span id="vision-mode-label">STANDARD</span>
-    </button>
-  </div>
-</div>
-<div id="cache-badge">CACHE: 0 CLASSES</div>
-<div id="statusbar">
-  <div class="sbi" id="sb-time">--:--:--</div>
-  <div class="sbi" id="sb-mode">STANDARD</div>
-  <div class="sbi">myEYE</div>
-</div>
-```
-
-  </div>
-
-  <!-- INFO CARD -->
-
-  <div id="info-card">
-    <button id="ic-close" onclick="closeCard()">✕ CLOSE</button>
-    <div id="ic-body">
-      <div id="ic-row1"><div id="ic-name">---</div><div id="ic-sub">// TAP NAME TO RENAME</div></div>
-      <div id="ic-grid"></div>
-      <div id="ic-desc"></div>
-      <div id="ic-tbar">
-        <div id="ic-tl">THREAT</div>
-        <div id="ic-tt"><div id="ic-tf"></div></div>
-        <div id="ic-tv">0%</div>
-      </div>
-      <div id="ic-actions">
-        <div id="ic-rename" onclick="renameObj()">✎ RENAME CLASS</div>
-        <img id="ic-thumb" alt="shot" />
-        <button id="ic-shot-btn" onclick="downloadScreenshot()">⬇ SAVE PNG</button>
-      </div>
-      <div id="ic-audio-row">
-        <div style="display:flex;align-items:center;gap:4px">
-          <span class="ica-lbl">NOISE</span>
-          <span class="ica-val" id="ic-db-val">-- dB</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span class="ica-lbl">ENV</span>
-          <span class="ica-val" id="ic-env-val">--</span>
-        </div>
-        <div style="display:flex;align-items:center;gap:4px">
-          <span class="ica-lbl">SPEECH</span>
-          <span id="ic-speech-pill">SILENT</span>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- AUDIO STRIP -->
-
-  <div id="audio-strip">
-    <canvas id="audio-canvas"></canvas>
-    <div id="audio-overlay">
-      <span id="audio-lbl">◈ AUDIO</span>
-      <span id="audio-db">-- dB</span>
-    </div>
-    <div id="audio-speech-badge">▶ SPEECH</div>
-  </div>
-
-  <!-- TERMINAL -->
-
-  <div id="terminal-wrap">
-    <div id="term-header">
-      <span id="term-title">● SYSTEM LOG</span>
-      <button id="term-clear" onclick="clearLog()">✕ CLEAR</button>
-    </div>
-    <div id="term-cols">
-      <span class="tcl">TIME</span><span class="tcl">DATE</span>
-      <span class="tcl">EVENT</span><span class="tcl">TYPE</span><span class="tcl">GROUP</span>
-    </div>
-    <div id="term-body"></div>
-  </div>
-</div>
-
-<script>
-'use strict';
-
-/* ═══════════════════════════════════════
-   USER CACHE
-═══════════════════════════════════════ */
-const CACHE_KEY = 'myeye_v53';
-let UC = (() => {
-  try { return JSON.parse(localStorage.getItem(CACHE_KEY)) || {}; } catch(e) { return {}; }
-})();
-['aliases','counts','lastSeen','events'].forEach(k => {
-  if (!UC[k]) UC[k] = k === 'events' ? [] : {};
-});
-function saveCache() {
-  if (UC.events.length > 300) UC.events = UC.events.slice(-300);
-  try { localStorage.setItem(CACHE_KEY, JSON.stringify(UC)); } catch(e) {}
-  const el = document.getElementById('cache-badge');
-  if (el) el.textContent = `CACHE: ${Object.keys(UC.counts).length} CLASSES / ${UC.events.length} EVT`;
-}
-
-/* ═══════════════════════════════════════
-   KNOWLEDGE BASE
-═══════════════════════════════════════ */
-const GROUPS = {
-  person:'HUMAN', car:'VEHICLE',truck:'VEHICLE',bus:'VEHICLE',motorcycle:'VEHICLE',
-  bicycle:'VEHICLE',train:'VEHICLE',airplane:'VEHICLE',boat:'VEHICLE',
-  dog:'ANIMAL',cat:'ANIMAL',bird:'ANIMAL',horse:'ANIMAL',sheep:'ANIMAL',cow:'ANIMAL',
-  elephant:'ANIMAL',bear:'ANIMAL',zebra:'ANIMAL',giraffe:'ANIMAL',
-  'cell phone':'DEVICE',laptop:'DEVICE',mouse:'DEVICE',remote:'DEVICE',
-  keyboard:'DEVICE',tv:'DEVICE',microwave:'DEVICE',clock:'DEVICE',
-  chair:'FURNITURE',couch:'FURNITURE',bed:'FURNITURE','dining table':'FURNITURE',
-  toilet:'FURNITURE',bench:'FURNITURE',sink:'FURNITURE',
-  bottle:'KITCHENWARE',cup:'KITCHENWARE',fork:'KITCHENWARE',knife:'KITCHENWARE',
-  spoon:'KITCHENWARE',bowl:'KITCHENWARE',
-  backpack:'ACCESSORY',umbrella:'ACCESSORY',handbag:'ACCESSORY',suitcase:'ACCESSORY',
-  'sports ball':'ACCESSORY',skateboard:'ACCESSORY',
-  banana:'FOOD',apple:'FOOD',sandwich:'FOOD',pizza:'FOOD',cake:'FOOD'
-};
-const GCOL = {
-  HUMAN:'#00ff41',VEHICLE:'#ff3333',ANIMAL:'#ffe600',DEVICE:'#00aaff',
-  FURNITURE:'#cc44ff',KITCHENWARE:'#ff44aa',ACCESSORY:'#ff9900',FOOD:'#00ff88',OBJECT:'#ffffff'
-};
-const KB = {
-  person:     {threat:.72,desc:'Homo sapiens. Скелет + кисти рук активны.'},
-  car:        {threat:.55,desc:'Колёсное ТС. Гражданский класс. Масса ~1200 кг.'},
-  truck:      {threat:.68,desc:'Тяжёлое грузовое ТС. Зона повышенной опасности.'},
-  bus:        {threat:.50,desc:'Пассажирский транспорт. Мониторинг пешеходных зон.'},
-  motorcycle: {threat:.62,desc:'Двухколёсное моторизованное ТС. Высокая манёвренность.'},
-  dog:        {threat:.32,desc:'Canis lupus familiaris. Поведенческий вектор оценивается.'},
-  cat:        {threat:.10,desc:'Felis catus. Автономный агент. Высокая мобильность.'},
-  'cell phone':{threat:.18,desc:'EMF-источник. Возможна активная передача данных.'},
-  backpack:   {threat:.38,desc:'Носимый контейнер. Содержимое неизвестно.'},
-  _d:         {threat:.20,desc:'Объект идентифицирован. Расширенный анализ выполняется.'}
-};
-const THREAT_HIGH   = ['person','car','truck','bus','motorcycle','airplane','boat','train'];
-const THREAT_MEDIUM = ['bicycle','horse','cow','dog','cat','bird','sheep','bear','elephant'];
-function getThreat(c){ return THREAT_HIGH.includes(c)?'HIGH':THREAT_MEDIUM.includes(c)?'MED':'LOW'; }
-
-const getGroup = cls => GROUPS[cls] || 'OBJECT';
-const getCol   = cls => GCOL[getGroup(cls)] || '#fff';
-const getKB    = cls => KB[cls] || KB._d;
-const getAlias = cls => UC.aliases[cls] || cls.toUpperCase();
-
-/* ═══════════════════════════════════════
-   ELEMENTS
-═══════════════════════════════════════ */
-const video    = document.getElementById('input_video');
-const canvas   = document.getElementById('output_canvas');
-const ctx      = canvas.getContext('2d');
-const termBody = document.getElementById('term-body');
-
-/* ═══════════════════════════════════════
-   VISION MODE STATE
-   Modes: 'standard' | 'green' | 'red'
-═══════════════════════════════════════ */
-const VISION_MODES = ['standard','green','red'];
-const VISION_LABELS = { standard:'STANDARD', green:'GREEN', red:'RED TARGET' };
-let currentVisionMode = 'standard';
-let isTransitioning = false;
-
-/* ═══════════════════════════════════════
-   THREE.JS SHADER (Green / Red)
-═══════════════════════════════════════ */
-const VERT_SH = `varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position,1.);}`;
-const FRAG_SH = `
-precision mediump float;
-uniform sampler2D t;uniform vec2 res;uniform float edgeInt;uniform float tint;
-uniform int numBoxes;uniform vec4 boxes[20];
-varying vec2 vUv;
-float insideAny(){
-  for(int i=0;i<20;i++){if(i>=numBoxes)break;vec4 b=boxes[i];
-  if(vUv.x>=b.x&&vUv.x<=b.x+b.z&&vUv.y>=b.y&&vUv.y<=b.y+b.w)return 1.;}return 0.;}
-void main(){
-  vec2 p=vec2(1./res.x,1./res.y);
-  float s11=texture2D(t,vUv+vec2(-p.x,-p.y)).r,s12=texture2D(t,vUv+vec2(0.,-p.y)).r,
-        s13=texture2D(t,vUv+vec2(p.x,-p.y)).r,s21=texture2D(t,vUv+vec2(-p.x,0.)).r,
-        s23=texture2D(t,vUv+vec2(p.x,0.)).r,s31=texture2D(t,vUv+vec2(-p.x,p.y)).r,
-        s32=texture2D(t,vUv+vec2(0.,p.y)).r,s33=texture2D(t,vUv+vec2(p.x,p.y)).r;
-  float gx=s13+2.*s23+s33-(s11+2.*s21+s31),gy=s31+2.*s32+s33-(s11+2.*s12+s13);
-  float e=sqrt(gx*gx+gy*gy),sc=sin(vUv.y*res.y*3.14159)*.04+.96;
-  float inside=insideAny(),effInt=mix(edgeInt*0.06,edgeInt,inside);
-  float bright=e*effInt*sc;
-  vec3 col;
-  if(tint<1.)col=mix(vec3(0.,bright,bright*.09),vec3(bright),tint);
-  else if(tint<2.)col=mix(vec3(bright),vec3(bright,bright*.55,0.),tint-1.);
-  else col=vec3(bright,bright*.55,0.);
-  gl_FragColor=vec4(col,1.);}`;
-
-let threeRenderer = null, threeMat = null;
-const boxesUniform = new Array(20).fill(null).map(()=>new THREE.Vector4(0,0,0,0));
-
-function setupThree(){
-  const scene=new THREE.Scene(), cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
-  threeRenderer=new THREE.WebGLRenderer({canvas:document.getElementById('three-canvas'),antialias:false});
-  threeRenderer.setSize(window.innerWidth,window.innerHeight);
-  threeRenderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
-  const vt=new THREE.VideoTexture(video);
-  threeMat=new THREE.ShaderMaterial({
-    uniforms:{t:{value:vt},res:{value:new THREE.Vector2(window.innerWidth,window.innerHeight)},
-      edgeInt:{value:4.5},tint:{value:0.0},numBoxes:{value:0},boxes:{value:boxesUniform}},
-    vertexShader:VERT_SH,fragmentShader:FRAG_SH
-  });
-  scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),threeMat));
-  (function loop(){ requestAnimationFrame(loop); if(threeRenderer)threeRenderer.render(scene,cam); })();
-}
-
-function pushBoxesToShader(dets){
-  if(!threeMat) return;
-  const W=window.innerWidth,H=window.innerHeight,vW=video.videoWidth||W,vH=video.videoHeight||H;
-  const sx=W/vW,sy=H/vH,n=Math.min(dets.length,20);
-  for(let i=0;i<20;i++){
-    if(i<n){const[bx,by,bw,bh]=dets[i].bbox;boxesUniform[i].set(bx*sx/W,1-(by+bh)*sy/H,bw*sx/W,bh*sy/H);}
-    else boxesUniform[i].set(0,0,0,0);
-  }
-  threeMat.uniforms.numBoxes.value=n;threeMat.uniforms.boxes.value=boxesUniform;
-}
-
-/* ═══════════════════════════════════════
-   GREEN MODE BOX DRAWING
-═══════════════════════════════════════ */
-function drawGreenBoxes(dets){
-  const detCanvas=document.getElementById('output_canvas');
-  const dctx=detCanvas.getContext('2d');
-  const W=detCanvas.width, H=detCanvas.height;
-  dctx.clearRect(0,0,W,H);
-  if(!dets||!dets.length){ document.getElementById('green-obj-count').style.display='none'; return; }
-  const vW=video.videoWidth||W, vH=video.videoHeight||H, sx=W/vW, sy=H/vH;
-  const now=performance.now();
-  dets.forEach((det,i)=>{
-    const[bx,by,bw,bh]=det.bbox, x=bx*sx, y=by*sy, w=bw*sx, h=bh*sy;
-    const score=Math.round(det.score*100), label=(det.class||'OBJ').toUpperCase();
-    const phase=(now/1200+i*0.37)%(Math.PI*2), alpha=0.4+0.25*Math.sin(phase);
-    dctx.shadowBlur=5; dctx.shadowColor=`rgba(0,255,65,${alpha*.8})`;
-    dctx.strokeStyle=`rgba(0,255,65,${alpha})`; dctx.lineWidth=1.2;
-    dctx.setLineDash([6,4]); dctx.strokeRect(x,y,w,h); dctx.setLineDash([]);
-    const tk=Math.min(w,h,22); dctx.lineWidth=1.8;
-    [[x,y,tk,0,0,tk],[x+w,y,-tk,0,0,tk],[x,y+h,tk,0,0,-tk],[x+w,y+h,-tk,0,0,-tk]].forEach(([ox,oy,dx1,dy1,dx2,dy2])=>{
-      dctx.beginPath(); dctx.moveTo(ox+dx1,oy+dy1); dctx.lineTo(ox,oy); dctx.lineTo(ox+dx2,oy+dy2); dctx.stroke();
-    });
-    dctx.shadowBlur=0;
-    const fs=9; dctx.font=`${fs}px 'Share Tech Mono',monospace`;
-    const tw=dctx.measureText(`${label} ${score}%`).width+10;
-    dctx.fillStyle='rgba(0,8,0,.82)'; dctx.fillRect(x-1,y-fs-8,tw,fs+8);
-    dctx.fillStyle=`rgba(0,255,65,${alpha})`; dctx.shadowBlur=4; dctx.shadowColor='#00ff41';
-    dctx.fillText(`${label} ${score}%`,x+4,y-4); dctx.shadowBlur=0;
-  });
-  const oc=document.getElementById('green-obj-count');
-  oc.textContent=`OBJECTS: ${dets.length}`; oc.style.display='block';
-}
-
-/* ═══════════════════════════════════════
-   RED MODE RETICLE / DRAW
-═══════════════════════════════════════ */
-const R = {
-  predictions:[], cPos:{x:0,y:0}, tgtPos:{x:0,y:0,active:false},
-  isLocked:false, lockFactor:0, pulseTime:0, scanAngle:0, textTick:0,
-  infoLines:[], glitchActive:0, ewTimer:0, ewI:0,
-  cardVisible:false, primary:null, captureCount:0, running:false
-};
-
-function hexA(hex,a){
-  if(!hex||hex[0]!=='#') return `rgba(255,255,255,${a})`;
-  const r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
-  return `rgba(${r},${g},${b},${a})`;
-}
-
-function drawRedMode(){
-  if(currentVisionMode!=='red'){ R.running=false; return; }
-  const dpr=window.devicePixelRatio||1;
-  const rc=document.getElementById('red-canvas');
-  const W=rc.width, H=rc.height;
-  const rctx=rc.getContext('2d');
-  rctx.clearRect(0,0,W,H);
-
-  R.primary = R.predictions[0] || null;
-  const p = R.primary;
-
-  if(p){
-    const[bx,by,bw,bh]=p.bbox, sX=innerWidth/(video.videoWidth||1), sY=innerHeight/(video.videoHeight||1);
-    R.tgtPos.x=(bx+bw/2)*sX; R.tgtPos.y=(by+bh/2)*sY; R.tgtPos.active=true;
-    const dist=Math.hypot(R.cPos.x-R.tgtPos.x, R.cPos.y-R.tgtPos.y);
-    const wasLocked=R.isLocked; R.isLocked=dist<150;
-    if(R.isLocked&&!wasLocked){
-      R.textTick=0; buildRedInfo(p);
-      document.getElementById('red-tap-hint').classList.add('show');
-      R.glitchActive=10;
+startBtn.addEventListener('click', async () => {
+    if (ST.booting) return;
+    ST.booting = true;
+    AU.init(); AU.monoSwap();
+    startBtn.style.opacity = '0'; startBtn.style.transition = 'opacity 0.5s';
+    setTimeout(() => startBtn.style.display = 'none', 500);
+    try {
+        const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 960 }, height: { ideal: 540 } }, audio: false });
+        video.srcObject = s;
+        await video.play().catch(() => {});
+    } catch (e) {
+        toast('КАМЕРИ НЕМА. ВСЬО, ПРИЇХАЛИ', true);
+        return;
     }
-    if(!R.isLocked&&wasLocked) document.getElementById('red-tap-hint').classList.remove('show');
-  } else {
-    R.tgtPos.active=false; R.isLocked=false;
-    document.getElementById('red-tap-hint').classList.remove('show');
-  }
-
-  if(R.predictions.length>1){
-    rctx.save();
-    for(let i=1;i<R.predictions.length;i++){
-      const pred=R.predictions[i],[bx,by,bw,bh]=pred.bbox;
-      const sX=innerWidth/(video.videoWidth||1), sY=innerHeight/(video.videoHeight||1);
-      const rx=bx*sX*dpr, ry=by*sY*dpr, rw=bw*sX*dpr, rh=bh*sY*dpr;
-      const t=getThreat(pred.class.toLowerCase());
-      rctx.strokeStyle=t==='HIGH'?'rgba(255,80,80,.4)':t==='MED'?'rgba(255,160,0,.35)':'rgba(200,200,255,.25)';
-      rctx.lineWidth=dpr; rctx.setLineDash([4*dpr,4*dpr]);
-      rctx.strokeRect(rx,ry,rw,rh); rctx.setLineDash([]);
-      rctx.fillStyle=rctx.strokeStyle; rctx.font=`${9*dpr}px 'Share Tech Mono'`;
-      rctx.fillText(pred.class.toUpperCase(),rx+4*dpr,ry-4*dpr);
+    if (GL.init(glCanvas)){
+        video.style.opacity = '0';
+    } else {
+        video.classList.add('rawfallback');
+        toast('WEBGL ЗДОХ — ЇДЕМО НА CSS-ФІЛЬТРІ', true);
     }
-    rctx.restore();
-  }
-
-  const dX=R.tgtPos.active?R.tgtPos.x:innerWidth/2, dY=R.tgtPos.active?R.tgtPos.y:innerHeight/2;
-  R.cPos.x+=(dX-R.cPos.x)*.1; R.cPos.y+=(dY-R.cPos.y)*.1;
-  R.lockFactor=R.isLocked?Math.min(1,R.lockFactor+.08):Math.max(0,R.lockFactor-.04);
-  R.pulseTime+=.05; R.scanAngle+=.02;
-
-  const tier=p?getThreat(p.class.toLowerCase()):null;
-  let rr=200,rg=220,rb=255;
-  if(R.isLocked){ if(tier==='HIGH'){rr=255;rg=20;rb=20;} else if(tier==='MED'){rr=255;rg=140;rb=0;} else{rr=255;rg=220;rb=50;} }
-  const mc=`rgba(${rr},${rg},${rb},${.6+.4*R.lockFactor})`;
-
-  R.ewTimer++;
-  if(R.ewTimer%280===0) R.ewI=18;
-  if(R.ewI>0) R.ewI=Math.max(0,R.ewI-.7);
-
-  rctx.save();
-  if(R.glitchActive>0){ rctx.translate((Math.random()-.5)*10*dpr,(Math.random()-.5)*5*dpr); R.glitchActive--; }
-  if(R.ewI>5) rctx.translate((Math.random()-.5)*6*dpr*(R.ewI/18),0);
-
-  if(p&&R.tgtPos.active){
-    const[bx,by,bw,bh]=p.bbox, sX=innerWidth/(video.videoWidth||1), sY=innerHeight/(video.videoHeight||1);
-    const rx=bx*sX*dpr, ry=by*sY*dpr, rw=bw*sX*dpr, rh=bh*sY*dpr;
-    rctx.strokeStyle=mc; rctx.shadowColor=mc; rctx.lineWidth=1.5*dpr; rctx.shadowBlur=10*R.lockFactor;
-    const cl=Math.min(rw,rh)*.22;
-    rctx.beginPath();
-    rctx.moveTo(rx,ry+cl); rctx.lineTo(rx,ry); rctx.lineTo(rx+cl,ry);
-    rctx.moveTo(rx+rw-cl,ry); rctx.lineTo(rx+rw,ry); rctx.lineTo(rx+rw,ry+cl);
-    rctx.moveTo(rx+rw,ry+rh-cl); rctx.lineTo(rx+rw,ry+rh); rctx.lineTo(rx+rw-cl,ry+rh);
-    rctx.moveTo(rx+cl,ry+rh); rctx.lineTo(rx,ry+rh); rctx.lineTo(rx,ry+rh-cl);
-    rctx.stroke(); rctx.shadowBlur=0;
-    rctx.fillStyle=`rgba(${rr},${rg},${rb},.03)`; rctx.fillRect(rx,ry,rw,rh);
-  }
-
-  const cx=R.cPos.x*dpr, cy=R.cPos.y*dpr;
-  drawRedReticle(rctx,cx,cy,dpr,R.lockFactor,mc,rr,rg,rb);
-  if(R.lockFactor>.05){ rctx.globalAlpha=R.lockFactor; drawRedDataBlock(rctx,cx,cy,dpr,mc,rr,rg,rb); rctx.globalAlpha=1; }
-
-  if(R.ewI>3){
-    for(let i=0;i<Math.round(R.ewI*.6);i++){
-      rctx.fillStyle=`rgba(255,255,255,${Math.random()*.1})`;
-      rctx.fillRect(Math.random()*W,Math.random()*H,(1+Math.random()*2)*dpr,dpr);
-    }
-  }
-  const s=30*dpr; rctx.strokeStyle='rgba(255,255,255,.1)'; rctx.lineWidth=dpr; rctx.setLineDash([]);
-  [[0,0,1,1],[W,0,-1,1],[W,H,-1,-1],[0,H,1,-1]].forEach(([x,y,sx,sy])=>{
-    rctx.beginPath(); rctx.moveTo(x+sx*s,y); rctx.lineTo(x,y); rctx.lineTo(x,y+sy*s); rctx.stroke();
-  });
-  rctx.restore();
-  requestAnimationFrame(drawRedMode);
-}
-
-function drawRedReticle(rctx,cx,cy,dpr,lf,mc,rr,rg,rb){
-  rctx.save(); rctx.translate(cx,cy);
-  rctx.strokeStyle=`rgba(${rr},${rg},${rb},.2)`; rctx.lineWidth=.5*dpr;
-  rctx.beginPath(); rctx.arc(0,0,110*dpr,0,Math.PI*2); rctx.stroke();
-  if(lf>.15){
-    rctx.save(); rctx.rotate(R.pulseTime*1.5);
-    rctx.strokeStyle=`rgba(${rr},${rg},${rb},${.3+.3*lf})`; rctx.lineWidth=1.5*dpr;
-    rctx.shadowBlur=6*lf; rctx.shadowColor=mc; rctx.setLineDash([18*dpr,50*dpr]);
-    rctx.beginPath(); rctx.arc(0,0,95*dpr,0,Math.PI*2); rctx.stroke(); rctx.restore();
-  }
-  rctx.setLineDash([]);
-  const bS=(28-8*lf)*dpr, bD=(8+14*lf)*dpr;
-  rctx.strokeStyle=mc; rctx.lineWidth=2.5*dpr; rctx.shadowBlur=10*lf; rctx.shadowColor=mc;
-  for(let i=0;i<4;i++){
-    rctx.save(); rctx.rotate(i*Math.PI/2);
-    rctx.beginPath(); rctx.moveTo(bS,-bS+bD); rctx.lineTo(bS,-bS); rctx.lineTo(bS-bD,-bS); rctx.stroke();
-    rctx.restore();
-  }
-  rctx.lineWidth=1.5*dpr; const c=7*dpr, g=4*dpr;
-  rctx.beginPath(); rctx.moveTo(-c,0); rctx.lineTo(-g,0); rctx.moveTo(g,0); rctx.lineTo(c,0);
-  rctx.moveTo(0,-c); rctx.lineTo(0,-g); rctx.moveTo(0,g); rctx.lineTo(0,c); rctx.stroke();
-  rctx.shadowBlur=12*lf; rctx.fillStyle=mc; rctx.beginPath(); rctx.arc(0,0,2.5*dpr,0,Math.PI*2); rctx.fill();
-  rctx.strokeStyle=`rgba(${rr},${rg},${rb},.5)`; rctx.lineWidth=dpr; rctx.shadowBlur=0;
-  for(let a=0;a<360;a+=15){
-    const rad=a*Math.PI/180, inn=a%90===0?115:a%45===0?112:110.5;
-    rctx.beginPath(); rctx.moveTo(Math.cos(rad)*inn*dpr,Math.sin(rad)*inn*dpr); rctx.lineTo(Math.cos(rad)*118*dpr,Math.sin(rad)*118*dpr); rctx.stroke();
-  }
-  if(lf<.8){
-    rctx.save(); rctx.rotate(R.scanAngle);
-    const sg=rctx.createLinearGradient(0,-100*dpr,0,0);
-    sg.addColorStop(0,`rgba(${rr},${rg},${rb},0)`); sg.addColorStop(1,`rgba(${rr},${rg},${rb},${.08*(1-lf)})`);
-    rctx.fillStyle=sg; rctx.beginPath(); rctx.moveTo(0,0); rctx.arc(0,0,108*dpr,-.5,.5); rctx.closePath(); rctx.fill(); rctx.restore();
-  }
-  rctx.restore();
-}
-
-function drawRedDataBlock(rctx,cx,cy,dpr,mc,rr,rg,rb){
-  R.textTick+=.6; rctx.font=`${11*dpr}px 'Share Tech Mono'`; rctx.shadowBlur=4; rctx.shadowColor=mc; rctx.fillStyle=mc;
-  R.infoLines.forEach((l,i)=>{
-    const chars=Math.floor(R.textTick-i*4); if(chars<=0)return;
-    rctx.fillText('› '+(l.k+': '+l.v).substring(0,chars), cx+120*dpr, cy-30*dpr+i*(11*dpr)*1.6);
-  });
-}
-
-function buildRedInfo(p){
-  const tier=getThreat(p.class.toLowerCase());
-  R.infoLines=[
-    {k:'CLASS',v:p.class.toUpperCase()},{k:'THREAT',v:tier},
-    {k:'CONF',v:Math.round(p.score*100)+'%'},{k:'ID',v:'0x'+Math.random().toString(16).slice(2,8).toUpperCase()},
-    {k:'STATUS',v:'LOCKED'}
-  ];
-}
-
-function captureRedPortrait(pred){
-  if(!video.videoWidth) return;
-  const[bx,by,bw,bh]=pred.bbox, pad=.15;
-  const cx2=Math.max(0,bx-bw*pad), cy2=Math.max(0,by-bh*pad);
-  const cw=Math.min(video.videoWidth-cx2,bw*(1+pad*2)), ch=Math.min(video.videoHeight-cy2,bh*(1+pad*2));
-  const pc=document.getElementById('red-portrait-canvas'), pctx=pc.getContext('2d');
-  const aspectW=200, aspectH=Math.round(aspectW*(ch/cw));
-  pc.width=aspectW; pc.height=Math.max(aspectH,80);
-  document.getElementById('red-portrait-wrap').style.height=pc.height+'px';
-  pctx.fillStyle='#000'; pctx.fillRect(0,0,pc.width,pc.height);
-  pctx.drawImage(video,cx2,cy2,cw,ch,0,0,pc.width,pc.height);
-  const tier=getThreat(pred.class.toLowerCase());
-  const uid='0x'+Math.random().toString(16).slice(2,8).toUpperCase();
-  const rows=[
-    {k:'CLASS',v:pred.class.toUpperCase(),red:false},
-    {k:'THREAT',v:tier,red:tier==='HIGH'},
-    {k:'CONF',v:Math.round(pred.score*100)+'%',red:false},
-    {k:'UID',v:uid,red:false},
-    {k:'STATUS',v:'LOCKED',red:true}
-  ];
-  const cmRows=document.getElementById('red-cm-rows'); cmRows.innerHTML='';
-  rows.forEach(row=>{
-    const d=document.createElement('div'); d.className='rcm-row';
-    d.innerHTML=`<span class="rcm-key">${row.k}</span><span class="rcm-val${row.red?' red':''}">${row.v}</span>`;
-    cmRows.appendChild(d);
-  });
-  const cf=document.getElementById('red-captured-flash');
-  cf.classList.remove('flash'); void cf.offsetWidth; cf.classList.add('flash');
-  R.captureCount++;
-  sysLog(`RED CAPTURE: ${pred.class.toUpperCase()} [${tier}] ${uid}`, 'CAPTURE', 'SYS');
-}
-
-/* ═══════════════════════════════════════
-   VISION MODE SWITCHING
-═══════════════════════════════════════ */
-function buildGlitchBands(toMode){
-  const gb=document.getElementById('glitch-bands'); gb.innerHTML='';
-  for(let i=0;i<8+Math.floor(Math.random()*5);i++){
-    const band=document.createElement('div'); band.className='gb-band';
-    band.style.cssText=`top:${Math.random()*100}%;height:${2+Math.random()*16}px;transform:translateX(${(Math.random()-.5)*50}px);`;
-    gb.appendChild(band);
-  }
-}
-
-function triggerModeTransition(toMode, cb){
-  isTransitioning=true;
-  const ov=document.getElementById('mode-transition'), gb=document.getElementById('glitch-bands');
-  const cls='to-'+toMode;
-  ov.className='active '+cls; gb.className='active '+cls; buildGlitchBands(toMode);
-  setTimeout(()=>{ ov.className=''; gb.className=''; isTransitioning=false; }, 700);
-  setTimeout(cb, 120);
-}
-
-function applyVisionMode(mode){
-  currentVisionMode = mode;
-
-  // Reset overlays
-  const threeC=document.getElementById('three-canvas');
-  const redC=document.getElementById('red-canvas');
-  const stdC=document.getElementById('output_canvas');
-  const sgL=document.getElementById('scanlines-green');
-  const srL=document.getElementById('scanlines-red');
-  const vigR=document.getElementById('vignette-red');
-  const rTapH=document.getElementById('red-tap-hint');
-  const rCard=document.getElementById('red-capture-card');
-  const gOc=document.getElementById('green-obj-count');
-
-  // Stop red loop
-  R.running=false;
-
-  // Hide all mode-specific
-  threeC.style.display='none';
-  redC.style.display='none';
-  sgL.style.display='none';
-  srL.style.display='none';
-  vigR.style.display='none';
-  rTapH.style.display='none';
-  rCard.style.display='none';
-  gOc.style.display='none';
-  video.className='';
-
-  // Update button
-  const btn=document.getElementById('btn-vision-mode');
-  const lbl=document.getElementById('vision-mode-label');
-  const modeSmall=document.getElementById('mode-label-sm');
-  const sbMode=document.getElementById('sb-mode');
-
-  if(mode==='standard'){
-    stdC.style.display='block'; stdC.style.zIndex='2';
-    btn.className=''; lbl.textContent='STANDARD'; btn.querySelector('.ci').textContent='◈';
-    modeSmall.textContent='// STANDARD'; sbMode.textContent='STANDARD';
-    // Re-enable myEYE standard drawing
-    _standardModeActive=true;
-    pushBoxesToShader([]);
-  }
-  else if(mode==='green'){
-    threeC.style.display='block';
-    stdC.style.display='block'; stdC.style.zIndex='8'; // overlay boxes on top
-    sgL.style.display='block';
-    threeMat.uniforms.edgeInt.value=4.5; threeMat.uniforms.tint.value=0.0;
-    btn.className='mode-green'; lbl.textContent='GREEN'; btn.querySelector('.ci').textContent='◈';
-    modeSmall.textContent='// GREEN'; sbMode.textContent='GREEN EDGE';
-    _standardModeActive=false;
-    // Draw green boxes on standard canvas (already cleared in renderFrame)
-  }
-  else if(mode==='red'){
-    video.className='mode-red';
-    redC.style.display='block'; rCard.style.display='flex';
-    srL.style.display='block'; vigR.style.display='block';
-    const dpr=window.devicePixelRatio||1;
-    redC.width=innerWidth*dpr; redC.height=innerHeight*dpr;
-    R.cPos={x:innerWidth/2,y:innerHeight/2};
-    btn.className='mode-red'; lbl.textContent='RED'; btn.querySelector('.ci').textContent='◉';
-    modeSmall.textContent='// RED TARGET'; sbMode.textContent='RED TARGET';
-    _standardModeActive=false;
-    R.running=true; R.cardVisible=false;
-    document.getElementById('red-capture-card').classList.remove('show');
-    drawRedMode();
-    sysLog('MODE: TARGET ACQUISITION','MODE','SYS');
-  }
-}
-
-function cycleVisionMode(){
-  if(isTransitioning) return;
-  const idx=VISION_MODES.indexOf(currentVisionMode);
-  const next=VISION_MODES[(idx+1)%VISION_MODES.length];
-  triggerModeTransition(next, ()=>applyVisionMode(next));
-  sysLog(`VISION MODE → ${VISION_LABELS[next]}`, 'MODE', 'SYS');
-}
-
-/* Red canvas tap */
-let _redTapSetup=false;
-function setupRedTap(){
-  if(_redTapSetup) return; _redTapSetup=true;
-  const rc=document.getElementById('red-canvas');
-  function onRedTap(){
-    if(currentVisionMode!=='red'||R.cardVisible||!R.isLocked||!R.primary) return;
-    captureRedPortrait(R.primary);
-    document.getElementById('red-capture-card').classList.add('show');
-    R.cardVisible=true;
-    document.getElementById('red-tap-hint').classList.remove('show');
-  }
-  rc.addEventListener('click', onRedTap);
-  rc.addEventListener('touchstart', e=>{ e.preventDefault(); onRedTap(); }, {passive:false});
-  // Tap outside card to close
-  document.addEventListener('pointerdown', e=>{
-    if(currentVisionMode!=='red'||!R.cardVisible) return;
-    const r=document.getElementById('red-capture-card').getBoundingClientRect();
-    if(!(e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom)){
-      document.getElementById('red-capture-card').classList.remove('show');
-      R.cardVisible=false;
-    }
-  });
-}
-
-/* ═══════════════════════════════════════
-   STATE (myEYE original)
-═══════════════════════════════════════ */
-let detector   = null;
-let mpPose     = null;
-let mpHands    = null;
-let poseReady  = false;
-let handsReady = false;
-let lastPoseResult   = null;
-let lastHandsResult  = null;
-let lastObjects  = [];
-let selectedCls  = null;
-let threatActive = false;
-let detecting    = false;
-let frameN   = 0;
-let fpsN     = 0;
-let lastFpsT = 0;
-let lastScreenshot = null;
-let screenshotBlob = null;
-const logThrottle = {};
-let _standardModeActive = true;
-
-// FaceMesh
-let mpFaceMesh    = null;
-let faceReady     = false;
-let faceRunning   = false;
-let lastFaceResult = null;
-
-// Camera
-let currentFacingMode = 'environment';
-let activeStream = null;
-let activeMpCamera = null;
-let isSwitchingCam = false;
-
-// Audio
-let audioCtxNode=null, analyser=null, micStream=null;
-let freqData=null, timeData=null, micReady=false, barSmooth=null;
-const BAR_N=90, SPEECH_ON=0.36, SPEECH_OFF=0.20;
-let speechHyst=false, speechDetected=false, speechLogT=0;
-let lastDbVal=-60, lastEnvStr='QUIET';
-
-/* ═══════════════════════════════════════
-   HELPERS
-═══════════════════════════════════════ */
-function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
-function nowStr(){
-  const n=new Date();
-  return { t:n.toTimeString().slice(0,8),
-    d:`${String(n.getDate()).padStart(2,'0')}.${String(n.getMonth()+1).padStart(2,'0')}.${n.getFullYear()}` };
-}
-
-/* ═══════════════════════════════════════
-   TERMINAL
-═══════════════════════════════════════ */
-function sysLog(event,type='SYSTEM',group='SYS'){
-  const{t,d}=nowStr();
-  const cls={HUMAN:'person',VEHICLE:'vehicle',ANIMAL:'animal',DEVICE:'device',SYS:'system'}[group]||'other';
-  const row=document.createElement('div'); row.className=`trow ${cls}`;
-  row.innerHTML=`<span class="tc-time">${t}</span><span class="tc-date">${d}</span><span class="tc-event">${event}</span><span class="tc-type" style="color:${GCOL[group]||'var(--g)'}">${type}</span><span class="tc-group">${group}</span>`;
-  termBody.appendChild(row);
-  if(termBody.scrollHeight-termBody.scrollTop-termBody.clientHeight<50) termBody.scrollTop=termBody.scrollHeight;
-  while(termBody.children.length>300) termBody.firstElementChild.remove();
-}
-function clearLog(){ termBody.innerHTML=''; sysLog('LOG CLEARED','SYSTEM','SYS'); }
-
-/* ═══════════════════════════════════════
-   SCREENSHOT
-═══════════════════════════════════════ */
-async function captureScreenshot(){
-  const frameDataURL=canvas.toDataURL('image/png');
-  try{
-    const shotCanvas=await html2canvas(document.getElementById('app'),{
-      backgroundColor:'#000',useCORS:true,allowTaint:true,
-      scale:Math.min(window.devicePixelRatio||1,2),logging:false,
-      ignoreElements:el=>el.id==='shot-flash'||el.id==='shot-indicator',
-      onclone:(doc)=>{
-        const cloneVideo=doc.getElementById('input_video'), cloneCanvas=doc.getElementById('output_canvas');
-        if(cloneVideo) cloneVideo.style.display='none';
-        if(cloneCanvas){ const img=doc.createElement('img'); img.src=frameDataURL;
-          img.style.cssText='position:absolute;inset:0;width:100%;height:100%;object-fit:cover;z-index:2;';
-          cloneCanvas.replaceWith(img); }
-      }
-    });
-    return new Promise(resolve=>{ shotCanvas.toBlob(blob=>{ resolve({blob,dataURL:shotCanvas.toDataURL('image/png')}); },'image/png'); });
-  }catch(err){
-    return new Promise(resolve=>{ canvas.toBlob(blob=>{ resolve({blob,dataURL:canvas.toDataURL('image/png')}); },'image/png'); });
-  }
-}
-function showShotFlash(){
-  const f=document.getElementById('shot-flash'), i=document.getElementById('shot-indicator');
-  f.classList.remove('snap'); i.classList.remove('snap'); void f.offsetWidth;
-  f.classList.add('snap'); i.classList.add('snap');
-  setTimeout(()=>{ f.classList.remove('snap'); i.classList.remove('snap'); },900);
-}
-async function downloadScreenshot(){
-  if(!screenshotBlob) return;
-  const btn=document.getElementById('ic-shot-btn');
-  btn.classList.add('saving'); btn.textContent='⏳ SAVING...';
-  await sleep(80);
-  const url=URL.createObjectURL(screenshotBlob);
-  const a=document.createElement('a');
-  const now=new Date();
-  const ts=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${now.toTimeString().slice(0,8).replace(/:/g,'')}`;
-  a.href=url; a.download=`myEYE_${selectedCls||'capture'}_${ts}.png`;
-  document.body.appendChild(a); a.click(); document.body.removeChild(a);
-  setTimeout(()=>URL.revokeObjectURL(url),3000);
-  btn.classList.remove('saving'); btn.textContent='⬇ SAVE PNG';
-  sysLog(`SCREENSHOT SAVED: ${a.download}`,'PNG','SYS');
-}
-
-/* ═══════════════════════════════════════
-   BOOT SEQUENCE
-═══════════════════════════════════════ */
-async function initModels(){
-  const blogEl=document.getElementById('boot-log'), pbEl=document.getElementById('pb'), pctEl=document.getElementById('pb-pct');
-  const bLog=(txt,cls='ok')=>{ const d=document.createElement('div'); d.className='bl '+cls; d.textContent=txt; blogEl.appendChild(d); };
-  const setPb=p=>{ pbEl.style.width=p+'%'; pctEl.textContent=p+'%'; };
-
-  bLog('INIT VISION OS v5.4'); setPb(5); await sleep(120);
-  bLog(`USER CACHE: ${Object.keys(UC.aliases).length} ALIASES`); setPb(10); await sleep(100);
-  bLog('THREE.JS RENDERER: '+(typeof THREE!=='undefined'?'READY':'UNAVAILABLE'), typeof THREE!=='undefined'?'ok':'warn');
-  setPb(15); await sleep(80);
-  if(typeof html2canvas!=='undefined') bLog('SCREENSHOT ENGINE: READY');
-  else bLog('SCREENSHOT ENGINE: FALLBACK','warn');
-  setPb(20); await sleep(80);
-
-  try{
-    bLog('DETECTOR: COCO-SSD LOADING...','warn');
-    detector=await cocoSsd.load({base:'lite_mobilenet_v2'});
-    bLog('DETECTOR: READY'); setPb(50);
-  }catch(e){ bLog('DETECTOR ERROR: '+e.message,'err'); }
-
-  try{
-    if(typeof Pose==='undefined') throw new Error('script not loaded');
-    bLog('POSE ENGINE: LOADING...','warn');
-    mpPose=new Pose({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/pose/${f}`});
-    mpPose.setOptions({modelComplexity:1,smoothLandmarks:true,enableSegmentation:false,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
-    mpPose.onResults(res=>{ lastPoseResult=res; });
-    await mpPose.initialize(); poseReady=true;
-    bLog('POSE ENGINE: ACTIVE'); setPb(68);
-  }catch(e){ bLog('POSE: UNAVAILABLE -- '+e.message,'warn'); }
-
-  try{
-    if(typeof Hands==='undefined') throw new Error('script not loaded');
-    bLog('HANDS ENGINE: LOADING...','warn');
-    mpHands=new Hands({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/hands/${f}`});
-    mpHands.setOptions({maxNumHands:2,modelComplexity:1,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
-    mpHands.onResults(res=>{ lastHandsResult=res; });
-    await mpHands.initialize(); handsReady=true;
-    bLog('HANDS ENGINE: ACTIVE'); setPb(80);
-  }catch(e){ bLog('HANDS: UNAVAILABLE -- '+e.message,'warn'); }
-
-  try{
-    if(typeof FaceMesh==='undefined') throw new Error('script not loaded');
-    bLog('FACE MESH: LOADING...','warn');
-    mpFaceMesh=new FaceMesh({locateFile:f=>`https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${f}`});
-    mpFaceMesh.setOptions({maxNumFaces:2,refineLandmarks:true,minDetectionConfidence:0.5,minTrackingConfidence:0.5});
-    mpFaceMesh.onResults(res=>{ lastFaceResult=res; });
-    await mpFaceMesh.initialize(); faceReady=true;
-    bLog('FACE MESH: ACTIVE'); setPb(93);
-  }catch(e){ bLog('FACE MESH: UNAVAILABLE -- '+e.message,'warn'); }
-
-  bLog('MICROPHONE: WILL REQUEST ON ACTIVATE','warn');
-  setPb(100); await sleep(150);
-  bLog('ALL SYSTEMS OPERATIONAL');
-  document.getElementById('btn-start').style.display='block';
-}
-
-/* ═══════════════════════════════════════
-   START APP
-═══════════════════════════════════════ */
-function startApp(){
-  document.getElementById('boot').style.display='none';
-  document.getElementById('app').style.display='flex';
-  saveCache();
-  sysLog('SYSTEM START: SUCCESS','SYSTEM','SYS');
-
-  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  currentFacingMode=isMobile?'environment':'user';
-  document.getElementById('cam-label').textContent=currentFacingMode==='environment'?'REAR':'FRONT';
-
-  // Setup Three.js
-  if(typeof THREE!=='undefined') setupThree();
-
-  // Setup red tap handler
-  setupRedTap();
-
-  // Start microphone
-  initMic();
-
-  // Red detect loop (runs continuously in background)
-  (async function redDetLoop(){
-    if(detector && video.readyState>=2){
-      try{ R.predictions=await detector.detect(video,10,0.3); }catch(_){}
-    }
-    setTimeout(redDetLoop, 80);
-  })();
-
-  async function onFrame(){
-    if(!detecting&&detector){
-      detecting=true;
-      try{ lastObjects=await detector.detect(video,50,0.32); }catch(e){}
-      detecting=false;
-    }
-    const hasPerson=lastObjects.some(o=>o.class==='person');
-    if(poseReady&&hasPerson)  { try{ await mpPose.send({image:video}); }catch(e){} }
-    if(handsReady&&hasPerson) { try{ await mpHands.send({image:video}); }catch(e){} }
-    if(faceReady&&hasPerson&&!faceRunning){
-      faceRunning=true;
-      try{ await mpFaceMesh.send({image:video}); }catch(e){}
-      faceRunning=false;
-    }
-    if(!hasPerson){ lastPoseResult=null; lastHandsResult=null; lastFaceResult=null; }
-    renderFrame();
-  }
-
-  startCamera(onFrame, isMobile);
-
-  setInterval(()=>{ document.getElementById('sb-time').textContent=new Date().toTimeString().slice(0,8); },1000);
-}
-
-/* ═══════════════════════════════════════
-   RENDER FRAME
-═══════════════════════════════════════ */
-function renderFrame(){
-  const vw=video.videoWidth, vh=video.videoHeight;
-  if(!vw) return;
-
-  if(currentVisionMode==='green'){
-    // Three.js handles background; use output_canvas for green box overlay only
-    canvas.width=vw; canvas.height=vh;
-    ctx.clearRect(0,0,vw,vh);
-    fpsN++;
-    const now=performance.now();
-    if(now-lastFpsT>1000){ document.getElementById('fps-txt').textContent=fpsN+' FPS'; fpsN=0; lastFpsT=now; }
-    frameN++;
-    pushBoxesToShader(lastObjects);
-    drawGreenBoxes(lastObjects);
-    // No pose/hands/face overlay in green mode for clean look
-    return;
-  }
-
-  if(currentVisionMode==='red'){
-    // Video handled by CSS filter; canvas is transparent
-    canvas.width=vw; canvas.height=vh;
-    ctx.clearRect(0,0,vw,vh);
-    fpsN++;
-    const now=performance.now();
-    if(now-lastFpsT>1000){ document.getElementById('fps-txt').textContent=fpsN+' FPS'; fpsN=0; lastFpsT=now; }
-    frameN++;
-    // Red reticle drawn on red-canvas by its own loop
-    return;
-  }
-
-  // STANDARD mode
-  canvas.width=vw; canvas.height=vh;
-  ctx.drawImage(video,0,0,vw,vh);
-  const vig=ctx.createRadialGradient(vw/2,vh/2,vw*.22,vw/2,vh/2,vw*.68);
-  vig.addColorStop(0,'rgba(0,0,0,0)'); vig.addColorStop(1,'rgba(0,0,0,0.52)');
-  ctx.fillStyle=vig; ctx.fillRect(0,0,vw,vh);
-  fpsN++;
-  const now=performance.now();
-  if(now-lastFpsT>1000){ document.getElementById('fps-txt').textContent=fpsN+' FPS'; fpsN=0; lastFpsT=now; }
-  frameN++;
-  drawObjects(vw,vh);
-  if(lastPoseResult)  drawPose(vw,vh);
-  if(lastHandsResult) drawHands(vw,vh);
-  if(lastFaceResult)  drawFaceMesh(vw,vh);
-}
-
-/* ═══════════════════════════════════════
-   DRAW OBJECTS (standard mode)
-═══════════════════════════════════════ */
-function drawObjects(vw,vh){
-  const t=frameN;
-  const hasThreat=lastObjects.some(o=>['person','car','truck','bus','motorcycle'].includes(o.class));
-  const tb=document.getElementById('b-threat');
-  if(hasThreat!==threatActive){
-    threatActive=hasThreat; tb.style.display=hasThreat?'flex':'none';
-    if(hasThreat){ const af=document.getElementById('alert-flash'); af.classList.remove('on'); void af.offsetWidth; af.classList.add('on'); }
-  }
-  document.getElementById('obj-txt').textContent=lastObjects.length+' TARGETS';
-  lastObjects.forEach(obj=>{
-    const[bx,by,bw,bh]=obj.bbox, col=getCol(obj.class), isSel=obj.class===selectedCls;
-    const isThrt=['person','car','truck','bus','motorcycle'].includes(obj.class);
-    const alpha=isThrt&&!isSel?0.6+0.4*Math.sin(t*0.11):1;
-    ctx.strokeStyle=hexA(col,alpha); ctx.lineWidth=isSel?4:3;
-    ctx.strokeRect(bx,by,bw,bh);
-    ctx.fillStyle=hexA(col,isSel?0.12:0.03); ctx.fillRect(bx,by,bw,bh);
-    const cs=Math.min(18,bw*.2,bh*.2), ao=isSel?Math.sin(t*.1)*2:0;
-    ctx.strokeStyle=col; ctx.lineWidth=isSel?3.5:2.5; ctx.shadowColor=col; ctx.shadowBlur=isSel?12:5;
-    ctx.beginPath();
-    ctx.moveTo(bx-ao,by+cs-ao); ctx.lineTo(bx-ao,by-ao); ctx.lineTo(bx+cs-ao,by-ao);
-    ctx.moveTo(bx+bw-cs+ao,by-ao); ctx.lineTo(bx+bw+ao,by-ao); ctx.lineTo(bx+bw+ao,by+cs-ao);
-    ctx.moveTo(bx-ao,by+bh-cs+ao); ctx.lineTo(bx-ao,by+bh+ao); ctx.lineTo(bx+cs-ao,by+bh+ao);
-    ctx.moveTo(bx+bw-cs+ao,by+bh+ao); ctx.lineTo(bx+bw+ao,by+bh+ao); ctx.lineTo(bx+bw+ao,by+bh-cs+ao);
-    ctx.stroke(); ctx.shadowBlur=0;
-    if(isSel){ const sy=by+((t*2.5%100)/100)*bh; const sg=ctx.createLinearGradient(bx,sy-10,bx,sy+10); sg.addColorStop(0,hexA(col,0)); sg.addColorStop(.5,hexA(col,.4)); sg.addColorStop(1,hexA(col,0)); ctx.fillStyle=sg; ctx.fillRect(bx,sy-10,bw,20); }
-    const alias=getAlias(obj.class), pct=Math.round(obj.score*100)+'%', upward=by>34, lY=upward?by-5:by+bh+20;
-    ctx.font="bold 15px 'Share Tech Mono'";
-    const tw=ctx.measureText(alias).width+10;
-    ctx.fillStyle=hexA(col,.92); ctx.fillRect(bx,upward?lY-23:lY-16,tw,24);
-    ctx.fillStyle='#000'; ctx.fillText(alias,bx+4,upward?lY-10:lY-3);
-    ctx.font="11px 'Share Tech Mono'"; ctx.fillStyle=hexA(col,.8); ctx.fillText(pct,bx+tw+4,upward?lY-10:lY-3);
-    if(bw>70){ ctx.fillStyle=hexA(col,.1); ctx.fillRect(bx+bw-62,by+3,60,13); ctx.fillStyle=hexA(col,.65); ctx.font="7.5px 'Share Tech Mono'"; ctx.fillText(getGroup(obj.class),bx+bw-60,by+13); }
-    const lk=obj.class, ts2=Date.now();
-    if(!logThrottle[lk]||ts2-logThrottle[lk]>8000){
-      logThrottle[lk]=ts2; sysLog(alias,obj.class.toUpperCase(),getGroup(obj.class));
-      UC.counts[lk]=(UC.counts[lk]||0)+1; UC.lastSeen[lk]=ts2;
-      UC.events.push({ts:ts2,cls:lk,score:Math.round(obj.score*100),group:getGroup(lk)}); saveCache();
-    }
-  });
-}
-
-/* ═══════════════════════════════════════
-   DRAW POSE
-═══════════════════════════════════════ */
-const SKEL_FALLBACK=[[11,12],[11,13],[13,15],[12,14],[14,16],[11,23],[12,24],[23,24],[23,25],[25,27],[27,29],[27,31],[24,26],[26,28],[28,30],[28,32]];
-function drawPose(vw,vh){
-  const res=lastPoseResult; if(!res||!res.poseLandmarks) return;
-  const lm=res.poseLandmarks, G='#00ff41';
-  const conns=(typeof POSE_CONNECTIONS!=='undefined')?POSE_CONNECTIONS:SKEL_FALLBACK;
-  const pts=lm.map(p=>({x:p.x*vw,y:p.y*vh,v:(p.visibility!=null)?p.visibility:1}));
-  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
-  ctx.strokeStyle=G; ctx.lineWidth=2; ctx.shadowColor=G; ctx.shadowBlur=6;
-  conns.forEach(pair=>{
-    const a=Array.isArray(pair)?pair[0]:pair.start, b=Array.isArray(pair)?pair[1]:pair.end;
-    if(a<=10||b<=10) return;
-    const pa=pts[a], pb=pts[b]; if(!pa||!pb) return;
-    const minV=Math.min(pa.v,pb.v); if(minV<0.4) return;
-    ctx.globalAlpha=Math.max(0.3,minV); ctx.beginPath(); ctx.moveTo(pa.x,pa.y); ctx.lineTo(pb.x,pb.y); ctx.stroke();
-  });
-  ctx.shadowBlur=8;
-  [11,12,13,14,15,16,23,24,25,26,27,28,29,30,31,32].forEach(i=>{
-    if(!pts[i]||pts[i].v<0.4) return;
-    ctx.globalAlpha=Math.max(0.4,pts[i].v); ctx.fillStyle=G;
-    ctx.beginPath(); ctx.arc(pts[i].x,pts[i].y,4,0,Math.PI*2); ctx.fill();
-  });
-  ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.restore();
-}
-
-/* ═══════════════════════════════════════
-   DRAW FACE MESH
-═══════════════════════════════════════ */
-function drawFaceMesh(vw,vh){
-  const res=lastFaceResult;
-  if(!res||!res.multiFaceLandmarks||!res.multiFaceLandmarks.length){
-    document.getElementById('b-face').classList.remove('active'); return;
-  }
-  document.getElementById('b-face').classList.add('active');
-  const G='#00ff41';
-  ctx.save();
-  for(const landmarks of res.multiFaceLandmarks){
-    const tesselation=(typeof FACEMESH_TESSELATION!=='undefined')?FACEMESH_TESSELATION:[];
-    ctx.strokeStyle='rgba(0,255,65,0.22)'; ctx.lineWidth=0.5;
-    for(const conn of tesselation){
-      const s=landmarks[conn[0]], e=landmarks[conn[1]]; if(!s||!e) continue;
-      ctx.beginPath(); ctx.moveTo(s.x*vw,s.y*vh); ctx.lineTo(e.x*vw,e.y*vh); ctx.stroke();
-    }
-    const featureConns=[];
-    if(typeof FACEMESH_LIPS!=='undefined') featureConns.push(...FACEMESH_LIPS);
-    if(typeof FACEMESH_LEFT_EYE!=='undefined') featureConns.push(...FACEMESH_LEFT_EYE);
-    if(typeof FACEMESH_RIGHT_EYE!=='undefined') featureConns.push(...FACEMESH_RIGHT_EYE);
-    ctx.strokeStyle='rgba(0,255,65,0.65)'; ctx.lineWidth=1.0; ctx.shadowColor=G; ctx.shadowBlur=3;
-    for(const conn of featureConns){
-      const s=landmarks[conn[0]],e=landmarks[conn[1]]; if(!s||!e) continue;
-      ctx.beginPath(); ctx.moveTo(s.x*vw,s.y*vh); ctx.lineTo(e.x*vw,e.y*vh); ctx.stroke();
-    }
-    ctx.shadowBlur=0;
-    const xArr=landmarks.map(l=>l.x*vw), yArr=landmarks.map(l=>l.y*vh);
-    const fxMin=Math.min(...xArr)-18, fxMax=Math.max(...xArr)+18, fyMin=Math.min(...yArr)-32, fyMax=Math.max(...yArr)+16;
-    const fw=fxMax-fxMin, fh=fyMax-fyMin, cs=Math.min(20,fw*.2,fh*.2);
-    ctx.strokeStyle=hexA(G,0.82); ctx.lineWidth=1.5; ctx.shadowColor=G; ctx.shadowBlur=5;
-    ctx.beginPath();
-    ctx.moveTo(fxMin,fyMin+cs); ctx.lineTo(fxMin,fyMin); ctx.lineTo(fxMin+cs,fyMin);
-    ctx.moveTo(fxMax-cs,fyMin); ctx.lineTo(fxMax,fyMin); ctx.lineTo(fxMax,fyMin+cs);
-    ctx.moveTo(fxMin,fyMax-cs); ctx.lineTo(fxMin,fyMax); ctx.lineTo(fxMin+cs,fyMax);
-    ctx.moveTo(fxMax-cs,fyMax); ctx.lineTo(fxMax,fyMax); ctx.lineTo(fxMax,fyMax-cs);
-    ctx.stroke(); ctx.shadowBlur=0;
-    ctx.font="9px 'Share Tech Mono'"; ctx.fillStyle=hexA(G,0.65); ctx.globalAlpha=0.85;
-    ctx.fillText('FACE_MESH',fxMin,fyMin>14?fyMin-5:fyMax+12); ctx.globalAlpha=1;
-  }
-  ctx.restore();
-}
-
-/* ═══════════════════════════════════════
-   DRAW HANDS
-═══════════════════════════════════════ */
-const HAND_FALLBACK=[[0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],[9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]];
-function drawHands(vw,vh){
-  const res=lastHandsResult; if(!res||!res.multiHandLandmarks||!res.multiHandLandmarks.length) return;
-  const conns=(typeof HAND_CONNECTIONS!=='undefined')?HAND_CONNECTIONS:HAND_FALLBACK;
-  ctx.save(); ctx.lineCap='round'; ctx.lineJoin='round';
-  res.multiHandLandmarks.forEach(landmarks=>{
-    const pts=landmarks.map(p=>({x:p.x*vw,y:p.y*vh}));
-    ctx.strokeStyle='#00ff41'; ctx.lineWidth=2; ctx.shadowColor='#00ff41'; ctx.shadowBlur=6; ctx.globalAlpha=0.9;
-    conns.forEach(pair=>{ const a=Array.isArray(pair)?pair[0]:pair.start, b=Array.isArray(pair)?pair[1]:pair.end; if(!pts[a]||!pts[b]) return; ctx.beginPath(); ctx.moveTo(pts[a].x,pts[a].y); ctx.lineTo(pts[b].x,pts[b].y); ctx.stroke(); });
-    ctx.shadowBlur=8;
-    pts.forEach(p=>{ ctx.fillStyle='#ff0055'; ctx.globalAlpha=0.9; ctx.beginPath(); ctx.arc(p.x,p.y,3,0,Math.PI*2); ctx.fill(); });
-    if(pts[0]){ ctx.strokeStyle='#00ff41'; ctx.lineWidth=1.5; ctx.globalAlpha=0.6; ctx.beginPath(); ctx.arc(pts[0].x,pts[0].y,8,0,Math.PI*2); ctx.stroke(); }
-  });
-  ctx.globalAlpha=1; ctx.shadowBlur=0; ctx.restore();
-}
-
-/* ═══════════════════════════════════════
-   CANVAS TAP (standard mode)
-═══════════════════════════════════════ */
-canvas.addEventListener('click', async(e)=>{
-  if(currentVisionMode!=='standard') return;
-  const rect=canvas.getBoundingClientRect(), sx=canvas.width/rect.width, sy=canvas.height/rect.height;
-  const cx=(e.clientX-rect.left)*sx, cy=(e.clientY-rect.top)*sy;
-  const hit=lastObjects.find(o=>{ const[bx,by,bw,bh]=o.bbox; return cx>=bx&&cx<=bx+bw&&cy>=by&&cy<=by+bh; });
-  if(hit){
-    selectedCls=hit.class; openCard(hit);
-    sysLog(`LOCK-ON: ${getAlias(hit.class)}`,hit.class.toUpperCase(),getGroup(hit.class));
-    showShotFlash();
-    sysLog('CAPTURING SCREENSHOT...','SNAP','SYS');
-    try{
-      const result=await captureScreenshot();
-      screenshotBlob=result.blob; lastScreenshot=result.dataURL;
-      updateCardScreenshot(result.dataURL); sysLog('SCREENSHOT READY','SNAP','SYS');
-    }catch(err){ sysLog('SCREENSHOT FAILED: '+err.message,'ERROR','SYS'); }
-  } else { closeCard(); }
+    try { ST.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+    botbar.style.display = 'flex';
+    ST.running = true;
+    resize();
+    detectLoop();
+    requestAnimationFrame(draw);
+    toast('МОНОХРОМ ПРЕТ. ВРУБАЙ МОДУЛІ');
 });
 
-/* ═══════════════════════════════════════
-   INFO CARD
-═══════════════════════════════════════ */
-function openCard(obj){
-  const col=getCol(obj.class), kb=getKB(obj.class), alias=getAlias(obj.class), group=getGroup(obj.class);
-  const[bx,by,bw,bh]=obj.bbox, score=Math.round(obj.score*100), threat=Math.round(kb.threat*100), seen=UC.counts[obj.class]||0;
-  const nameEl=document.getElementById('ic-name');
-  nameEl.textContent=alias; nameEl.style.color=col; nameEl.style.textShadow=`0 0 18px ${col}`; nameEl.dataset.cls=obj.class;
-  document.getElementById('ic-grid').innerHTML=
-    `<div class="ick">КЛАСС</div><div class="icv">${obj.class.toUpperCase()}</div>`+
-    `<div class="ick">ГРУППА</div><div class="icv">${group}</div>`+
-    `<div class="ick">СИГНАЛ</div><div class="icv">${score}%</div>`+
-    `<div class="ick">В КЭШЕ</div><div class="icv">${seen}×</div>`+
-    `<div class="ick">РАЗМЕР</div><div class="icv">${Math.round(bw)}×${Math.round(bh)}</div>`+
-    `<div class="ick">ПОЗИЦИЯ</div><div class="icv">${Math.round(bx)},${Math.round(by)}</div>`;
-  document.getElementById('ic-desc').textContent=kb.desc;
-  const tf=document.getElementById('ic-tf');
-  const tcol=threat>60?'var(--r)':threat>35?'var(--o)':'var(--g)';
-  tf.style.width=threat+'%'; tf.style.background=tcol; tf.style.boxShadow=`0 0 8px ${tcol}`;
-  document.getElementById('ic-tv').textContent=threat+'%';
-  const shotBtn=document.getElementById('ic-shot-btn'), thumb=document.getElementById('ic-thumb');
-  shotBtn.classList.remove('ready','saving'); shotBtn.textContent='⬇ SAVE PNG'; thumb.classList.remove('ready');
-  _updateCardAudio();
-  document.getElementById('info-card').classList.add('open');
-}
-function updateCardScreenshot(dataURL){ const thumb=document.getElementById('ic-thumb'), shotBtn=document.getElementById('ic-shot-btn'); thumb.src=dataURL; thumb.classList.add('ready'); shotBtn.classList.add('ready'); }
-function closeCard(){ selectedCls=null; lastScreenshot=null; screenshotBlob=null; document.getElementById('info-card').classList.remove('open'); document.getElementById('ic-thumb').classList.remove('ready'); document.getElementById('ic-shot-btn').classList.remove('ready','saving'); }
-document.getElementById('ic-name').addEventListener('click',renameObj);
-function renameObj(){
-  const nameEl=document.getElementById('ic-name'), cls=nameEl.dataset.cls; if(!cls) return;
-  const cur=UC.aliases[cls]||cls.toUpperCase(), nv=prompt(`ПЕРЕИМЕНОВАТЬ КЛАСС "${cls.toUpperCase()}" →`,cur);
-  if(nv!==null&&nv.trim()){ const nm=nv.trim().toUpperCase(); UC.aliases[cls]=nm; saveCache(); nameEl.textContent=nm; sysLog(`ALIAS: ${cls.toUpperCase()} → ${nm}`,'RENAME','SYS'); }
-}
-
-/* ═══════════════════════════════════════
-   CAMERA SWITCH
-═══════════════════════════════════════ */
-function startCamera(onFrameCb, isMobile){
-  if(typeof Camera!=='undefined'){
-    activeMpCamera=new Camera(video,{ onFrame:onFrameCb, facingMode:currentFacingMode, width:1280, height:720 });
-    activeMpCamera.start().catch(e=>sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  } else {
-    navigator.mediaDevices.getUserMedia({ video:{facingMode:currentFacingMode,width:{ideal:1280},height:{ideal:720}} })
-    .then(stream=>{ activeStream=stream; video.srcObject=stream; video.onloadedmetadata=()=>{ video.play(); const loop=async()=>{ await onFrameCb(); requestAnimationFrame(loop); }; requestAnimationFrame(loop); }; })
-    .catch(e=>sysLog('CAM ERR: '+e.message,'ERROR','SYS'));
-  }
-}
-
-async function switchCamera(){
-  if(isSwitchingCam) return; isSwitchingCam=true;
-  const btn=document.getElementById('btn-cam-switch'); btn.classList.add('switching');
-  sysLog('SWITCHING CAMERA...','CAM','SYS');
-  if(activeMpCamera){ try{ await activeMpCamera.stop(); }catch(e){} activeMpCamera=null; }
-  if(activeStream){ activeStream.getTracks().forEach(t=>t.stop()); activeStream=null; }
-  lastPoseResult=null; lastHandsResult=null; lastObjects=[]; lastFaceResult=null;
-  currentFacingMode=currentFacingMode==='environment'?'user':'environment';
-  document.getElementById('cam-label').textContent=currentFacingMode==='environment'?'REAR':'FRONT';
-  await sleep(300);
-  const isMobile=/iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-  async function onFrame(){
-    if(!detecting&&detector){ detecting=true; try{ lastObjects=await detector.detect(video,50,0.32); }catch(e){} detecting=false; }
-    const hasPerson=lastObjects.some(o=>o.class==='person');
-    if(poseReady&&hasPerson)  { try{ await mpPose.send({image:video}); }catch(e){} }
-    if(handsReady&&hasPerson) { try{ await mpHands.send({image:video}); }catch(e){} }
-    if(faceReady&&hasPerson&&!faceRunning){ faceRunning=true; try{ await mpFaceMesh.send({image:video}); }catch(e){} faceRunning=false; }
-    if(!hasPerson){ lastPoseResult=null; lastHandsResult=null; lastFaceResult=null; }
-    renderFrame();
-  }
-  startCamera(onFrame,isMobile);
-  sysLog(`CAMERA: ${currentFacingMode.toUpperCase()} ACTIVE`,'CAM','SYS');
-  btn.classList.remove('switching'); isSwitchingCam=false;
-}
-
-/* ═══════════════════════════════════════
-   MICROPHONE + AUDIO STRIP
-═══════════════════════════════════════ */
-const audioCanv=document.getElementById('audio-canvas');
-const actx=audioCanv.getContext('2d');
-
-async function initMic(){
-  try{
-    micStream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:false},video:false});
-    audioCtxNode=new(window.AudioContext||window.webkitAudioContext)();
-    const src=audioCtxNode.createMediaStreamSource(micStream);
-    analyser=audioCtxNode.createAnalyser(); analyser.fftSize=1024; analyser.smoothingTimeConstant=0.75; analyser.minDecibels=-90; analyser.maxDecibels=-10;
-    src.connect(analyser);
-    freqData=new Uint8Array(analyser.frequencyBinCount); timeData=new Uint8Array(analyser.fftSize); barSmooth=new Float32Array(BAR_N).fill(0);
-    micReady=true; document.getElementById('b-mic').classList.remove('muted'); document.getElementById('mic-txt').textContent='MIC ●';
-    sysLog('MICROPHONE: ACTIVE','AUDIO','SYS');
-    requestAnimationFrame(renderAudio);
-    if(window._startSpeechRec) window._startSpeechRec();
-  }catch(e){
-    document.getElementById('b-mic').classList.add('muted'); document.getElementById('mic-txt').textContent='MIC ✕';
-    sysLog('MIC DENIED: '+e.message,'WARN','SYS');
-    requestAnimationFrame(renderAudioDead);
-  }
-}
-function drawAudioGrid(W,H){
-  actx.strokeStyle='rgba(0,55,18,0.5)'; actx.lineWidth=0.5;
-  for(let i=1;i<4;i++){ const y=Math.round(H/4*i)+.5; actx.beginPath(); actx.moveTo(0,y); actx.lineTo(W,y); actx.stroke(); }
-  for(let j=1;j<10;j++){ const x=Math.round(W/10*j)+.5; actx.beginPath(); actx.moveTo(x,0); actx.lineTo(x,H); actx.stroke(); }
-  actx.strokeStyle='rgba(0,80,25,0.65)'; actx.beginPath(); actx.moveTo(0,H/2); actx.lineTo(W,H/2); actx.stroke();
-}
-function renderAudioDead(){
-  const W=audioCanv.offsetWidth, H=audioCanv.offsetHeight;
-  if(audioCanv.width!==W||audioCanv.height!==H){ audioCanv.width=W; audioCanv.height=H; }
-  if(!W||!H){ requestAnimationFrame(renderAudioDead); return; }
-  actx.fillStyle='rgba(0,2,0,0.98)'; actx.fillRect(0,0,W,H); drawAudioGrid(W,H);
-  actx.strokeStyle='rgba(0,255,65,0.18)'; actx.lineWidth=1; actx.beginPath(); actx.moveTo(0,H/2); actx.lineTo(W,H/2); actx.stroke();
-  requestAnimationFrame(renderAudioDead);
-}
-function renderAudio(){
-  if(!micReady){ requestAnimationFrame(renderAudio); return; }
-  const W=audioCanv.offsetWidth, H=audioCanv.offsetHeight;
-  if(audioCanv.width!==W||audioCanv.height!==H){ audioCanv.width=W; audioCanv.height=H; }
-  if(!W||!H){ requestAnimationFrame(renderAudio); return; }
-  analyser.getByteFrequencyData(freqData); analyser.getByteTimeDomainData(timeData);
-  const sr=audioCtxNode.sampleRate, bins=analyser.frequencyBinCount;
-  actx.fillStyle='rgba(0,2,0,0.92)'; actx.fillRect(0,0,W,H); drawAudioGrid(W,H);
-  const loIdx=Math.floor(200/sr*bins*2), hiIdx=Math.min(Math.floor(3400/sr*bins*2),bins-1);
-  let spSum=0,spCnt=0;
-  for(let i=loIdx;i<=hiIdx;i++){ spSum+=freqData[i]/255; spCnt++; }
-  const spNorm=spCnt>0?spSum/spCnt:0;
-  if(!speechHyst&&spNorm>SPEECH_ON) speechHyst=true;
-  if(speechHyst&&spNorm<SPEECH_OFF) speechHyst=false;
-  if(speechHyst!==speechDetected){
-    speechDetected=speechHyst;
-    document.getElementById('audio-speech-badge').classList.toggle('on',speechDetected);
-    document.getElementById('b-mic').classList.toggle('speech',speechDetected);
-    const pill=document.getElementById('ic-speech-pill');
-    if(pill){ pill.textContent=speechDetected?'SPEECH':'SILENT'; pill.classList.toggle('on',speechDetected); }
-    const ts=Date.now();
-    if(speechDetected&&ts-speechLogT>4000){ speechLogT=ts; sysLog('SPEECH DETECTED','AUDIO','SYS'); }
-  }
-  let sq=0; for(let i=0;i<timeData.length;i++){ const s=(timeData[i]-128)/128; sq+=s*s; }
-  const rms=Math.sqrt(sq/timeData.length), db=rms>0?Math.max(-60,20*Math.log10(rms)):-60;
-  lastDbVal=db; lastEnvStr=db>-20?'LOUD':db>-35?'MEDIUM':db>-50?'LOW':'QUIET';
-  document.getElementById('audio-db').textContent=db>-55?db.toFixed(1)+' dB':'--  dB';
-  const icDb=document.getElementById('ic-db-val'), icEnv=document.getElementById('ic-env-val');
-  if(icDb) icDb.textContent=db>-55?db.toFixed(1)+' dB':'-- dB';
-  if(icEnv){ icEnv.textContent=lastEnvStr; icEnv.className='ica-val'+(db>-20?' warn':''); }
-  const maxBin=Math.floor(bins*.55), barW=W/BAR_N, pad=barW>3?0.8:0.2;
-  for(let i=0;i<BAR_N;i++){
-    const binIdx=Math.floor(i/BAR_N*maxBin), raw=freqData[binIdx]/255;
-    barSmooth[i]=raw>barSmooth[i]?raw*.65+barSmooth[i]*.35:raw*.07+barSmooth[i]*.93;
-    const v=barSmooth[i], bh=v*(H-2), bx=i*barW, by=H-bh;
-    const freq=binIdx/bins*sr*.5;
-    let col;
-    if(freq<250)col=[0,120,255]; else if(freq<900)col=[0,200,80]; else if(freq<3500)col=[0,255,65]; else if(freq<7000)col=[0,220,200]; else col=[0,160,200];
-    const a=0.3+v*0.7; actx.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},${a})`; actx.fillRect(bx+pad,by,barW-pad*2,bh);
-    if(v>0.12){ actx.fillStyle=`rgba(${col[0]},${col[1]},${col[2]},0.9)`; actx.fillRect(bx+pad,by,barW-pad*2,1.5); }
-  }
-  actx.beginPath(); actx.strokeStyle='rgba(80,255,220,0.50)'; actx.lineWidth=1.2; actx.shadowColor='rgba(0,255,200,0.25)'; actx.shadowBlur=2;
-  for(let x=0;x<W;x++){ const idx=Math.floor(x/W*timeData.length), vv=(timeData[idx]-128)/128, yy=H/2+vv*(H/2-3); x===0?actx.moveTo(x,yy):actx.lineTo(x,yy); }
-  actx.stroke(); actx.shadowBlur=0;
-  requestAnimationFrame(renderAudio);
-}
-function _updateCardAudio(){
-  const icDb=document.getElementById('ic-db-val'), icEnv=document.getElementById('ic-env-val'), icPill=document.getElementById('ic-speech-pill');
-  if(icDb) icDb.textContent=lastDbVal>-55?lastDbVal.toFixed(1)+' dB':'-- dB';
-  if(icEnv){ icEnv.textContent=lastEnvStr; icEnv.className='ica-val'+(lastDbVal>-20?' warn':''); }
-  if(icPill){ icPill.textContent=speechDetected?'SPEECH':'SILENT'; icPill.classList.toggle('on',speechDetected); }
-}
-
-/* ═══════════════════════════════════════
-   SPEECH RECOGNITION
-═══════════════════════════════════════ */
-(function initSpeechRecognition(){
-  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-  if(!SR){ sysLog('SPEECH API: NOT SUPPORTED','WARN','SYS'); return; }
-  function makeRec(lang){ const r=new SR(); r.continuous=true; r.interimResults=true; r.lang=lang; r.maxAlternatives=1; return r; }
-  const recRU=makeRec('ru-RU'), recEN=makeRec('en-US');
-  let activeRec=recRU, srRunning=false, interimTimeout=null;
-  function startSR(){ if(srRunning) return; srRunning=true; try{ activeRec.start(); }catch(e){ srRunning=false; } }
-  function onResult(lang){ return function(event){ let interim=''; for(let i=event.resultIndex;i<event.results.length;i++){ const t=event.results[i][0].transcript.trim(); if(!t) continue; if(event.results[i].isFinal){ sysLog('VOICE ['+lang+']: '+t,'VOICE','SYS'); document.getElementById('mic-txt').textContent='MIC ●'; } else { interim+=t; } } if(interim){ const short=interim.length>22?interim.slice(-22)+'…':interim; document.getElementById('mic-txt').textContent=short; clearTimeout(interimTimeout); interimTimeout=setTimeout(()=>{ document.getElementById('mic-txt').textContent='MIC ●'; },2000); } }; }
-  function onEnd(switchTo){ return function(){ srRunning=false; activeRec=switchTo; setTimeout(startSR,300); }; }
-  function onError(){ srRunning=false; setTimeout(startSR,500); }
-  recRU.onresult=onResult('RU'); recEN.onresult=onResult('EN');
-  recRU.onend=onEnd(recEN); recEN.onend=onEnd(recRU);
-  recRU.onerror=onError; recEN.onerror=onError;
-  window._startSpeechRec=startSR;
-})();
-
-/* ═══════════════════════════════════════
-   RESIZE
-═══════════════════════════════════════ */
-window.addEventListener('resize',()=>{
-  if(threeRenderer){ threeRenderer.setSize(window.innerWidth,window.innerHeight); threeMat.uniforms.res.value.set(window.innerWidth,window.innerHeight); }
-  const rc=document.getElementById('red-canvas'); const dpr=window.devicePixelRatio||1;
-  rc.width=innerWidth*dpr; rc.height=innerHeight*dpr;
+/* ── Керування ── */
+MODS.DET.btn.addEventListener('click', () => toggleMod('DET'));
+MODS.SEG.btn.addEventListener('click', () => toggleMod('SEG'));
+MODS.DEP.btn.addEventListener('click', () => toggleMod('DEP'));
+MODS.OCR.btn.addEventListener('click', () => toggleMod('OCR'));
+scnBtn.addEventListener('click', () => {
+    if (!MODS.OCR.ready || ST.scanning || MODS.OCR.busy) return;
+    const g = grayHi();
+    if (!g) return;
+    ST.scanning = true;
+    MODS.OCR.busy = true;
+    toast('ЧИТАЮ КАДР, СЕКУНДУ..');
+    runOcr(g.id, 1, true);
 });
-
-/* ═══════════════════════════════════════
-   BOOT
-═══════════════════════════════════════ */
-initModels();
+sndBtn.addEventListener('click', () => {
+    const mute = AU.on;
+    AU.setMute(mute);
+    sndBtn.classList.toggle('off', mute);
+});
+pip.addEventListener('pointerdown', e => { e.stopPropagation(); pip.classList.toggle('big'); });
+window.addEventListener('keydown', e => {
+    if (!ST.running) return;
+    const k = e.key;
+    if (k === '1') toggleMod('DET');
+    if (k === '2') toggleMod('SEG');
+    if (k === '3') toggleMod('DEP');
+    if (k === '4') toggleMod('OCR');
+    if (k === '5') scnBtn.click();
+    if (k.toLowerCase() === 'm' || k === 'ь') sndBtn.click();
+});
+document.addEventListener('visibilitychange', async () => {
+    if (AU.ctx){ if (document.hidden) AU.ctx.suspend(); else if (AU.on) AU.ctx.resume(); }
+    if (!document.hidden && ST.running){
+        try { ST.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
+    }
+});
+window.addEventListener('resize', resize);
+resize();
 </script>
-
 </body>
 </html>
