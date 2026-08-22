@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#eceae2">
-<title>myMONOeye</title>
+<title>myMONO</title>
 <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@300;500;700&display=swap" rel="stylesheet">
 <style>
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -590,21 +590,25 @@ let anW = 0, anH = 0, cw = 0, ch = 0;
 let grayA = null, grayB = null, useA = true, curGray = null;
 let levelsFine = null, levelsCoarse = null, coarseGray = null, ccVisited = null, ccStack = null;
 
-function analyze(now){
+/* Ініт аналіз-буферів: МУСИТЬ відбутись до buildLayers (канвази шарів = anW x anH) */
+function initAnalysis(){
+    if (anW) return true;
     const vw = video.videoWidth, vh = video.videoHeight;
     if (!vw || !vh) return false;
-    if (!anW){
-        anW = CFG.anW; anH = Math.round(anW * vh / vw);
-        cw = anW >> 1; ch = anH >> 1;
-        anCv.width = anW; anCv.height = anH;
-        grayA = new Uint8Array(anW * anH);
-        grayB = new Uint8Array(anW * anH);
-        levelsFine = new Uint8Array(anW * anH);
-        coarseGray = new Uint8Array(cw * ch);
-        levelsCoarse = new Uint8Array(cw * ch);
-        ccVisited = new Uint8Array(cw * ch);
-        ccStack = new Int32Array(cw * ch);
-    }
+    anW = CFG.anW; anH = Math.round(anW * vh / vw);
+    cw = anW >> 1; ch = anH >> 1;
+    anCv.width = anW; anCv.height = anH;
+    grayA = new Uint8Array(anW * anH);
+    grayB = new Uint8Array(anW * anH);
+    levelsFine = new Uint8Array(anW * anH);
+    coarseGray = new Uint8Array(cw * ch);
+    levelsCoarse = new Uint8Array(cw * ch);
+    ccVisited = new Uint8Array(cw * ch);
+    ccStack = new Int32Array(cw * ch);
+    return true;
+}
+function analyze(now){
+    if (!initAnalysis()) return false;
     anCx.drawImage(video, 0, 0, anW, anH);
     const rgba = anCx.getImageData(0, 0, anW, anH).data;
     const cur = useA ? grayA : grayB, prev = useA ? grayB : grayA;
@@ -830,6 +834,7 @@ function buildLayers(){
 }
 
 function buildScene(){
+    if (!initAnalysis()) throw new Error('відео без розмірів');
     renderer = new THREE.WebGLRenderer({ canvas: gl3d, antialias: true, powerPreference: 'high-performance' });
     renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
     renderer.setSize(innerWidth, innerHeight);
@@ -1479,11 +1484,15 @@ startBtn.addEventListener('click', async () => {
         toast('КАМЕРИ НЕМА. ВСЬО, ПРИЇХАЛИ', true);
         return;
     }
+    if (!window.WebGL2RenderingContext){
+        toast('WEBGL2 НЕМА — ТРЕБА СВІЖІШИЙ БРАУЗЕР', true);
+        return;
+    }
     try {
         buildScene();
     } catch (e) {
         console.error(e);
-        toast('WEBGL ЗДОХ — 3D НЕ БУДЕ', true);
+        toast('3D НЕ ВСТАЛО: ' + (e && e.message ? e.message : e), true);
         return;
     }
     try { ST.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
