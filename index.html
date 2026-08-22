@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- myMONO v1 // MONO-HALFTONE витягнуто з myFIX v2 // DET: MediaPipe ObjectDetector + SEG: ImageSegmenter (DeepLab v3) + DEP: Depth Anything V2 Small (transformers.js, worker) + OCR: Tesseract.js eng+ukr // нейронки їдять чистий grayscale ДО халфтону // single-file, CDN-only, mobile-first -->
+<!-- myMONO v2 // ПРОСТІР-У-РОЗРІЗІ: халфтон-підлога (шейдер з myFIX) + 3D-дані секторів у Three.js // без нейронок: сирий сигнал — INK/Δ/E/σ по сітці 48x27, маргінали, гістограми, FFT ритму сцени // подання: РЕЛЬЄФ+зріз, ХВИЛІ ridgeline, ЧАСОЛІФ waterfall, ХМАРА feature-space // single-file, CDN-only, mobile-first -->
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -22,51 +22,32 @@ body {
 }
 #container { position: relative; width: 100vw; height: 100vh; height: 100dvh; touch-action: none; }
 
-/* Відео — texture source для шейдера; при живому WebGL ховається */
+/* Відео — тільки texture source, живе поза екраном */
 video {
-    position: absolute; inset: 0; z-index: 0;
-    width: 100%; height: 100%; object-fit: cover; display: block;
-    transition: opacity 0.4s;
+    position: absolute; top: 0; left: 0; width: 2px; height: 2px;
+    opacity: 0; pointer-events: none;
 }
-video.rawfallback { filter: grayscale(1) contrast(1.2) brightness(1.05); }
-#glCanvas  { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; pointer-events: none; background: var(--paper); }
-#hudCanvas { position: absolute; inset: 0; z-index: 6; width: 100%; height: 100%; pointer-events: none; }
+#gl3d { position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; display: block; }
 
 #scanlines {
     position: absolute; inset: 0; pointer-events: none; z-index: 5;
-    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(38,34,24,0.07) 3px, rgba(38,34,24,0.07) 4px);
-    animation: scanScroll 8s linear infinite;
-}
-@keyframes scanScroll { from{background-position:0 0} to{background-position:0 100px} }
-
-#vignette {
-    position: absolute; inset: 0; pointer-events: none; z-index: 4; opacity: 0.3;
-    background: radial-gradient(ellipse 80% 80% at 50% 50%, transparent 40%, rgba(0,0,0,0.8) 100%);
+    background: repeating-linear-gradient(0deg, transparent, transparent 3px, rgba(38,34,24,0.05) 3px, rgba(38,34,24,0.05) 4px);
 }
 
-/* BOTTOM BAR: тільки кнопки модулів */
-#botbar {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(to top, rgba(236,234,226,0.9), transparent);
-    display: flex; align-items: center; justify-content: center; gap: 7px;
-    padding: 8px 10px calc(8px + env(safe-area-inset-bottom));
-    z-index: 16; border-top: 1px solid rgba(38,34,24,0.2);
+/* HUD: один рядок стану зверху; тап — перемкнути метрику */
+#hud {
+    position: absolute; top: calc(10px + env(safe-area-inset-top)); left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 1.8px; text-transform: uppercase;
+    color: rgba(38,34,24,0.9);
+    background: rgba(236,234,226,0.85); border: 1px solid rgba(38,34,24,0.35);
+    padding: 5px 12px; z-index: 15; cursor: pointer; touch-action: manipulation;
+    white-space: nowrap; display: none;
 }
-.hudBtn {
-    background: rgba(236,234,226,0.6); border: 1px solid rgba(38,34,24,0.4);
-    color: rgba(38,34,24,0.85); font-family: var(--sans);
-    font-size: 10px; font-weight: 700; letter-spacing: 2px;
-    padding: 8px 10px; cursor: pointer; text-transform: uppercase;
-    touch-action: manipulation; flex-shrink: 0; min-width: 52px;
-}
-.hudBtn.on { background: var(--ink); color: var(--paper); border-color: var(--ink); }
-.hudBtn.off { opacity: 0.35; text-decoration: line-through; }
-.hudBtn:disabled { opacity: 0.2; }
-#scnBtn { border-style: dashed; }
+#hud b { font-weight: normal; border-bottom: 1px dotted rgba(38,34,24,0.6); }
 
-/* TOAST: один рядок суржик-статусу над баром */
 #toast {
-    position: absolute; bottom: calc(58px + env(safe-area-inset-bottom));
+    position: absolute; bottom: calc(18px + env(safe-area-inset-bottom));
     left: 50%; transform: translateX(-50%);
     max-width: 92vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase;
@@ -78,20 +59,6 @@ video.rawfallback { filter: grayscale(1) contrast(1.2) brightness(1.05); }
 #toast.show { opacity: 1; }
 #toast.warn { border-color: var(--ink); font-weight: 700; }
 
-/* PiP: дизерена міні-мапа глибини, тап — розгорнути */
-#pip {
-    position: absolute; top: calc(12px + env(safe-area-inset-top)); right: 12px;
-    width: 120px; z-index: 14; display: none;
-    border: 1px solid rgba(38,34,24,0.55);
-    background: var(--paper);
-    image-rendering: pixelated; image-rendering: crisp-edges;
-    cursor: pointer; touch-action: manipulation;
-    transition: width 0.25s;
-}
-#pip.shown { display: block; }
-#pip.big { width: 62vw; }
-
-/* START: чорнильне кільце на папері */
 #startBtn {
     position: absolute; top: 50%; left: 50%; transform: translate(-50%,-50%);
     background: none; border: none; color: var(--ink);
@@ -113,10 +80,7 @@ video.rawfallback { filter: grayscale(1) contrast(1.2) brightness(1.05); }
 <div id="container">
 
     <video id="video" autoplay playsinline muted></video>
-    <canvas id="glCanvas"></canvas>
-    <canvas id="hudCanvas"></canvas>
-
-    <div id="vignette"></div>
+    <canvas id="gl3d"></canvas>
     <div id="scanlines"></div>
 
     <button id="startBtn">
@@ -141,310 +105,229 @@ video.rawfallback { filter: grayscale(1) contrast(1.2) brightness(1.05); }
         </div>
     </button>
 
-    <canvas id="pip"></canvas>
+    <div id="hud"></div>
     <div id="toast"></div>
-
-    <div id="botbar" style="display:none">
-        <button class="hudBtn" id="detBtn">DET</button>
-        <button class="hudBtn" id="segBtn">SEG</button>
-        <button class="hudBtn" id="depBtn">DEP</button>
-        <button class="hudBtn" id="ocrBtn">OCR</button>
-        <button class="hudBtn" id="scnBtn" disabled>SCN</button>
-        <button class="hudBtn" id="sndBtn">SND</button>
-    </div>
 
 </div>
 <script type="module">
-import { FilesetResolver, ObjectDetector, ImageSegmenter } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs';
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
 
 /*__PURE_BEGIN__*/
-/* ── Чиста логіка: без DOM, тестується headless ── */
+/* ── Чиста логіка: без DOM і THREE, тестується headless ── */
 
-/* object-fit:cover мапінг: відео-пікселі -> екранні css-пікселі (з myFIX, дослівно) */
-function coverTransform(vw, vh, sw, sh){
-    const scale = Math.max(sw / vw, sh / vh);
-    return { scale, ox: (sw - vw * scale) / 2, oy: (sh - vh * scale) / 2 };
-}
-function v2s(x, y, T){
-    let sx = x * T.scale + T.ox, sy = y * T.scale + T.oy;
-    if (T.zoom && T.zoom !== 1){
-        sx = (sx - T.zcx) * T.zoom + T.zcx;
-        sy = (sy - T.zcy) * T.zoom + T.zcy;
-    }
-    return { x: sx, y: sy };
+function clamp01(v){ return v < 0 ? 0 : v > 1 ? 1 : v; }
+
+/* RGBA -> luma у 1 канал; коефіцієнти = шейдерним (0.299/0.587/0.114) */
+function grayFrom(rgba, out){
+    const n = out.length;
+    for (let i = 0, j = 0; i < n; i++, j += 4)
+        out[i] = (rgba[j] * 77 + rgba[j + 1] * 150 + rgba[j + 2] * 29) >> 8;
+    return out;
 }
 
-function iou(a, b){
-    const x1 = Math.max(a.x, b.x), y1 = Math.max(a.y, b.y);
-    const x2 = Math.min(a.x + a.w, b.x + b.w), y2 = Math.min(a.y + a.h, b.y + b.h);
-    const iw = Math.max(0, x2 - x1), ih = Math.max(0, y2 - y1);
-    const inter = iw * ih;
-    const uni = a.w * a.h + b.w * b.h - inter;
-    return uni > 0 ? inter / uni : 0;
-}
-function lerpBox(a, b, k){
-    return { x: a.x + (b.x - a.x) * k, y: a.y + (b.y - a.y) * k, w: a.w + (b.w - a.w) * k, h: a.h + (b.h - a.h) * k };
-}
+/* Крива чорнила з mono-шейдера: lq=(L-0.5)*1.25+0.56, ink = 1-lq. L у 0..1 */
+function inkCurve(L){ return 1 - clamp01((L - 0.5) * 1.25 + 0.56); }
 
-let __uid = 0;
-function nextUid(){ __uid = (__uid + 1) % 4096; return '0x' + __uid.toString(16).toUpperCase().padStart(3, '0'); }
-
-/* IoU-трекер: стабільні ID, згладжування боксів, голосування класу (з myFIX, дослівно) */
-function updateTracks(tracks, dets, now, opts){
-    const o = opts || {};
-    const iouThr  = o.iouThr  !== undefined ? o.iouThr  : 0.3;
-    const ttl     = o.ttl     !== undefined ? o.ttl     : 700;
-    const smooth  = o.smooth  !== undefined ? o.smooth  : 0.4;
-    const unmatched = new Set(dets.map((_, i) => i));
-    const order = tracks.slice().sort((a, b) => b.hits - a.hits);
-    for (const t of order){
-        let best = -1, bestV = iouThr;
-        for (const i of unmatched){
-            const v = iou(t.box, dets[i].box);
-            if (v > bestV){ bestV = v; best = i; }
-        }
-        if (best >= 0){
-            const d = dets[best];
-            unmatched.delete(best);
-            t.box = lerpBox(t.box, d.box, smooth);
-            t.score = t.score * (1 - smooth) + d.score * smooth;
-            t.votes[d.cls] = (t.votes[d.cls] || 0) + 1;
-            if (d.cls !== t.cls && t.votes[d.cls] > (t.votes[t.cls] || 0)) t.cls = d.cls;
-            t.seen = now; t.hits++;
+/* Один прохід по пікселях: середнє, сігма, |дельта до prev| на сектор.
+   gray/prev: Uint8 (w x h); поля out* : Float32 (gx*gy), значення 0..1 */
+function sectorStats(gray, prev, w, h, gx, gy, outMean, outSd, outDif){
+    const n = gx * gy;
+    const sum = new Float64Array(n), sq = new Float64Array(n);
+    const df = new Float64Array(n), cnt = new Float64Array(n);
+    for (let y = 0; y < h; y++){
+        const sy = Math.min(gy - 1, (y * gy / h) | 0);
+        const rowS = sy * gx, rowP = y * w;
+        for (let x = 0; x < w; x++){
+            const s = rowS + Math.min(gx - 1, (x * gx / w) | 0);
+            const v = gray[rowP + x];
+            sum[s] += v; sq[s] += v * v;
+            df[s] += Math.abs(v - prev[rowP + x]);
+            cnt[s]++;
         }
     }
-    for (const i of unmatched){
-        const d = dets[i];
-        tracks.push({
-            id: nextUid(),
-            box: { x: d.box.x, y: d.box.y, w: d.box.w, h: d.box.h },
-            cls: d.cls, score: d.score,
-            votes: { [d.cls]: 1 },
-            born: now, seen: now, hits: 1
-        });
+    for (let i = 0; i < n; i++){
+        const c = cnt[i] || 1;
+        const m = sum[i] / c;
+        outMean[i] = m / 255;
+        const va = sq[i] / c - m * m;
+        outSd[i] = Math.sqrt(va > 0 ? va : 0) / 255;
+        outDif[i] = df[i] / c / 255;
     }
-    return tracks.filter(t => now - t.seen < ttl);
 }
 
-/* Планувальник слотів: одна найпрострочніша модель за тік.
-   mods: [{key, on, busy, last, interval}] -> key або null */
-function nextSlot(now, mods){
-    let best = null, bestR = 1;
-    for (const m of mods){
-        if (!m.on || m.busy) continue;
-        const r = (now - m.last) / m.interval;
-        if (r >= 1 && r > bestR){ bestR = r; best = m.key; }
+/* Щільність контурів на сектор: центральна різниця (як Sobel-хрест у шейдері) */
+function edgeSectors(gray, w, h, gx, gy, out){
+    const n = gx * gy;
+    const acc = new Float64Array(n), cnt = new Float64Array(n);
+    for (let y = 1; y < h - 1; y++){
+        const sy = Math.min(gy - 1, (y * gy / h) | 0);
+        const rowS = sy * gx, r = y * w;
+        for (let x = 1; x < w - 1; x++){
+            const dx = gray[r + x + 1] - gray[r + x - 1];
+            const dy = gray[r + w + x] - gray[r - w + x];
+            const s = rowS + Math.min(gx - 1, (x * gx / w) | 0);
+            acc[s] += Math.sqrt(dx * dx + dy * dy);
+            cnt[s]++;
+        }
     }
-    return best;
+    for (let i = 0; i < n; i++) out[i] = clamp01((acc[i] / (cnt[i] || 1)) / 180);
+    return out;
 }
 
-/* Медіана глибини всередині боксу. depth: Uint8 (dw x dh), box у відео-пікселях.
-   Повертає 0..255 або -1, якщо бокс поза мапою. */
-function medianDepthInBox(depth, dw, dh, box, vw, vh){
-    const sx = dw / vw, sy = dh / vh;
-    const x0 = Math.max(0, Math.floor(box.x * sx)), y0 = Math.max(0, Math.floor(box.y * sy));
-    const x1 = Math.min(dw - 1, Math.ceil((box.x + box.w) * sx));
-    const y1 = Math.min(dh - 1, Math.ceil((box.y + box.h) * sy));
-    if (x1 <= x0 || y1 <= y0) return -1;
-    const gs = Math.max(1, Math.floor(Math.max(x1 - x0, y1 - y0) / 14));
-    const vals = [];
-    for (let y = y0; y <= y1; y += gs)
-        for (let x = x0; x <= x1; x += gs) vals.push(depth[y * dw + x]);
-    if (!vals.length) return -1;
-    vals.sort((a, b) => a - b);
-    return vals[vals.length >> 1];
-}
-/* Depth Anything: 255 = близько. RANGE·REL: 0 близько .. 99 далеко. НЕ метри. */
-function depthToRange(v){
-    if (v < 0) return -1;
-    return Math.max(0, Math.min(99, Math.round((1 - v / 255) * 99)));
-}
-
-/* Частка семплів боксу, накритих SEG-маскою (клас > 0) */
-function segCoverage(mask, mw, mh, box, vw, vh){
-    const sx = mw / vw, sy = mh / vh, G = 10;
-    let n = 0, hit = 0;
-    for (let iy = 0; iy < G; iy++)
-        for (let ix = 0; ix < G; ix++){
-            const x = Math.floor((box.x + box.w * (ix + 0.5) / G) * sx);
-            const y = Math.floor((box.y + box.h * (iy + 0.5) / G) * sy);
-            if (x < 0 || y < 0 || x >= mw || y >= mh) continue;
-            n++;
-            if (mask[y * mw + x] > 0) hit++;
-        }
-    return n ? hit / n : 0;
-}
-
-/* OCR-геометрія */
-function scaleWords(words, k){
-    return words.map(w => ({ text: w.text, conf: w.conf, x: w.x * k, y: w.y * k, w: w.w * k, h: w.h * k }));
-}
-/* Групування слів у рядки: близькі по центру y, всередині рядка сортовані по x */
-function groupLines(words, yTol){
-    const tol = yTol === undefined ? 0.6 : yTol;
-    const ws = words.slice().sort((a, b) => (a.y + a.h / 2) - (b.y + b.h / 2));
-    const lines = [];
-    for (const w of ws){
-        const cy = w.y + w.h / 2;
-        let ln = null;
-        for (const L of lines){
-            if (Math.abs(cy - L.cy) < tol * Math.max(w.h, L.h)){ ln = L; break; }
-        }
-        if (!ln){ ln = { words: [], cy: cy, h: w.h }; lines.push(ln); }
-        ln.words.push(w);
-        ln.cy = (ln.cy * (ln.words.length - 1) + cy) / ln.words.length;
-        ln.h = Math.max(ln.h, w.h);
+/* Афтерглоу руху: миттєвий пік або загасання */
+function glowUpdate(glow, dif, decay){
+    for (let i = 0; i < glow.length; i++){
+        const d = clamp01(dif[i] * 4);
+        glow[i] = d > glow[i] ? d : glow[i] * decay;
     }
-    return lines.map(L => {
-        L.words.sort((a, b) => a.x - b.x);
-        let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, cs = 0;
-        for (const w of L.words){
-            x0 = Math.min(x0, w.x); y0 = Math.min(y0, w.y);
-            x1 = Math.max(x1, w.x + w.w); y1 = Math.max(y1, w.y + w.h);
-            cs += w.conf;
-        }
-        return {
-            text: L.words.map(w => w.text).join(' '),
-            conf: cs / L.words.length,
-            x: x0, y: y0, w: x1 - x0, h: y1 - y0
-        };
-    });
+    return glow;
 }
-/* Прив'язка рядків до треків: центр рядка в боксі -> найменший бокс, що містить.
-   Повертає { assigned: [[trackId, text]], free: [line] } */
-function attachText(tracks, lines){
-    const assigned = [], free = [];
-    for (const L of lines){
-        const cx = L.x + L.w / 2, cy = L.y + L.h / 2;
-        let hit = null;
-        for (const t of tracks){
-            const b = t.box;
-            if (cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h){
-                if (!hit || b.w * b.h < hit.box.w * hit.box.h) hit = t;
+
+/* Маргінал по колонках: середнє поля в кожному стовпці сітки */
+function colMarginal(field, gx, gy, out){
+    for (let x = 0; x < gx; x++){
+        let s = 0;
+        for (let y = 0; y < gy; y++) s += field[y * gx + x];
+        out[x] = s / gy;
+    }
+    return out;
+}
+
+/* Гістограма поля (0..1) у bins кошиків, нормована на максимум (для барів) */
+function histField(field, bins, out){
+    out.fill(0);
+    for (let i = 0; i < field.length; i++){
+        let b = (clamp01(field[i]) * bins) | 0;
+        if (b >= bins) b = bins - 1;
+        out[b]++;
+    }
+    let mx = 0;
+    for (let b = 0; b < bins; b++) if (out[b] > mx) mx = out[b];
+    if (mx > 0) for (let b = 0; b < bins; b++) out[b] /= mx;
+    return out;
+}
+
+function fieldStats(field){
+    let s = 0, q = 0, mx = 0;
+    const n = field.length;
+    for (let i = 0; i < n; i++){
+        const v = field[i];
+        s += v; q += v * v;
+        if (v > mx) mx = v;
+    }
+    const mu = s / n;
+    const va = q / n - mu * mu;
+    return { mu: mu, sd: Math.sqrt(va > 0 ? va : 0), mx: mx };
+}
+
+/* Кільце історії: пишемо рядок у head, повертаємо новий head */
+function ringPush(ring, head, T, row){
+    const gx = row.length;
+    const off = head * gx;
+    for (let i = 0; i < gx; i++) ring[off + i] = row[i];
+    return (head + 1) % T;
+}
+
+/* Профіль зрізу: інтерпольована колонка поля при дробовому fx (0..gx-1) */
+function sliceProfile(field, gx, gy, fx, out){
+    const cx = fx < 0 ? 0 : fx > gx - 1 ? gx - 1 : fx;
+    const i0 = Math.min(gx - 2, cx | 0), f = cx - i0;
+    for (let y = 0; y < gy; y++){
+        const a = field[y * gx + i0], b = field[y * gx + i0 + 1];
+        out[y] = a + (b - a) * f;
+    }
+    return out;
+}
+
+/* Feature-простір ХМАРИ: x=L, y=Δ(glow), z=σ. Осі Δ і σ розтягнуті
+   (x2.5 / x3, з клампом) — задокументоване display-масштабування */
+function featPositions(Lf, Gf, Sf, n, out, cs, cy){
+    for (let i = 0; i < n; i++){
+        out[i * 3]     = (clamp01(Lf[i]) - 0.5) * cs;
+        out[i * 3 + 1] = cy + (clamp01(Gf[i] * 2.5) - 0.5) * cs;
+        out[i * 3 + 2] = (clamp01(Sf[i] * 3) - 0.5) * cs;
+    }
+    return out;
+}
+
+/* Трикутна хвиля 0..1..0 — авто-сканер різальної площини */
+function triWave(ms, period){
+    const ph = (ms % period) / period;
+    return ph < 0.5 ? ph * 2 : 2 - ph * 2;
+}
+
+/* ── FFT ритму сцени ── */
+function hann(i, N){ return 0.5 * (1 - Math.cos(2 * Math.PI * i / (N - 1))); }
+/* radix-2 in-place, N = степінь двійки */
+function fftRadix2(re, im){
+    const N = re.length;
+    for (let i = 1, j = 0; i < N; i++){
+        let bit = N >> 1;
+        for (; j & bit; bit >>= 1) j ^= bit;
+        j ^= bit;
+        if (i < j){
+            let t = re[i]; re[i] = re[j]; re[j] = t;
+            t = im[i]; im[i] = im[j]; im[j] = t;
+        }
+    }
+    for (let len = 2; len <= N; len <<= 1){
+        const ang = -2 * Math.PI / len;
+        const wr = Math.cos(ang), wi = Math.sin(ang);
+        for (let i = 0; i < N; i += len){
+            let cr = 1, ci = 0;
+            for (let k = 0; k < len / 2; k++){
+                const ur = re[i + k], ui = im[i + k];
+                const vr = re[i + k + len / 2] * cr - im[i + k + len / 2] * ci;
+                const vi = re[i + k + len / 2] * ci + im[i + k + len / 2] * cr;
+                re[i + k] = ur + vr; im[i + k] = ui + vi;
+                re[i + k + len / 2] = ur - vr; im[i + k + len / 2] = ui - vi;
+                const nr = cr * wr - ci * wi;
+                ci = cr * wi + ci * wr; cr = nr;
             }
         }
-        if (hit) assigned.push([hit.id, L.text]);
-        else free.push(L);
     }
-    return { assigned: assigned, free: free };
 }
-
-/* Байєр 4x4 для PiP-дизерингу */
-const BAYER4 = [[0,8,2,10],[12,4,14,6],[3,11,1,9],[15,7,13,5]];
-function bayer4(x, y){ return (BAYER4[y & 3][x & 3] + 0.5) / 16; }
-
-/* Санітар OCR: пробіли, мінімум 2 буквено-цифрові символи (лат/укр) */
-function cleanText(s){
-    const t = String(s).replace(/\s+/g, ' ').trim();
-    return /[A-Za-zА-Яа-яЄєІіЇїҐґ0-9]{2,}/.test(t) ? t : '';
+/* Домінантна частота серії (Гц): Ганн + FFT + пік поза DC.
+   dt — крок семплів у секундах. Повертає {hz, amp} */
+function domFreq(series, N, dt){
+    const re = new Float64Array(N), im = new Float64Array(N);
+    let mu = 0;
+    for (let i = 0; i < N; i++) mu += series[i];
+    mu /= N;
+    for (let i = 0; i < N; i++) re[i] = (series[i] - mu) * hann(i, N);
+    fftRadix2(re, im);
+    let best = 0, bi = 0;
+    for (let k = 2; k < N / 2; k++){
+        const m = re[k] * re[k] + im[k] * im[k];
+        if (m > best){ best = m; bi = k; }
+    }
+    return { hz: bi / (N * dt), amp: Math.sqrt(best) / N };
 }
 /*__PURE_END__*/
 
 /* ── Конфіг ── */
 const CFG = {
-    detMs: 66, segMs: 200, depMs: 700, ocrMs: 3000,
-    trackTTL: 700, iouThr: 0.3, smooth: 0.4,
-    glMaxDpr: 1.5, hudMaxDpr: 2,
-    nnW: 640, ocrConf: 60, tickGap: 600,
-    maskTTL: 1200, depTTL: 4000, textTTL: 10000, freeTTL: 8000
+    anW: 240,            /* ширина аналіз-буфера, висота — по аспекту камери */
+    gx: 48, gy: 27,      /* сітка секторів */
+    T: 96,               /* глибина ЧАСОЛІФу, кадрів історії */
+    analyzeMs: 33,       /* такт аналізу */
+    glowDecay: 0.93,
+    FW: 3.6,             /* ширина підлоги у world units */
+    HMAX: 0.95,          /* стеля рельєфу */
+    dotCells: 170,       /* крапок халфтону впоперек підлоги */
+    slicePeriod: 9000,   /* період авто-сканера зрізу, мс */
+    fftN: 128
 };
-const WASM_URL  = 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm';
-const MODEL_OBJ = 'https://storage.googleapis.com/mediapipe-models/object_detector/efficientdet_lite0/float16/1/efficientdet_lite0.tflite';
-const MODEL_SEG = 'https://storage.googleapis.com/mediapipe-models/image_segmenter/deeplab_v3/float32/1/deeplab_v3.tflite';
-const INK = '20,18,13';
-const PAPER = '236,234,226';
+const VIEWS   = ['РЕЛЬЄФ', 'ХВИЛІ', 'ЧАСОЛІФ', 'ХМАРА'];
+const METRICS = ['INK', 'Δ', 'E', 'σ'];
+const INKC   = 0x14110b, PAPERC = 0xeceae2;
+const INKV   = [0.078, 0.067, 0.043];
 
 /* ── DOM ── */
 const $ = id => document.getElementById(id);
 const container = $('container'), video = $('video');
-const canvas = $('hudCanvas'), glCanvas = $('glCanvas');
-const ctx = canvas.getContext('2d');
-const startBtn = $('startBtn'), botbar = $('botbar'), toastEl = $('toast'), pip = $('pip');
-const pipCx = pip.getContext('2d');
-const scnBtn = $('scnBtn'), sndBtn = $('sndBtn');
+const gl3d = $('gl3d'), hud = $('hud'), toastEl = $('toast'), startBtn = $('startBtn');
 
-/* ── Стан ── */
-const ST = {
-    running: false, booting: false,
-    tracks: [],
-    mask: null,      /* { data:Uint8Array, w, h, at } */
-    depth: null,     /* { data:Uint8Array, w, h, at } */
-    ocrFree: null,   /* { lines:[], at } */
-    wake: null, lastTick: 0, scanning: false
-};
-let objDet = null, segDet = null, ocrWorker = null, depWorker = null;
-let hudDpr = 1, lastFrame = performance.now(), lastGl = 0;
-
-function coverT(){
-    return coverTransform(video.videoWidth || 640, video.videoHeight || 480, innerWidth, innerHeight);
-}
-function resize(){
-    hudDpr = Math.min(devicePixelRatio || 1, CFG.hudMaxDpr);
-    canvas.width  = Math.round(innerWidth * hudDpr);
-    canvas.height = Math.round(innerHeight * hudDpr);
-}
-
-/* ── АУДІО: мінімум — принтерний бут + чорнильний тік нової цілі (ядро з myFIX) ── */
-const AU = {
-    ctx: null, master: null, on: true, noise: null,
-    init(){
-        try {
-            const AC = window.AudioContext || window.webkitAudioContext;
-            this.ctx = new AC();
-            this.master = this.ctx.createGain();
-            this.master.gain.value = 0.6;
-            this.master.connect(this.ctx.destination);
-            const len = this.ctx.sampleRate;
-            const buf = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
-            const d = buf.getChannelData(0);
-            for (let i = 0; i < len; i++) d[i] = Math.random() * 2 - 1;
-            this.noise = buf;
-            this.ctx.resume();
-        } catch (e) { this.ctx = null; }
-    },
-    now(){ return this.ctx.currentTime; },
-    env(g, t0, a, peak, d){
-        g.gain.setValueAtTime(0.0001, t0);
-        g.gain.linearRampToValueAtTime(peak, t0 + a);
-        g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
-    },
-    osc(type, f0, f1, t0, dur, peak){
-        if (!this.ctx) return;
-        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
-        o.type = type;
-        o.frequency.setValueAtTime(Math.max(1, f0), t0);
-        if (f1 !== f0) o.frequency.exponentialRampToValueAtTime(Math.max(1, f1), t0 + dur);
-        this.env(g, t0, 0.005, peak, dur);
-        o.connect(g); g.connect(this.master);
-        o.start(t0); o.stop(t0 + dur + 0.1);
-    },
-    nz(t0, dur, peak, fType, f0, f1, q){
-        if (!this.ctx) return;
-        const s = this.ctx.createBufferSource(); s.buffer = this.noise; s.loop = true;
-        const f = this.ctx.createBiquadFilter(); f.type = fType;
-        f.frequency.setValueAtTime(Math.max(10, f0), t0);
-        if (f1 && f1 !== f0) f.frequency.exponentialRampToValueAtTime(Math.max(10, f1), t0 + dur);
-        f.Q.value = q || 1;
-        const g = this.ctx.createGain();
-        this.env(g, t0, 0.008, peak, dur);
-        s.connect(f); f.connect(g); g.connect(this.master);
-        s.start(t0); s.stop(t0 + dur + 0.1);
-    },
-    monoSwap(){
-        /* матричний принтер: черга тіків + дзвіночок каретки (з myFIX, дослівно) */
-        if (!this.ctx) return; const t = this.now();
-        for (let i = 0; i < 9; i++) this.osc('square', 2400 - i * 90, 2400 - i * 90, t + i * 0.045, 0.02, 0.04);
-        this.osc('sine', 1568, 1568, t + 0.48, 0.25, 0.06);
-    },
-    inkTick(){
-        if (!this.ctx) return; const t = this.now();
-        this.osc('square', 1900, 1900, t, 0.02, 0.04);
-        this.osc('square', 1300, 1300, t + 0.09, 0.03, 0.035);
-    },
-    setMute(m){ if (!this.ctx) return; this.on = !m; this.master.gain.setTargetAtTime(m ? 0 : 0.6, this.now(), 0.05); }
-};
-
-/* ── Тост: один рядок статусу ── */
 let toastT = null;
 function toast(msg, warn){
     toastEl.textContent = msg;
@@ -454,497 +337,623 @@ function toast(msg, warn){
     toastT = setTimeout(() => toastEl.classList.remove('show'), 2600);
 }
 
-/* ── WebGL: тільки MONO — газетний halftone під 45 + Sobel-контури (гілка з myFIX, дослівно) ── */
-const FRAG = `
-precision mediump float;
-varying vec2 vUV;
-uniform sampler2D uTex;
-uniform vec2 uUVScale;
-uniform vec2 uUVOff;
-uniform vec2 uRes;
-uniform float uPx;
-uniform float uSob;
+/* ── АУДІО: лише бут-джингл матричного принтера (з myFIX) ── */
+const AU = {
+    ctx: null,
+    init(){
+        try {
+            const AC = window.AudioContext || window.webkitAudioContext;
+            this.ctx = new AC();
+            this.master = this.ctx.createGain();
+            this.master.gain.value = 0.5;
+            this.master.connect(this.ctx.destination);
+            this.ctx.resume();
+        } catch (e) { this.ctx = null; }
+    },
+    osc(type, f, t0, dur, peak){
+        if (!this.ctx) return;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = type; o.frequency.setValueAtTime(f, t0);
+        g.gain.setValueAtTime(0.0001, t0);
+        g.gain.linearRampToValueAtTime(peak, t0 + 0.005);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+        o.connect(g); g.connect(this.master);
+        o.start(t0); o.stop(t0 + dur + 0.1);
+    },
+    monoSwap(){
+        if (!this.ctx) return; const t = this.ctx.currentTime;
+        for (let i = 0; i < 9; i++) this.osc('square', 2400 - i * 90, t + i * 0.045, 0.02, 0.04);
+        this.osc('sine', 1568, t + 0.48, 0.25, 0.06);
+    }
+};
 
-vec2 suv(vec2 s){ return s * uUVScale + uUVOff; }
+/* ── Стан ── */
+const N = CFG.gx * CFG.gy;
+const ST = {
+    running: false, booting: false,
+    view: 0, metric: 0,
+    F: {
+        L:    new Float32Array(N),  /* середня яскравість 0..1 */
+        SD:   new Float32Array(N),  /* сігма */
+        DIF:  new Float32Array(N),  /* миттєва |дельта| */
+        GLOW: new Float32Array(N),  /* рух зі слідом */
+        E:    new Float32Array(N),  /* контури */
+        INK:  new Float32Array(N)   /* чорнило шейдера */
+    },
+    ring: new Float32Array(CFG.T * CFG.gx), ringHead: 0,
+    marg: new Float32Array(CFG.gx),
+    prof: new Float32Array(CFG.gy),
+    histA: new Float32Array(16), histB: new Float32Array(16),
+    fftBuf: new Float32Array(CFG.fftN), fftHead: 0, fftHz: 0, fftAmp: 0,
+    dtEma: 0.033, lastAn: 0, lastFft: 0, lastHud: 0,
+    wake: null
+};
+function selField(){
+    return ST.metric === 0 ? ST.F.INK : ST.metric === 1 ? ST.F.GLOW : ST.metric === 2 ? ST.F.E : ST.F.SD;
+}
+
+/* ── Аналіз: відео -> сірий 1ch -> поля секторів ── */
+const anCv = document.createElement('canvas');
+const anCx = anCv.getContext('2d', { willReadFrequently: true });
+let anW = 0, anH = 0, grayA = null, grayB = null, useA = true;
+
+function analyze(now){
+    const vw = video.videoWidth, vh = video.videoHeight;
+    if (!vw || !vh) return false;
+    if (!anW){
+        anW = CFG.anW; anH = Math.round(anW * vh / vw);
+        anCv.width = anW; anCv.height = anH;
+        grayA = new Uint8Array(anW * anH);
+        grayB = new Uint8Array(anW * anH);
+    }
+    anCx.drawImage(video, 0, 0, anW, anH);
+    const rgba = anCx.getImageData(0, 0, anW, anH).data;
+    const cur = useA ? grayA : grayB, prev = useA ? grayB : grayA;
+    useA = !useA;
+    grayFrom(rgba, cur);
+    sectorStats(cur, prev, anW, anH, CFG.gx, CFG.gy, ST.F.L, ST.F.SD, ST.F.DIF);
+    edgeSectors(cur, anW, anH, CFG.gx, CFG.gy, ST.F.E);
+    glowUpdate(ST.F.GLOW, ST.F.DIF, CFG.glowDecay);
+    for (let i = 0; i < N; i++) ST.F.INK[i] = inkCurve(ST.F.L[i]);
+    /* маргінал вибраної метрики -> кільце ЧАСОЛІФу */
+    colMarginal(selField(), CFG.gx, CFG.gy, ST.marg);
+    ST.ringHead = ringPush(ST.ring, ST.ringHead, CFG.T, ST.marg);
+    /* глобальний пульс руху -> FFT-серія */
+    let dm = 0;
+    for (let i = 0; i < N; i++) dm += ST.F.DIF[i];
+    ST.fftBuf[ST.fftHead] = dm / N;
+    ST.fftHead = (ST.fftHead + 1) % CFG.fftN;
+    if (ST.lastAn) ST.dtEma = ST.dtEma * 0.9 + ((now - ST.lastAn) / 1000) * 0.1;
+    ST.lastAn = now;
+    if (now - ST.lastFft > 1000){
+        ST.lastFft = now;
+        const seq = new Float32Array(CFG.fftN);
+        for (let i = 0; i < CFG.fftN; i++) seq[i] = ST.fftBuf[(ST.fftHead + i) % CFG.fftN];
+        const r = domFreq(seq, CFG.fftN, ST.dtEma);
+        ST.fftHz = r.hz; ST.fftAmp = r.amp;
+    }
+    return true;
+}
+
+/* ── THREE: сцена ── */
+let renderer = null, scene = null, camera = null, videoTex = null;
+let FW = CFG.FW, FH = 2.0;
+const G = {}; /* групи та геометрії подань */
+
+/* Халфтон-шейдер підлоги: та сама MONO-гілка з myFIX, але крапки живуть
+   в UV-просторі площини — надрукований аркуш, що лежить у 3D */
+const FLOOR_VERT = `
+varying vec2 vUv;
+void main(){
+    vUv = uv;
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+}
+`;
+const FLOOR_FRAG = `
+uniform sampler2D map;
+uniform vec2 uCellsXY;
+uniform vec2 uTexel;
+varying vec2 vUv;
 float lum(vec3 c){ return dot(c, vec3(0.299, 0.587, 0.114)); }
-
 void main(){
     mat2 Rf = mat2(0.7071, 0.7071, -0.7071, 0.7071);
     mat2 Ri = mat2(0.7071, -0.7071, 0.7071, 0.7071);
-    vec2 pr = Rf * gl_FragCoord.xy;
-    vec2 cM = floor(pr / uPx);
-    vec2 ctr = Ri * ((cM + 0.5) * uPx);
-    float lq = lum(texture2D(uTex, suv(ctr / uRes)).rgb);
+    vec2 p = vUv * uCellsXY;
+    vec2 pr = Rf * p;
+    vec2 cM = floor(pr);
+    vec2 ctr = Ri * (cM + vec2(0.5));
+    vec2 uv2 = ctr / uCellsXY;
+    float lq = lum(texture2D(map, uv2).rgb);
     lq = clamp((lq - 0.5) * 1.25 + 0.56, 0.0, 1.0);
     float dk = 1.0 - lq;
-    vec2 fM = pr / uPx - (cM + 0.5);
+    vec2 fM = pr - (cM + vec2(0.5));
     float dotInk = step(length(fM), sqrt(dk) * 0.72);
-    vec2 e = vec2(uSob) / uRes;
-    float gx = lum(texture2D(uTex, suv(vUV + vec2(e.x, 0.0))).rgb) - lum(texture2D(uTex, suv(vUV - vec2(e.x, 0.0))).rgb);
-    float gy = lum(texture2D(uTex, suv(vUV + vec2(0.0, e.y))).rgb) - lum(texture2D(uTex, suv(vUV - vec2(0.0, e.y))).rgb);
+    float gx = lum(texture2D(map, vUv + vec2(uTexel.x, 0.0)).rgb) - lum(texture2D(map, vUv - vec2(uTexel.x, 0.0)).rgb);
+    float gy = lum(texture2D(map, vUv + vec2(0.0, uTexel.y)).rgb) - lum(texture2D(map, vUv - vec2(0.0, uTexel.y)).rgb);
     float edge = smoothstep(0.13, 0.32, length(vec2(gx, gy)));
     float ink = max(dotInk, edge);
-    vec3 col = mix(vec3(0.93, 0.92, 0.88), vec3(0.20, 0.18, 0.13), ink);
-    float d = length(vUV - vec2(0.5, 0.5));
-    float vig = smoothstep(0.95, 0.35, d) * 0.35 + 0.65;
-    col *= mix(vig, 1.0, 0.7);
+    vec3 col = mix(vec3(0.925, 0.918, 0.886), vec3(0.078, 0.067, 0.043), ink);
     gl_FragColor = vec4(col, 1.0);
 }
 `;
+/* Крапки рельєфу: 3D-халфтон — розмір і чіткість ростуть зі значенням */
+const DOT_VERT = `
+attribute float aVal;
+uniform float uPxScale;
+varying float vVal;
+void main(){
+    vVal = aVal;
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    float ws = 0.012 + aVal * 0.05;
+    gl_PointSize = clamp(ws * uPxScale / -mv.z, 1.0, 64.0);
+    gl_Position = projectionMatrix * mv;
+}
+`;
+const DOT_FRAG = `
+varying float vVal;
+void main(){
+    vec2 d = gl_PointCoord - vec2(0.5);
+    if (dot(d, d) > 0.25) discard;
+    gl_FragColor = vec4(vec3(0.078, 0.067, 0.043), 0.5 + 0.5 * vVal);
+}
+`;
+/* ХМАРА: морф GEO<->FEATURE позицій */
+const CLOUD_VERT = `
+attribute vec3 aFeat;
+attribute float aSize;
+uniform float uMix;
+uniform float uPxScale;
+void main(){
+    vec3 p = mix(position, aFeat, uMix);
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    float ws = 0.014 + aSize * 0.05;
+    gl_PointSize = clamp(ws * uPxScale / -mv.z, 1.0, 48.0);
+    gl_Position = projectionMatrix * mv;
+}
+`;
+const CLOUD_FRAG = `
+void main(){
+    vec2 d = gl_PointCoord - vec2(0.5);
+    if (dot(d, d) > 0.25) discard;
+    gl_FragColor = vec4(vec3(0.078, 0.067, 0.043), 0.8);
+}
+`;
 
-const GL = {
-    gl: null, uni: null, ok: false, cv: null,
-    init(cv){
-        this.cv = cv;
-        const gl = cv.getContext('webgl', { antialias: false, depth: false, stencil: false, preserveDrawingBuffer: true });
-        if (!gl) return false;
-        const mk = (type, src) => {
-            const s = gl.createShader(type);
-            gl.shaderSource(s, src); gl.compileShader(s);
-            if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)){ console.error(gl.getShaderInfoLog(s)); return null; }
-            return s;
-        };
-        const vs = mk(gl.VERTEX_SHADER, 'attribute vec2 aPos; varying vec2 vUV; void main(){ vUV = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }');
-        const fs = mk(gl.FRAGMENT_SHADER, FRAG);
-        if (!vs || !fs) return false;
-        const pr = gl.createProgram();
-        gl.attachShader(pr, vs); gl.attachShader(pr, fs); gl.linkProgram(pr);
-        if (!gl.getProgramParameter(pr, gl.LINK_STATUS)){ console.error(gl.getProgramInfoLog(pr)); return false; }
-        gl.useProgram(pr);
-        const buf = gl.createBuffer();
-        gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1,-1, 1,-1, -1,1, 1,1]), gl.STATIC_DRAW);
-        const aPos = gl.getAttribLocation(pr, 'aPos');
-        gl.enableVertexAttribArray(aPos);
-        gl.vertexAttribPointer(aPos, 2, gl.FLOAT, false, 0, 0);
-        const tex = gl.createTexture();
-        gl.bindTexture(gl.TEXTURE_2D, tex);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
-        const U = n => gl.getUniformLocation(pr, n);
-        this.uni = { uUVScale: U('uUVScale'), uUVOff: U('uUVOff'), uRes: U('uRes'), uPx: U('uPx'), uSob: U('uSob') };
-        gl.uniform1i(U('uTex'), 0);
-        this.gl = gl; this.ok = true;
-        cv.addEventListener('webglcontextlost', () => { this.ok = false; }, false);
-        return true;
-    },
-    render(now){
-        if (!this.ok || video.readyState < 2) return;
-        const gl = this.gl, cv = this.cv;
-        const dpr = Math.min(devicePixelRatio || 1, CFG.glMaxDpr);
-        const W = Math.round(innerWidth * dpr), H = Math.round(innerHeight * dpr);
-        if (cv.width !== W || cv.height !== H){ cv.width = W; cv.height = H; gl.viewport(0, 0, W, H); }
-        gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGB, gl.RGB, gl.UNSIGNED_BYTE, video);
-        const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-        const va = vw / vh, ca = innerWidth / innerHeight;
-        let sx = 1, sy = 1, ox = 0, oy = 0;
-        if (va > ca){ sx = ca / va; ox = (1 - sx) / 2; }
-        else        { sy = va / ca; oy = (1 - sy) / 2; }
-        gl.uniform2f(this.uni.uUVScale, sx, sy);
-        gl.uniform2f(this.uni.uUVOff, ox, oy);
-        gl.uniform2f(this.uni.uRes, W, H);
-        gl.uniform1f(this.uni.uPx, Math.max(4, Math.round(3 * dpr)));
-        gl.uniform1f(this.uni.uSob, Math.max(2, Math.round(1.5 * dpr)));
-        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+function lineMat(alpha){
+    return new THREE.LineBasicMaterial({ color: INKC, transparent: true, opacity: alpha });
+}
+function sectorXZ(i){
+    const x = ((i % CFG.gx) + 0.5) / CFG.gx * FW - FW / 2;
+    const z = (((i / CFG.gx) | 0) + 0.5) / CFG.gy * FH - FH / 2;
+    return [x, z];
+}
+
+function buildScene(){
+    renderer = new THREE.WebGLRenderer({ canvas: gl3d, antialias: true, powerPreference: 'high-performance' });
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setClearColor(PAPERC, 1);
+    scene = new THREE.Scene();
+    camera = new THREE.PerspectiveCamera(50, innerWidth / innerHeight, 0.05, 60);
+
+    const vw = video.videoWidth || 960, vh = video.videoHeight || 540;
+    FH = FW * vh / vw;
+    videoTex = new THREE.VideoTexture(video);
+    videoTex.minFilter = THREE.LinearFilter;
+    videoTex.magFilter = THREE.LinearFilter;
+    videoTex.generateMipmaps = false;
+
+    /* ПІДЛОГА: надрукований халфтон-аркуш */
+    const floorGeo = new THREE.PlaneGeometry(FW, FH);
+    floorGeo.rotateX(-Math.PI / 2);
+    const floorMat = new THREE.ShaderMaterial({
+        vertexShader: FLOOR_VERT, fragmentShader: FLOOR_FRAG,
+        uniforms: {
+            map: { value: videoTex },
+            uCellsXY: { value: new THREE.Vector2(CFG.dotCells, CFG.dotCells * FH / FW) },
+            uTexel: { value: new THREE.Vector2(1 / vw, 1 / vh) }
+        }
+    });
+    scene.add(new THREE.Mesh(floorGeo, floorMat));
+
+    const pxScale = () => (innerHeight * renderer.getPixelRatio()) / (2 * Math.tan(camera.fov * 0.5 * Math.PI / 180));
+
+    /* ── ВИД 0: РЕЛЬЄФ — 3D-халфтон крапками + рядкові лінії + різальна площина ── */
+    G.terrain = new THREE.Group();
+    {
+        const pos = new Float32Array(N * 3), val = new Float32Array(N);
+        for (let i = 0; i < N; i++){
+            const xz = sectorXZ(i);
+            pos[i * 3] = xz[0]; pos[i * 3 + 1] = 0; pos[i * 3 + 2] = xz[1];
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setAttribute('aVal', new THREE.BufferAttribute(val, 1));
+        G.dotMat = new THREE.ShaderMaterial({
+            vertexShader: DOT_VERT, fragmentShader: DOT_FRAG,
+            uniforms: { uPxScale: { value: pxScale() } }, transparent: true
+        });
+        G.dots = new THREE.Points(g, G.dotMat);
+        G.dots.frustumCulled = false;
+        G.terrain.add(G.dots);
+
+        const lp = new Float32Array(CFG.gy * (CFG.gx - 1) * 2 * 3);
+        const lg = new THREE.BufferGeometry();
+        lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+        G.rowLines = new THREE.LineSegments(lg, lineMat(0.22));
+        G.rowLines.frustumCulled = false;
+        G.terrain.add(G.rowLines);
+
+        /* зріз */
+        G.slice = new THREE.Group();
+        const pm = new THREE.Mesh(
+            new THREE.PlaneGeometry(FH, CFG.HMAX * 1.06),
+            new THREE.MeshBasicMaterial({ color: PAPERC, transparent: true, opacity: 0.32, depthWrite: false, side: THREE.DoubleSide })
+        );
+        pm.rotation.y = Math.PI / 2;
+        pm.position.y = CFG.HMAX * 0.53;
+        G.slice.add(pm);
+        const bp = new Float32Array([0, 0, -FH / 2, 0, 0, FH / 2, 0, CFG.HMAX * 1.06, FH / 2, 0, CFG.HMAX * 1.06, -FH / 2]);
+        const bg = new THREE.BufferGeometry();
+        bg.setAttribute('position', new THREE.BufferAttribute(bp, 3));
+        G.slice.add(new THREE.LineLoop(bg, lineMat(0.8)));
+        const pp = new Float32Array(CFG.gy * 3);
+        const pg = new THREE.BufferGeometry();
+        pg.setAttribute('position', new THREE.BufferAttribute(pp, 3));
+        G.profile = new THREE.Line(pg, lineMat(1));
+        G.profile.frustumCulled = false;
+        G.slice.add(G.profile);
+        G.terrain.add(G.slice);
     }
-};
+    scene.add(G.terrain);
 
-/* ── Сірий тап для нейронок: luma ДО халфтону, коефіцієнти = шейдерним (0.299/0.587/0.114) ── */
-const loCv = document.createElement('canvas');
-const loCx = loCv.getContext('2d', { willReadFrequently: true });
-const hiCv = document.createElement('canvas');
-const hiCx = hiCv.getContext('2d', { willReadFrequently: true });
-let loStamp = -1, loCache = null;
-
-function toGray(d){
-    for (let i = 0; i < d.length; i += 4){
-        const g = (d[i] * 77 + d[i + 1] * 150 + d[i + 2] * 29) >> 8;
-        d[i] = g; d[i + 1] = g; d[i + 2] = g;
-    }
-}
-function grayLo(stamp){
-    if (loStamp === stamp && loCache) return loCache;
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) return null;
-    const w = Math.min(CFG.nnW, vw), h = Math.round(w * vh / vw);
-    if (loCv.width !== w || loCv.height !== h){ loCv.width = w; loCv.height = h; }
-    loCx.drawImage(video, 0, 0, w, h);
-    const id = loCx.getImageData(0, 0, w, h);
-    toGray(id.data);
-    loCx.putImageData(id, 0, 0);
-    loStamp = stamp;
-    loCache = { cv: loCv, id: id, w: w, h: h };
-    return loCache;
-}
-function grayHi(){
-    const vw = video.videoWidth, vh = video.videoHeight;
-    if (!vw || !vh) return null;
-    if (hiCv.width !== vw || hiCv.height !== vh){ hiCv.width = vw; hiCv.height = vh; }
-    hiCx.drawImage(video, 0, 0, vw, vh);
-    const id = hiCx.getImageData(0, 0, vw, vh);
-    toGray(id.data);
-    return { id: id, w: vw, h: vh };
-}
-
-/* ── DEP: Depth Anything V2 Small у module-воркері, щоб WASM не душив рендер ── */
-const DEP_WORKER_SRC = [
-"const CDN = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.8.1';",
-"let pipe = null, RawImageC = null;",
-"async function boot(pref){",
-"    const M = await import(CDN);",
-"    M.env.allowLocalModels = false;",
-"    RawImageC = M.RawImage;",
-"    const tries = pref === 'webgpu'",
-"        ? [['webgpu', 'fp16'], ['wasm', 'q8'], ['wasm', 'fp32']]",
-"        : [['wasm', 'q8'], ['wasm', 'fp32']];",
-"    let last = null;",
-"    for (const t of tries){",
-"        try {",
-"            pipe = await M.pipeline('depth-estimation', 'onnx-community/depth-anything-v2-small', {",
-"                device: t[0], dtype: t[1],",
-"                progress_callback: function(p){",
-"                    if (p && p.status === 'progress' && p.file && p.file.indexOf('.onnx') >= 0)",
-"                        postMessage({ type: 'prog', p: p.progress || 0 });",
-"                }",
-"            });",
-"            return t[0];",
-"        } catch (e){ last = e; pipe = null; }",
-"    }",
-"    throw last;",
-"}",
-"self.onmessage = async function(e){",
-"    const m = e.data;",
-"    if (m.type === 'init'){",
-"        try { const dev = await boot(m.device); postMessage({ type: 'ready', device: dev }); }",
-"        catch (err){ postMessage({ type: 'err', msg: String(err && err.message || err) }); }",
-"    } else if (m.type === 'frame'){",
-"        if (!pipe){ postMessage({ type: 'skip' }); return; }",
-"        try {",
-"            const img = new RawImageC(new Uint8ClampedArray(m.buf), m.w, m.h, 4);",
-"            const out = await pipe(img);",
-"            const d = out.depth;",
-"            const u8 = (d.data instanceof Uint8Array || d.data instanceof Uint8ClampedArray) ? new Uint8Array(d.data) : Uint8Array.from(d.data);",
-"            postMessage({ type: 'depth', buf: u8.buffer, w: d.width, h: d.height }, [u8.buffer]);",
-"        } catch (err){ postMessage({ type: 'err', msg: String(err && err.message || err) }); }",
-"    }",
-"};"
-].join('\n');
-
-/* ── Модулі: тогли, ліниве завантаження, прогрес на кнопці ── */
-const MODS = {
-    DET: { btn: $('detBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.detMs },
-    SEG: { btn: $('segBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.segMs },
-    DEP: { btn: $('depBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.depMs },
-    OCR: { btn: $('ocrBtn'), on: false, busy: false, ready: false, loading: false, last: 0, interval: CFG.ocrMs }
-};
-function setBtn(key, state, extra){
-    const M = MODS[key], b = M.btn;
-    if (state === 'load'){ b.textContent = key + (extra !== undefined ? ' ' + extra + '%' : ' ..'); b.classList.remove('on'); return; }
-    if (state === 'err'){ b.textContent = key + ' ✗'; b.classList.remove('on'); return; }
-    b.textContent = key;
-    b.classList.toggle('on', M.on);
-}
-
-let visionFS = null;
-function ensureVision(){
-    if (!visionFS) visionFS = FilesetResolver.forVisionTasks(WASM_URL);
-    return visionFS;
-}
-/* GPU з чесним фолбеком на CPU (з myFIX) */
-async function mkDet(Cls, opts, label, vision){
-    try {
-        return await Cls.createFromOptions(vision, Object.assign({}, opts, { baseOptions: Object.assign({}, opts.baseOptions, { delegate: 'GPU' }) }));
-    } catch (e) {
-        toast(label + ': GPU КАПРИЗУЄ, ЇДУ НА CPU', true);
-        return await Cls.createFromOptions(vision, Object.assign({}, opts, { baseOptions: Object.assign({}, opts.baseOptions, { delegate: 'CPU' }) }));
-    }
-}
-function tsFor(o){ o._ts = Math.max((o._ts || 0) + 1, performance.now()); return o._ts; }
-
-const LOADERS = {
-    async DET(){
-        const vision = await ensureVision();
-        objDet = await mkDet(ObjectDetector, { runningMode: 'VIDEO', scoreThreshold: 0.4, maxResults: 10, baseOptions: { modelAssetPath: MODEL_OBJ } }, 'ДЕТЕКТОР', vision);
-        toast('ДЕТЕКТОР ПІДЇХАВ. ЛОВИМО');
-    },
-    async SEG(){
-        const vision = await ensureVision();
-        segDet = await mkDet(ImageSegmenter, { runningMode: 'VIDEO', outputCategoryMask: true, outputConfidenceMasks: false, baseOptions: { modelAssetPath: MODEL_SEG } }, 'МАСКИ', vision);
-        toast('МАСКИ В ДІЛІ. ШТРИХУЄМО');
-    },
-    DEP(){
-        return new Promise((res, rej) => {
-            const blob = new Blob([DEP_WORKER_SRC], { type: 'text/javascript' });
-            depWorker = new Worker(URL.createObjectURL(blob), { type: 'module' });
-            depWorker.onmessage = ev => {
-                const m = ev.data;
-                if (m.type === 'prog'){ setBtn('DEP', 'load', Math.round(m.p > 1 ? m.p : m.p * 100)); }
-                else if (m.type === 'ready'){
-                    toast(m.device === 'webgpu' ? 'ГЛИБИНА НА WEBGPU. ЛІТАЄ' : 'ГЛИБИНА НА WASM. ПОВЗЕ, АЛЕ ПАШЕ');
-                    depWorker.onmessage = onDepMsg;
-                    res();
+    /* ── ВИД 1: ХВИЛІ — ridgeline: паперові стрічки + чорнильні гребені ── */
+    G.waves = new THREE.Group();
+    {
+        const vcount = CFG.gy * CFG.gx * 2;
+        const pos = new Float32Array(vcount * 3);
+        const idx = [];
+        for (let j = 0; j < CFG.gy; j++){
+            for (let i = 0; i < CFG.gx; i++){
+                const base = (j * CFG.gx + i) * 2;
+                const xz = sectorXZ(j * CFG.gx + i);
+                pos[base * 3]     = xz[0]; pos[base * 3 + 1] = 0; pos[base * 3 + 2] = xz[1];
+                pos[base * 3 + 3] = xz[0]; pos[base * 3 + 4] = 0; pos[base * 3 + 5] = xz[1];
+                if (i < CFG.gx - 1){
+                    const a = base, b = base + 1, c = base + 2, d = base + 3;
+                    idx.push(a, b, c, b, d, c);
                 }
-                else if (m.type === 'err'){ rej(new Error(m.msg)); }
-            };
-            depWorker.onerror = e => rej(new Error(e.message || 'worker'));
-            depWorker.postMessage({ type: 'init', device: navigator.gpu ? 'webgpu' : 'wasm' });
-        });
-    },
-    async OCR(){
-        const mod = await import('https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.esm.min.js');
-        const Tess = mod.default || mod;
-        ocrWorker = await Tess.createWorker(['eng', 'ukr'], 1, {
-            workerPath: 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/worker.min.js',
-            corePath: 'https://cdn.jsdelivr.net/npm/tesseract.js-core@5',
-            logger: m => { if (m && m.progress !== undefined && m.status === 'loading language traineddata') setBtn('OCR', 'load', Math.round(m.progress * 100)); }
-        });
-        scnBtn.disabled = false;
-        toast('ЧИТАЛКА ГОТОВА. ENG+UKR');
-    }
-};
-const FAIL_MSG = { DET: 'ДЕТЕКТОР НЕ ПІДЇХАВ', SEG: 'МАСКИ НЕ ЗАВЕЛИСЬ', DEP: 'ГЛИБИНА ВПАЛА', OCR: 'ЧИТАЛКА НЕ ВСТАЛА' };
-
-async function toggleMod(key){
-    if (!ST.running) return;
-    const M = MODS[key];
-    if (M.loading) return;
-    if (!M.ready){
-        M.loading = true;
-        setBtn(key, 'load');
-        try {
-            await LOADERS[key]();
-            M.ready = true; M.on = true; M.last = 0;
-        } catch (e) {
-            console.error(e);
-            toast(FAIL_MSG[key], true);
-            M.loading = false;
-            setBtn(key, 'err');
-            return;
-        }
-        M.loading = false;
-        setBtn(key);
-        return;
-    }
-    M.on = !M.on;
-    if (!M.on){
-        if (key === 'SEG') ST.mask = null;
-        if (key === 'DEP'){ ST.depth = null; pip.classList.remove('shown'); }
-        if (key === 'OCR') ST.ocrFree = null;
-    }
-    setBtn(key);
-}
-
-/* ── Інжести ── */
-let lastPingAt = 0;
-function ingestDet(res, now, kv){
-    const dets = ((res && res.detections) || []).map(d => ({
-        box: { x: d.boundingBox.originX * kv, y: d.boundingBox.originY * kv, w: d.boundingBox.width * kv, h: d.boundingBox.height * kv },
-        cls: ((d.categories[0] && d.categories[0].categoryName) || '?').toLowerCase(),
-        score: (d.categories[0] && d.categories[0].score) || 0
-    }));
-    ST.tracks = updateTracks(ST.tracks, dets, now, { iouThr: CFG.iouThr, ttl: CFG.trackTTL, smooth: CFG.smooth });
-    for (const t of ST.tracks){
-        if (t.hits === 2 && !t.pinged){
-            t.pinged = true;
-            if (now - lastPingAt > CFG.tickGap){ lastPingAt = now; AU.inkTick(); }
-        }
-    }
-}
-
-const maskCv = document.createElement('canvas');
-const maskCx = maskCv.getContext('2d');
-function ingestSeg(res, now, g){
-    if (!res || !res.categoryMask) return;
-    const m = res.categoryMask;
-    const mw = m.width || g.w, mh = m.height || g.h;
-    let arr = null;
-    try { arr = m.getAsUint8Array(); } catch (e) {}
-    try { m.close(); } catch (e) {}
-    if (!arr) return;
-    ST.mask = { data: new Uint8Array(arr), w: mw, h: mh, at: now };
-    if (maskCv.width !== mw || maskCv.height !== mh){ maskCv.width = mw; maskCv.height = mh; }
-    const id = maskCx.createImageData(mw, mh);
-    const d = id.data, src = ST.mask.data;
-    for (let y = 0; y < mh; y++){
-        const row = y * mw;
-        for (let x = 0; x < mw; x++){
-            if (src[row + x] > 0 && ((x + y) % 6) < 2){
-                const i = (row + x) * 4;
-                d[i] = 20; d[i + 1] = 18; d[i + 2] = 13; d[i + 3] = 135;
             }
         }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setIndex(idx);
+        G.ribbons = new THREE.Mesh(g, new THREE.MeshBasicMaterial({
+            color: PAPERC, side: THREE.DoubleSide,
+            polygonOffset: true, polygonOffsetFactor: 1, polygonOffsetUnits: 1
+        }));
+        G.ribbons.frustumCulled = false;
+        G.waves.add(G.ribbons);
+        const lp = new Float32Array(CFG.gy * (CFG.gx - 1) * 2 * 3);
+        const lg = new THREE.BufferGeometry();
+        lg.setAttribute('position', new THREE.BufferAttribute(lp, 3));
+        G.crest = new THREE.LineSegments(lg, lineMat(0.9));
+        G.crest.frustumCulled = false;
+        G.waves.add(G.crest);
     }
-    maskCx.putImageData(id, 0, 0);
+    scene.add(G.waves);
+
+    /* ── ВИД 2: ЧАСОЛІФ — waterfall маргіналу: час їде в глибину, старе тане в папір ── */
+    G.fall = new THREE.Group();
+    {
+        const vcount = CFG.T * (CFG.gx - 1) * 2;
+        const pos = new Float32Array(vcount * 3);
+        const col = new Float32Array(vcount * 3);
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+        G.fallLines = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ vertexColors: true }));
+        G.fallLines.frustumCulled = false;
+        G.fall.add(G.fallLines);
+    }
+    scene.add(G.fall);
+
+    /* ── ВИД 3: ХМАРА — сектори летять з мапи у feature-простір (L, Δ, σ) ── */
+    G.cloud = new THREE.Group();
+    const CS = 1.5, CY = 1.0;
+    G.CS = CS; G.CY = CY;
+    {
+        const pos = new Float32Array(N * 3), feat = new Float32Array(N * 3), siz = new Float32Array(N);
+        for (let i = 0; i < N; i++){
+            const xz = sectorXZ(i);
+            pos[i * 3] = xz[0]; pos[i * 3 + 1] = 0.02; pos[i * 3 + 2] = xz[1];
+        }
+        const g = new THREE.BufferGeometry();
+        g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+        g.setAttribute('aFeat', new THREE.BufferAttribute(feat, 3));
+        g.setAttribute('aSize', new THREE.BufferAttribute(siz, 1));
+        G.cloudMat = new THREE.ShaderMaterial({
+            vertexShader: CLOUD_VERT, fragmentShader: CLOUD_FRAG,
+            uniforms: { uMix: { value: 0 }, uPxScale: { value: pxScale() } }, transparent: true
+        });
+        G.cloudPts = new THREE.Points(g, G.cloudMat);
+        G.cloudPts.frustumCulled = false;
+        G.cloud.add(G.cloudPts);
+
+        /* каркас куба */
+        const h = CS / 2, e = [];
+        const C = [[-h, CY - h, -h], [h, CY - h, -h], [h, CY - h, h], [-h, CY - h, h],
+                   [-h, CY + h, -h], [h, CY + h, -h], [h, CY + h, h], [-h, CY + h, h]];
+        const E = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+        for (const p of E){ e.push(...C[p[0]], ...C[p[1]]); }
+        const cg = new THREE.BufferGeometry();
+        cg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(e), 3));
+        G.cloud.add(new THREE.LineSegments(cg, lineMat(0.25)));
+        /* осі L / Δ / σ з кута */
+        const a = [];
+        a.push(...C[0], ...C[1]);
+        a.push(...C[0], ...C[4]);
+        a.push(...C[0], ...C[3]);
+        const ag = new THREE.BufferGeometry();
+        ag.setAttribute('position', new THREE.BufferAttribute(new Float32Array(a), 3));
+        G.cloud.add(new THREE.LineSegments(ag, lineMat(0.85)));
+        const mkLabel = (txt, x, y, z) => {
+            const cv = document.createElement('canvas'); cv.width = 64; cv.height = 64;
+            const c2 = cv.getContext('2d');
+            c2.font = "44px 'Share Tech Mono'";
+            c2.fillStyle = '#14110b';
+            c2.textAlign = 'center'; c2.textBaseline = 'middle';
+            c2.fillText(txt, 32, 34);
+            const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(cv), transparent: true }));
+            sp.scale.set(0.16, 0.16, 1);
+            sp.position.set(x, y, z);
+            G.cloud.add(sp);
+        };
+        mkLabel('L', h + 0.12, CY - h, -h);
+        mkLabel('Δ', -h, CY + h + 0.12, -h);
+        mkLabel('σ', -h, CY - h, h + 0.12);
+        /* стінки-гістограми: задня — розподіл L, бокова — σ */
+        const hb = new Float32Array(16 * 2 * 3);
+        const hg = new THREE.BufferGeometry();
+        hg.setAttribute('position', new THREE.BufferAttribute(hb, 3));
+        G.histLinesA = new THREE.LineSegments(hg, lineMat(0.5));
+        G.histLinesA.frustumCulled = false;
+        G.cloud.add(G.histLinesA);
+        const hb2 = new Float32Array(16 * 2 * 3);
+        const hg2 = new THREE.BufferGeometry();
+        hg2.setAttribute('position', new THREE.BufferAttribute(hb2, 3));
+        G.histLinesB = new THREE.LineSegments(hg2, lineMat(0.5));
+        G.histLinesB.frustumCulled = false;
+        G.cloud.add(G.histLinesB);
+    }
+    scene.add(G.cloud);
+
+    G.pxScale = pxScale;
+    applyView();
 }
 
-function onDepMsg(ev){
-    const m = ev.data;
-    if (m.type === 'depth'){
-        ST.depth = { data: new Uint8Array(m.buf), w: m.w, h: m.h, at: performance.now() };
-        buildPip();
-        MODS.DEP.busy = false;
-    } else if (m.type === 'err'){
-        toast('ГЛИБИНА СПІТКНУЛАСЬ', true);
-        MODS.DEP.busy = false;
-    } else if (m.type === 'skip'){
-        MODS.DEP.busy = false;
+/* ── Оновлення геометрій з полів ── */
+function updateTerrain(field, now){
+    const dp = G.dots.geometry.attributes.position.array;
+    const dv = G.dots.geometry.attributes.aVal.array;
+    for (let i = 0; i < N; i++){
+        dp[i * 3 + 1] = field[i] * CFG.HMAX;
+        dv[i] = field[i];
     }
+    G.dots.geometry.attributes.position.needsUpdate = true;
+    G.dots.geometry.attributes.aVal.needsUpdate = true;
+    const lp = G.rowLines.geometry.attributes.position.array;
+    fillRowLines(lp, field);
+    G.rowLines.geometry.attributes.position.needsUpdate = true;
+    /* авто-сканер зрізу */
+    const fx = triWave(now, CFG.slicePeriod) * (CFG.gx - 1);
+    G.slice.position.x = -FW / 2 + (fx + 0.5) / CFG.gx * FW;
+    sliceProfile(field, CFG.gx, CFG.gy, fx, ST.prof);
+    const pp = G.profile.geometry.attributes.position.array;
+    for (let j = 0; j < CFG.gy; j++){
+        pp[j * 3] = 0;
+        pp[j * 3 + 1] = ST.prof[j] * CFG.HMAX;
+        pp[j * 3 + 2] = (j + 0.5) / CFG.gy * FH - FH / 2;
+    }
+    G.profile.geometry.attributes.position.needsUpdate = true;
 }
-
-/* PiP: Байєр-дизер по мапі глибини, чорнило = близько */
-function buildPip(){
-    const D = ST.depth;
-    if (!D || !MODS.DEP.on) return;
-    const step = Math.max(1, Math.ceil(D.w / 160));
-    const w = Math.floor(D.w / step), h = Math.floor(D.h / step);
-    if (pip.width !== w || pip.height !== h){ pip.width = w; pip.height = h; }
-    const id = pipCx.createImageData(w, h);
-    const d = id.data;
-    for (let y = 0; y < h; y++){
-        for (let x = 0; x < w; x++){
-            const v = D.data[(y * step) * D.w + (x * step)] / 255;
-            const inkOn = v >= bayer4(x, y);
-            const i = (y * w + x) * 4;
-            if (inkOn){ d[i] = 20; d[i + 1] = 18; d[i + 2] = 13; }
-            else      { d[i] = 236; d[i + 1] = 234; d[i + 2] = 226; }
-            d[i + 3] = 255;
+function fillRowLines(lp, field){
+    let k = 0;
+    for (let j = 0; j < CFG.gy; j++){
+        const z = (j + 0.5) / CFG.gy * FH - FH / 2;
+        for (let i = 0; i < CFG.gx - 1; i++){
+            const x0 = (i + 0.5) / CFG.gx * FW - FW / 2;
+            const x1 = (i + 1.5) / CFG.gx * FW - FW / 2;
+            lp[k++] = x0; lp[k++] = field[j * CFG.gx + i] * CFG.HMAX; lp[k++] = z;
+            lp[k++] = x1; lp[k++] = field[j * CFG.gx + i + 1] * CFG.HMAX; lp[k++] = z;
         }
     }
-    pipCx.putImageData(id, 0, 0);
-    pip.classList.add('shown');
 }
-
-/* OCR: спільний прогін для авто-слота і SCN */
-async function runOcr(imgData, kv, isScan){
-    try {
-        const res = await ocrWorker.recognize(imgData);
-        const words = [];
-        const src = (res && res.data && res.data.words) || [];
-        for (const w of src){
-            const txt = cleanText(w.text);
-            if (!txt || w.confidence < CFG.ocrConf) continue;
-            words.push({ text: txt, conf: w.confidence, x: w.bbox.x0, y: w.bbox.y0, w: w.bbox.x1 - w.bbox.x0, h: w.bbox.y1 - w.bbox.y0 });
+function updateWaves(field){
+    const rp = G.ribbons.geometry.attributes.position.array;
+    for (let i = 0; i < N; i++) rp[i * 2 * 3 + 1] = field[i] * CFG.HMAX;
+    G.ribbons.geometry.attributes.position.needsUpdate = true;
+    const lp = G.crest.geometry.attributes.position.array;
+    fillRowLines(lp, field);
+    G.crest.geometry.attributes.position.needsUpdate = true;
+}
+function updateFall(){
+    const pos = G.fallLines.geometry.attributes.position.array;
+    const col = G.fallLines.geometry.attributes.color.array;
+    let k = 0, kc = 0;
+    for (let a = 0; a < CFG.T; a++){
+        const row = ((ST.ringHead - 1 - a + CFG.T) % CFG.T) * CFG.gx;
+        const z = FH / 2 - a / (CFG.T - 1) * FH;
+        const fade = Math.pow(a / (CFG.T - 1), 0.8) * 0.92;
+        const cr = INKV[0] + (0.925 - INKV[0]) * fade;
+        const cg = INKV[1] + (0.918 - INKV[1]) * fade;
+        const cb = INKV[2] + (0.886 - INKV[2]) * fade;
+        for (let i = 0; i < CFG.gx - 1; i++){
+            const x0 = (i + 0.5) / CFG.gx * FW - FW / 2;
+            const x1 = (i + 1.5) / CFG.gx * FW - FW / 2;
+            pos[k++] = x0; pos[k++] = ST.ring[row + i] * CFG.HMAX; pos[k++] = z;
+            pos[k++] = x1; pos[k++] = ST.ring[row + i + 1] * CFG.HMAX; pos[k++] = z;
+            col[kc++] = cr; col[kc++] = cg; col[kc++] = cb;
+            col[kc++] = cr; col[kc++] = cg; col[kc++] = cb;
         }
-        const lines = groupLines(scaleWords(words, kv));
-        const vis = ST.tracks.filter(t => t.hits >= 2);
-        const at = attachText(vis, lines);
-        const now = performance.now();
-        const byId = {};
-        for (const p of at.assigned) byId[p[0]] = byId[p[0]] ? byId[p[0]] + ' · ' + p[1] : p[1];
-        for (const t of ST.tracks){
-            if (byId[t.id]){ t.text = byId[t.id].slice(0, 42); t.textAt = now; }
-        }
-        ST.ocrFree = { lines: at.free, at: now };
-        if (isScan) toast(lines.length ? ('ТЕКСТ Є: ' + lines.length + ' РЯДК.') : 'БУКВ НЕМА, ПУСТО');
-    } catch (e) {
-        if (isScan) toast('OCR СПІТКНУВСЯ', true);
     }
-    MODS.OCR.busy = false;
-    ST.scanning = false;
+    G.fallLines.geometry.attributes.position.needsUpdate = true;
+    G.fallLines.geometry.attributes.color.needsUpdate = true;
+}
+const sdTmp = new Float32Array(N);
+function updateCloud(){
+    const feat = G.cloudPts.geometry.attributes.aFeat.array;
+    featPositions(ST.F.L, ST.F.GLOW, ST.F.SD, N, feat, G.CS, G.CY);
+    G.cloudPts.geometry.attributes.aFeat.needsUpdate = true;
+    const siz = G.cloudPts.geometry.attributes.aSize.array;
+    siz.set(ST.F.E);
+    G.cloudPts.geometry.attributes.aSize.needsUpdate = true;
+    histField(ST.F.L, 16, ST.histA);
+    for (let i = 0; i < N; i++) sdTmp[i] = clamp01(ST.F.SD[i] * 3);
+    histField(sdTmp, 16, ST.histB);
+    const h = G.CS / 2, y0 = G.CY - h;
+    const A = G.histLinesA.geometry.attributes.position.array;
+    const B = G.histLinesB.geometry.attributes.position.array;
+    for (let b = 0; b < 16; b++){
+        const t = (b + 0.5) / 16 * G.CS - h;
+        A[b * 6] = t;  A[b * 6 + 1] = y0;                                A[b * 6 + 2] = -h;
+        A[b * 6 + 3] = t; A[b * 6 + 4] = y0 + ST.histA[b] * G.CS * 0.9;  A[b * 6 + 5] = -h;
+        B[b * 6] = -h; B[b * 6 + 1] = y0;                                B[b * 6 + 2] = t;
+        B[b * 6 + 3] = -h; B[b * 6 + 4] = y0 + ST.histB[b] * G.CS * 0.9; B[b * 6 + 5] = t;
+    }
+    G.histLinesA.geometry.attributes.position.needsUpdate = true;
+    G.histLinesB.geometry.attributes.position.needsUpdate = true;
 }
 
-/* ── Цикл детекції: зважена ротація, один слот за тік, рендер не чекає ── */
-function detectLoop(){
+/* ── Орбіта (рукописна): палець — обертання, пінч — доліт ── */
+const PRESETS = [
+    { t: -0.62, p: 1.02, r: 4.4, ty: 0.35 },  /* РЕЛЬЄФ */
+    { t:  0.00, p: 1.26, r: 4.2, ty: 0.45 },  /* ХВИЛІ */
+    { t: -0.50, p: 1.06, r: 4.9, ty: 0.40 },  /* ЧАСОЛІФ */
+    { t:  0.68, p: 1.18, r: 4.3, ty: 0.95 }   /* ХМАРА */
+];
+const orb = { t: -0.62, p: 1.02, r: 4.4, ty: 0.35 };
+const orbGoal = Object.assign({}, PRESETS[0]);
+let uMixGoal = 0;
+
+function applyView(){
+    G.terrain.visible = ST.view === 0;
+    G.waves.visible   = ST.view === 1;
+    G.fall.visible    = ST.view === 2;
+    G.cloud.visible   = ST.view === 3;
+    Object.assign(orbGoal, PRESETS[ST.view]);
+    if (ST.view === 3){ G.cloudMat.uniforms.uMix.value = 0; uMixGoal = 1; }
+    updateHud();
+}
+function cycleView(){
+    ST.view = (ST.view + 1) % 4;
+    applyView();
+    toast('ВИД: ' + VIEWS[ST.view]);
+}
+function cycleMetric(){
+    ST.metric = (ST.metric + 1) % 4;
+    ST.ring.fill(0);   /* одиниці змінились — історію в нуль */
+    toast('МЕТРИКА: ' + METRICS[ST.metric]);
+    updateHud();
+}
+function fmt(v){ return (v >= 0.995 ? '1.0' : v.toFixed(2).slice(1)); }
+function updateHud(){
+    const s = fieldStats(selField());
+    let line = VIEWS[ST.view] + ' · <b>' + METRICS[ST.metric] + '</b> · μ' + fmt(s.mu) + ' σ' + fmt(s.sd);
+    if (ST.fftAmp > 0.004 && ST.fftHz > 0.3) line += ' · f' + ST.fftHz.toFixed(1) + 'Гц';
+    hud.innerHTML = line;
+}
+
+/* ── Керування ── */
+const PTRS = new Map();
+let tapInfo = null, twoTap = 0;
+container.addEventListener('pointerdown', e => {
     if (!ST.running) return;
-    setTimeout(detectLoop, 33);
-    if (document.hidden || video.readyState < 2) return;
-    const now = performance.now();
-    const slots = Object.keys(MODS).map(k => {
-        const m = MODS[k];
-        return { key: k, on: m.on && m.ready, busy: m.busy, last: m.last, interval: m.interval };
-    });
-    const pick = nextSlot(now, slots);
-    if (!pick) return;
-    const M = MODS[pick];
-    M.last = now;
-    const g = grayLo(now);
-    if (!g) return;
-    const kv = (video.videoWidth || CFG.nnW) / g.w;
-    try {
-        if (pick === 'DET' && objDet){
-            ingestDet(objDet.detectForVideo(g.cv, tsFor(objDet)), now, kv);
-        } else if (pick === 'SEG' && segDet){
-            ingestSeg(segDet.segmentForVideo(g.cv, tsFor(segDet)), now, g);
-        } else if (pick === 'DEP' && depWorker){
-            M.busy = true;
-            const buf = g.id.data.slice();
-            depWorker.postMessage({ type: 'frame', buf: buf.buffer, w: g.w, h: g.h }, [buf.buffer]);
-        } else if (pick === 'OCR' && ocrWorker && !ST.scanning){
-            M.busy = true;
-            runOcr(g.id, kv, false);
-        }
-    } catch (e) {}
+    PTRS.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    if (PTRS.size === 1){
+        tapInfo = { x: e.clientX, y: e.clientY, t: performance.now(), moved: false };
+    } else if (PTRS.size === 2){
+        twoTap = performance.now();
+        const pts = Array.from(PTRS.values());
+        PTRS.pinch = { d0: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), r0: orbGoal.r };
+    }
+});
+container.addEventListener('pointermove', e => {
+    const p = PTRS.get(e.pointerId);
+    if (!p) return;
+    const dx = e.clientX - p.x, dy = e.clientY - p.y;
+    p.x = e.clientX; p.y = e.clientY;
+    if (PTRS.size === 1 && tapInfo){
+        if (Math.hypot(e.clientX - tapInfo.x, e.clientY - tapInfo.y) > 10) tapInfo.moved = true;
+        orbGoal.t -= dx * 0.006;
+        orbGoal.p = Math.min(1.45, Math.max(0.15, orbGoal.p - dy * 0.005));
+    } else if (PTRS.size === 2 && PTRS.pinch){
+        if (Math.abs(dx) + Math.abs(dy) > 6) twoTap = 0;
+        const pts = Array.from(PTRS.values());
+        const d = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+        orbGoal.r = Math.min(9, Math.max(1.6, PTRS.pinch.r0 * PTRS.pinch.d0 / Math.max(1, d)));
+    }
+});
+function endPtr(e){
+    const was2 = PTRS.size === 2;
+    PTRS.delete(e.pointerId);
+    if (PTRS.size < 2) PTRS.pinch = null;
+    if (!ST.running) return;
+    if (was2 && twoTap && performance.now() - twoTap < 260 && PTRS.size === 1){
+        twoTap = 0;
+        tapInfo = null;
+        cycleMetric();
+        return;
+    }
+    if (PTRS.size === 0 && tapInfo && !tapInfo.moved && performance.now() - tapInfo.t < 250){
+        cycleView();
+    }
+    if (PTRS.size === 0) tapInfo = null;
 }
+container.addEventListener('pointerup', endPtr);
+container.addEventListener('pointercancel', e => { PTRS.delete(e.pointerId); PTRS.pinch = null; tapInfo = null; });
+hud.addEventListener('pointerdown', e => e.stopPropagation());
+hud.addEventListener('click', e => { e.stopPropagation(); cycleMetric(); });
+window.addEventListener('keydown', e => {
+    if (!ST.running) return;
+    const k = e.key;
+    if (k >= '1' && k <= '4'){ ST.view = +k - 1; applyView(); toast('ВИД: ' + VIEWS[ST.view]); }
+    if (k.toLowerCase() === 'm' || k === 'ь') cycleMetric();
+});
 
-/* ── Оверлеї: чорнило на папері ── */
-function plate(text, x, y, dpr, alpha, big){
-    const fs = (big ? 11 : 10) * dpr;
-    ctx.font = fs + "px 'Share Tech Mono'";
-    const tw = ctx.measureText(text).width;
-    const px = 4 * dpr, ph = fs + 6 * dpr;
-    ctx.fillStyle = 'rgba(' + PAPER + ',' + (0.88 * alpha) + ')';
-    ctx.fillRect(x - px, y - ph + 3 * dpr, tw + px * 2, ph);
-    ctx.strokeStyle = 'rgba(' + INK + ',' + (0.4 * alpha) + ')';
-    ctx.lineWidth = 1;
-    ctx.strokeRect(x - px, y - ph + 3 * dpr, tw + px * 2, ph);
-    ctx.fillStyle = 'rgba(' + INK + ',' + (0.9 * alpha) + ')';
-    ctx.fillText(text, x, y);
-}
-function drawTrack(t, now, dpr, T){
-    const a = v2s(t.box.x, t.box.y, T), b = v2s(t.box.x + t.box.w, t.box.y + t.box.h, T);
-    const rx = a.x * dpr, ry = a.y * dpr, rw = (b.x - a.x) * dpr, rh = (b.y - a.y) * dpr;
-    const k = Math.min(1, t.hits / 6);
-    ctx.strokeStyle = 'rgba(' + INK + ',' + (0.45 + 0.4 * k) + ')';
-    ctx.lineWidth = 1.5 * dpr;
-    const cL = Math.min(rw, rh) * 0.22;
-    ctx.beginPath();
-    ctx.moveTo(rx, ry + cL); ctx.lineTo(rx, ry); ctx.lineTo(rx + cL, ry);
-    ctx.moveTo(rx + rw - cL, ry); ctx.lineTo(rx + rw, ry); ctx.lineTo(rx + rw, ry + cL);
-    ctx.moveTo(rx + rw, ry + rh - cL); ctx.lineTo(rx + rw, ry + rh); ctx.lineTo(rx + rw - cL, ry + rh);
-    ctx.moveTo(rx + cL, ry + rh); ctx.lineTo(rx, ry + rh); ctx.lineTo(rx, ry + rh - cL);
-    ctx.stroke();
-    let rng = -1;
-    if (MODS.DEP.on && ST.depth && now - ST.depth.at < CFG.depTTL)
-        rng = depthToRange(medianDepthInBox(ST.depth.data, ST.depth.w, ST.depth.h, t.box, video.videoWidth, video.videoHeight));
-    let cov = 0;
-    if (MODS.SEG.on && ST.mask && now - ST.mask.at < CFG.maskTTL)
-        cov = segCoverage(ST.mask.data, ST.mask.w, ST.mask.h, t.box, video.videoWidth, video.videoHeight);
-    let label = t.id + '·' + t.cls.toUpperCase();
-    if (rng >= 0) label += '·R' + String(rng).padStart(2, '0');
-    if (cov > 0.25) label += '·▦';
-    plate(label, rx, ry - 6 * dpr, dpr, 1, false);
-    if (t.text && now - t.textAt < CFG.textTTL)
-        plate('› ' + t.text, rx, ry + rh + 16 * dpr, dpr, 1, false);
-}
-
-function draw(now){
-    requestAnimationFrame(draw);
-    if (document.hidden || !ST.running) return;
-    if (now - lastGl >= 30){ GL.render(now); lastGl = now; }
-    const dpr = hudDpr, W = canvas.width, H = canvas.height;
-    ctx.clearRect(0, 0, W, H);
-    const T = coverT();
-    const vw = video.videoWidth || 640, vh = video.videoHeight || 480;
-    if (MODS.SEG.on && ST.mask && now - ST.mask.at < CFG.maskTTL){
-        ctx.save();
-        ctx.imageSmoothingEnabled = false;
-        ctx.drawImage(maskCv, T.ox * dpr, T.oy * dpr, vw * T.scale * dpr, vh * T.scale * dpr);
-        ctx.restore();
+/* ── Головний цикл ── */
+let anTick = 0;
+function loop(now){
+    requestAnimationFrame(loop);
+    if (!ST.running || document.hidden) return;
+    let fresh = false;
+    if (now - anTick >= CFG.analyzeMs){
+        anTick = now;
+        fresh = analyze(now);
     }
-    for (const t of ST.tracks){
-        if (t.hits < 2) continue;
-        drawTrack(t, now, dpr, T);
+    const field = selField();
+    if (ST.view === 0) updateTerrain(field, now);       /* зріз пливе щокадру */
+    else if (fresh && ST.view === 1) updateWaves(field);
+    else if (fresh && ST.view === 2) updateFall();
+    else if (fresh && ST.view === 3) updateCloud();
+    /* морф ХМАРИ */
+    if (G.cloudMat){
+        const u = G.cloudMat.uniforms.uMix;
+        u.value += (uMixGoal - u.value) * 0.06;
     }
-    if (ST.ocrFree && now - ST.ocrFree.at < CFG.freeTTL){
-        const alpha = 1 - (now - ST.ocrFree.at) / CFG.freeTTL;
-        for (const L of ST.ocrFree.lines){
-            const p = v2s(L.x, L.y + L.h, T);
-            plate(L.text.slice(0, 42), p.x * dpr, p.y * dpr, dpr, alpha, false);
-        }
-    }
+    /* орбіта з демпфуванням */
+    orb.t += (orbGoal.t - orb.t) * 0.12;
+    orb.p += (orbGoal.p - orb.p) * 0.12;
+    orb.r += (orbGoal.r - orb.r) * 0.12;
+    orb.ty += (orbGoal.ty - orb.ty) * 0.12;
+    camera.position.set(
+        Math.sin(orb.t) * Math.sin(orb.p) * orb.r,
+        orb.ty + Math.cos(orb.p) * orb.r,
+        Math.cos(orb.t) * Math.sin(orb.p) * orb.r
+    );
+    camera.lookAt(0, orb.ty, 0);
+    if (now - ST.lastHud > 300){ ST.lastHud = now; updateHud(); }
+    renderer.render(scene, camera);
 }
 
 /* ── BOOT ── */
@@ -958,63 +967,39 @@ startBtn.addEventListener('click', async () => {
         const s = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment', width: { ideal: 960 }, height: { ideal: 540 } }, audio: false });
         video.srcObject = s;
         await video.play().catch(() => {});
+        if (!video.videoWidth) await new Promise(res => video.addEventListener('loadedmetadata', res, { once: true }));
     } catch (e) {
         toast('КАМЕРИ НЕМА. ВСЬО, ПРИЇХАЛИ', true);
         return;
     }
-    if (GL.init(glCanvas)){
-        video.style.opacity = '0';
-    } else {
-        video.classList.add('rawfallback');
-        toast('WEBGL ЗДОХ — ЇДЕМО НА CSS-ФІЛЬТРІ', true);
+    try {
+        buildScene();
+    } catch (e) {
+        console.error(e);
+        toast('WEBGL ЗДОХ — 3D НЕ БУДЕ', true);
+        return;
     }
     try { ST.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
-    botbar.style.display = 'flex';
+    hud.style.display = 'block';
     ST.running = true;
-    resize();
-    detectLoop();
-    requestAnimationFrame(draw);
-    toast('МОНОХРОМ ПРЕТ. ВРУБАЙ МОДУЛІ');
+    requestAnimationFrame(loop);
+    toast('ПРОСТІР ПОРАХОВАНО. ТАП — ВИД, ДВА ПАЛЬЦІ — МЕТРИКА');
 });
 
-/* ── Керування ── */
-MODS.DET.btn.addEventListener('click', () => toggleMod('DET'));
-MODS.SEG.btn.addEventListener('click', () => toggleMod('SEG'));
-MODS.DEP.btn.addEventListener('click', () => toggleMod('DEP'));
-MODS.OCR.btn.addEventListener('click', () => toggleMod('OCR'));
-scnBtn.addEventListener('click', () => {
-    if (!MODS.OCR.ready || ST.scanning || MODS.OCR.busy) return;
-    const g = grayHi();
-    if (!g) return;
-    ST.scanning = true;
-    MODS.OCR.busy = true;
-    toast('ЧИТАЮ КАДР, СЕКУНДУ..');
-    runOcr(g.id, 1, true);
-});
-sndBtn.addEventListener('click', () => {
-    const mute = AU.on;
-    AU.setMute(mute);
-    sndBtn.classList.toggle('off', mute);
-});
-pip.addEventListener('pointerdown', e => { e.stopPropagation(); pip.classList.toggle('big'); });
-window.addEventListener('keydown', e => {
-    if (!ST.running) return;
-    const k = e.key;
-    if (k === '1') toggleMod('DET');
-    if (k === '2') toggleMod('SEG');
-    if (k === '3') toggleMod('DEP');
-    if (k === '4') toggleMod('OCR');
-    if (k === '5') scnBtn.click();
-    if (k.toLowerCase() === 'm' || k === 'ь') sndBtn.click();
-});
 document.addEventListener('visibilitychange', async () => {
-    if (AU.ctx){ if (document.hidden) AU.ctx.suspend(); else if (AU.on) AU.ctx.resume(); }
     if (!document.hidden && ST.running){
         try { ST.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
     }
 });
-window.addEventListener('resize', resize);
-resize();
+window.addEventListener('resize', () => {
+    if (!renderer) return;
+    renderer.setSize(innerWidth, innerHeight);
+    camera.aspect = innerWidth / innerHeight;
+    camera.updateProjectionMatrix();
+    const px = G.pxScale();
+    if (G.dotMat) G.dotMat.uniforms.uPxScale.value = px;
+    if (G.cloudMat) G.cloudMat.uniforms.uPxScale.value = px;
+});
 </script>
 </body>
 </html>
