@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<!-- myMONO v3 // ПОШАРОВЕ ДРУКАРСЬКЕ РОЗКЛАДАННЯ: кадр ріжеться кривою чорнила на K тональних шарів, стек летить над халфтон-підлогою // об'єкти = зв'язні плями: CC -> Moore-контур -> RDP -> IoU-трекер (з myFIX) зі стабільними ID, народженням і смертю // інтерактив: тап-вибір + картка, 2-пальцевий верт. драг = розліт, довгий тап = freeze, фокус-шар вибраного об'єкта // + 4 подання v2: РЕЛЬЄФ+зріз, ХВИЛІ, ЧАСОЛІФ, ХМАРА // single-file, CDN-only, mobile-first -->
+<!-- myMONO v4 // ПОШАРОВЕ ДРУКАРСЬКЕ РОЗКЛАДАННЯ: кадр ріжеться кривою чорнила на K тональних шарів, стек летить над халфтон-підлогою // об'єкти = зв'язні плями: CC -> Moore-контур -> RDP -> IoU-трекер (з myFIX) зі стабільними ID, народженням і смертю // інтерактив: тап-вибір + картка, 2-пальцевий верт. драг = розліт, довгий тап = freeze, фокус-шар вибраного об'єкта // + 4 подання v2: РЕЛЬЄФ+зріз, ХВИЛІ, ЧАСОЛІФ, ХМАРА // single-file, CDN-only, mobile-first -->
 <html lang="uk">
 <head>
 <meta charset="UTF-8">
@@ -67,6 +67,58 @@ video {
 #startBtn .btn-text { letter-spacing: 6px; opacity: 0.75; }
 #startBtn:hover .btn-text { opacity: 1; }
 #startBtn:hover .ring-svg  { animation-duration: 1.5s; }
+/* ── Панель режиму (ліворуч) і перемикач режимів (праворуч) ── */
+#panel {
+    position: absolute; left: 10px; bottom: calc(10px + env(safe-area-inset-bottom));
+    z-index: 16; display: none; width: min(216px, 60vw);
+    background: rgba(236,234,226,0.93); border: 1px solid rgba(38,34,24,0.45);
+    padding: 8px 10px 10px;
+}
+.p-title {
+    font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 3px; color: var(--ink); text-transform: uppercase;
+    border-bottom: 1px dotted rgba(38,34,24,0.5); padding-bottom: 5px;
+}
+.p-hint {
+    font-size: 8.5px; letter-spacing: 0.8px; color: rgba(38,34,24,0.55);
+    margin: 5px 0 7px; line-height: 1.5; text-transform: uppercase;
+}
+.p-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 7px; }
+.p-lab { font-size: 9px; letter-spacing: 1.2px; color: rgba(38,34,24,0.75); text-transform: uppercase; flex-shrink: 0; }
+.p-row input[type=range] { flex: 1; min-width: 66px; accent-color: var(--ink); height: 24px; }
+.ctl {
+    background: rgba(236,234,226,0.7); border: 1px solid rgba(38,34,24,0.5);
+    color: var(--ink); font-family: var(--sans); font-size: 10px; font-weight: 700;
+    letter-spacing: 1.5px; padding: 7px 10px; cursor: pointer;
+    text-transform: uppercase; touch-action: manipulation; min-width: 40px;
+}
+.ctl.on { background: var(--ink); color: var(--paper); }
+.p-step { display: flex; align-items: center; gap: 6px; }
+.p-val { font-size: 10px; letter-spacing: 1px; color: var(--ink); min-width: 34px; text-align: center; }
+#modeBtn {
+    position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom));
+    width: 56px; height: 56px; z-index: 17; display: none;
+    background: var(--ink); color: var(--paper); border: 1px solid var(--ink);
+    font-size: 22px; line-height: 1; cursor: pointer; touch-action: manipulation;
+    font-family: var(--mono);
+}
+#modeMenu {
+    position: absolute; right: 12px; bottom: calc(76px + env(safe-area-inset-bottom));
+    z-index: 17; display: none; flex-direction: column; gap: 6px;
+}
+#modeMenu.open { display: flex; }
+.mode-item {
+    background: rgba(236,234,226,0.96); border: 1px solid rgba(38,34,24,0.55);
+    color: var(--ink); font-family: var(--sans); font-size: 11px; font-weight: 700;
+    letter-spacing: 2px; padding: 11px 14px; cursor: pointer; text-align: right;
+    text-transform: uppercase; touch-action: manipulation;
+}
+.mode-item.cur { background: var(--ink); color: var(--paper); }
+#startBtn .btn-sub {
+    font-family: var(--mono); font-size: 9px; font-weight: 400;
+    letter-spacing: 1.5px; color: rgba(38,34,24,0.55); text-transform: none;
+    max-width: 250px; line-height: 1.7;
+}
 </style>
 </head>
 <body>
@@ -93,10 +145,14 @@ video {
                 </svg>
             </div>
             <span class="btn-text">initialize mono</span>
+            <span class="btn-sub">камера → монохромні шари → живі 3D-дані. все рахується прямо на твоєму пристрої</span>
         </div>
     </button>
     <div id="hud"></div>
     <div id="toast"></div>
+    <div id="panel"></div>
+    <div id="modeMenu"></div>
+    <button id="modeBtn">▤</button>
 </div>
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js';
@@ -495,7 +551,8 @@ function boxFieldMean(field, gx, gy, box, cw, ch){
 const CFG = {
     anW: 320,             /* аналіз-буфер (ширина), висота — по аспекту */
     gx: 48, gy: 27,       /* сітка секторів для полів */
-    K: 6,                 /* тональних рівнів; шар 0 (папір) не літає */
+    K: 6,                 /* тональних рівнів за замовчуванням; шар 0 (папір) не літає */
+    KMAX: 8,              /* стеля рівнів для степера панелі */
     T: 96,                /* глибина ЧАСОЛІФу */
     analyzeMs: 33, layMs: 100, blobMs: 130,
     MAXB: 24,             /* стеля живих об'єктів */
@@ -518,6 +575,7 @@ const INKV = [0.078, 0.067, 0.043];
 const $ = id => document.getElementById(id);
 const container = $('container'), video = $('video');
 const gl3d = $('gl3d'), hud = $('hud'), toastEl = $('toast'), startBtn = $('startBtn');
+const panel = $('panel'), modeMenu = $('modeMenu'), modeBtn = $('modeBtn');
 
 let toastT = null;
 function toast(msg, warn){
@@ -573,10 +631,13 @@ const ST = {
     histA: new Float32Array(16), histB: new Float32Array(16),
     fftBuf: new Float32Array(CFG.fftN), fftHead: 0, fftHz: 0, fftAmp: 0,
     dtEma: 0.033, lastAn: 0, lastFft: 0, lastHud: 0,
-    btracks: [],          /* треки об'єктів */
-    sel: null,            /* id вибраного об'єкта */
-    focusLvl: -1,         /* фокус-шар вибраного */
+    btracks: [], sel: null, focusLvl: -1,
     spread01: 0.55, spreadGoal: 0.55,
+    K: CFG.K,
+    hScale: 1, sliceAuto: true, sliceX: 0.5, sliceLive: 0.5,
+    waveSmooth: false, SM: new Float32Array(N),
+    histPause: false, histStep: 1, histCnt: 0,
+    mixGoal: 1, cloudPt: 1,
     wake: null
 };
 function selField(){
@@ -619,8 +680,12 @@ function analyze(now){
     edgeSectors(cur, anW, anH, CFG.gx, CFG.gy, ST.F.E);
     glowUpdate(ST.F.GLOW, ST.F.DIF, CFG.glowDecay);
     for (let i = 0; i < N; i++) ST.F.INK[i] = inkCurve(ST.F.L[i]);
-    colMarginal(selField(), CFG.gx, CFG.gy, ST.marg);
-    ST.ringHead = ringPush(ST.ring, ST.ringHead, CFG.T, ST.marg);
+    const sf = selField();
+    for (let i = 0; i < N; i++) ST.SM[i] += (sf[i] - ST.SM[i]) * 0.25;
+    if (!ST.histPause && (ST.histCnt++ % ST.histStep) === 0){
+        colMarginal(sf, CFG.gx, CFG.gy, ST.marg);
+        ST.ringHead = ringPush(ST.ring, ST.ringHead, CFG.T, ST.marg);
+    }
     let dm = 0;
     for (let i = 0; i < N; i++) dm += ST.F.DIF[i];
     ST.fftBuf[ST.fftHead] = dm / N;
@@ -644,10 +709,10 @@ function blobPass(now){
         const r2 = (y * 2) * anW, r = y * cw;
         for (let x = 0; x < cw; x++) coarseGray[r + x] = curGray[r2 + x * 2];
     }
-    levelize(coarseGray, cw, ch, CFG.K, false, levelsCoarse);
+    levelize(coarseGray, cw, ch, ST.K, false, levelsCoarse);
     let dets = [];
     const maxA = cw * ch * 0.4;
-    for (let lvl = 1; lvl < CFG.K; lvl++){
+    for (let lvl = 1; lvl < ST.K; lvl++){
         const blobs = ccExtract(levelsCoarse, cw, ch, lvl, CFG.minArea, 10, ccVisited, ccStack);
         for (const b of blobs)
             dets.push({
@@ -762,7 +827,7 @@ function sectorXZ(i){
     return [x, z];
 }
 function layerY(lvl){
-    return CFG.layBase + (lvl - 1) / (CFG.K - 2) * ST.spread01 * CFG.spreadMax;
+    return CFG.layBase + (lvl - 1) / (ST.K - 2) * ST.spread01 * CFG.spreadMax;
 }
 function cpx2w(px, py){
     return [(px + 0.5) / cw * FW - FW / 2, (py + 0.5) / ch * FH - FH / 2];
@@ -776,7 +841,7 @@ let selFill = null, selFillMat = null, selLabel = null, selLabelCv = null, selLa
 
 function buildLayers(){
     G.layers = new THREE.Group();
-    for (let k = 1; k < CFG.K; k++){
+    for (let k = 1; k < CFG.KMAX; k++){
         const cv = document.createElement('canvas');
         cv.width = anW; cv.height = anH;
         const c2 = cv.getContext('2d');
@@ -1032,9 +1097,9 @@ function buildScene(){
 /* ── Оновлення ШАРІВ ── */
 function tickLayers(){
     if (!curGray || !layPlanes[1]) return;
-    levelize(curGray, anW, anH, CFG.K, true, levelsFine);
+    levelize(curGray, anW, anH, ST.K, true, levelsFine);
     const npx = anW * anH;
-    for (let k = 1; k < CFG.K; k++){
+    for (let k = 1; k < ST.K; k++){
         const d = layImgs[k].data;
         for (let i = 0; i < npx; i++) d[i * 4 + 3] = levelsFine[i] === k ? 205 : 0;
         layCtxs[k].putImageData(layImgs[k], 0, 0);
@@ -1110,7 +1175,10 @@ function selLabelUpdate(t){
 }
 function layersFrame(now){
     ST.spread01 += (ST.spreadGoal - ST.spread01) * 0.1;
-    for (let k = 1; k < CFG.K; k++){
+    for (let k = 1; k < CFG.KMAX; k++){
+        const active = k < ST.K;
+        layPlanes[k].visible = active;
+        if (!active) continue;
         layPlanes[k].position.y = layerY(k);
         const targ = ST.focusLvl < 0 ? 1 : (k === ST.focusLvl ? 1 : 0.12);
         layMats[k].opacity += (targ - layMats[k].opacity) * 0.15;
@@ -1151,6 +1219,7 @@ function layersFrame(now){
 function deselect(){
     ST.sel = null; ST.focusLvl = -1;
     orbGoal.tx = 0; orbGoal.tz = 0; orbGoal.ty = PRESETS[ST.view].ty;
+    refreshPanel();
 }
 function pickBlob(nx, ny){
     raycaster.setFromCamera({ x: nx, y: ny }, camera);
@@ -1194,50 +1263,61 @@ function setFrozen(on){
         G.floorMat.uniforms.uTexel.value.set(1 / video.videoWidth, 1 / video.videoHeight);
         toast('КАДР ВІДПУЩЕНО');
     }
+    refreshPanel();
+    updateHud();
 }
 
 /* ── Оновлення подань v2 ── */
-function fillRowLines(lp, field){
+function fillRowLines(lp, field, hmax){
     let k = 0;
     for (let j = 0; j < CFG.gy; j++){
         const z = (j + 0.5) / CFG.gy * FH - FH / 2;
         for (let i = 0; i < CFG.gx - 1; i++){
             const x0 = (i + 0.5) / CFG.gx * FW - FW / 2;
             const x1 = (i + 1.5) / CFG.gx * FW - FW / 2;
-            lp[k++] = x0; lp[k++] = field[j * CFG.gx + i] * CFG.HMAX; lp[k++] = z;
-            lp[k++] = x1; lp[k++] = field[j * CFG.gx + i + 1] * CFG.HMAX; lp[k++] = z;
+            lp[k++] = x0; lp[k++] = field[j * CFG.gx + i] * hmax; lp[k++] = z;
+            lp[k++] = x1; lp[k++] = field[j * CFG.gx + i + 1] * hmax; lp[k++] = z;
         }
     }
 }
 function updateTerrain(field, now){
+    const H = CFG.HMAX * ST.hScale;
     const dp = G.dots.geometry.attributes.position.array;
     const dv = G.dots.geometry.attributes.aVal.array;
     for (let i = 0; i < N; i++){
-        dp[i * 3 + 1] = field[i] * CFG.HMAX;
+        dp[i * 3 + 1] = field[i] * H;
         dv[i] = field[i];
     }
     G.dots.geometry.attributes.position.needsUpdate = true;
     G.dots.geometry.attributes.aVal.needsUpdate = true;
     const lp = G.rowLines.geometry.attributes.position.array;
-    fillRowLines(lp, field);
+    fillRowLines(lp, field, H);
     G.rowLines.geometry.attributes.position.needsUpdate = true;
-    const fx = triWave(now, CFG.slicePeriod) * (CFG.gx - 1);
+    let fx;
+    if (ST.sliceAuto){
+        fx = triWave(now, CFG.slicePeriod) * (CFG.gx - 1);
+        ST.sliceLive = fx / (CFG.gx - 1);
+    } else {
+        fx = ST.sliceX * (CFG.gx - 1);
+    }
     G.slice.position.x = -FW / 2 + (fx + 0.5) / CFG.gx * FW;
     sliceProfile(field, CFG.gx, CFG.gy, fx, ST.prof);
     const pp = G.profile.geometry.attributes.position.array;
     for (let j = 0; j < CFG.gy; j++){
         pp[j * 3] = 0;
-        pp[j * 3 + 1] = ST.prof[j] * CFG.HMAX;
+        pp[j * 3 + 1] = ST.prof[j] * H;
         pp[j * 3 + 2] = (j + 0.5) / CFG.gy * FH - FH / 2;
     }
     G.profile.geometry.attributes.position.needsUpdate = true;
 }
 function updateWaves(field){
+    const src = ST.waveSmooth ? ST.SM : field;
+    const H = CFG.HMAX * ST.hScale;
     const rp = G.ribbons.geometry.attributes.position.array;
-    for (let i = 0; i < N; i++) rp[i * 2 * 3 + 1] = field[i] * CFG.HMAX;
+    for (let i = 0; i < N; i++) rp[i * 2 * 3 + 1] = src[i] * H;
     G.ribbons.geometry.attributes.position.needsUpdate = true;
     const lp = G.crest.geometry.attributes.position.array;
-    fillRowLines(lp, field);
+    fillRowLines(lp, src, H);
     G.crest.geometry.attributes.position.needsUpdate = true;
 }
 function updateFall(){
@@ -1269,7 +1349,7 @@ function updateCloud(){
     featPositions(ST.F.L, ST.F.GLOW, ST.F.SD, N, feat, G.CS, G.CY);
     G.cloudPts.geometry.attributes.aFeat.needsUpdate = true;
     const siz = G.cloudPts.geometry.attributes.aSize.array;
-    siz.set(ST.F.E);
+    for (let i = 0; i < N; i++) siz[i] = Math.min(1.6, ST.F.E[i] * ST.cloudPt);
     G.cloudPts.geometry.attributes.aSize.needsUpdate = true;
     histField(ST.F.L, 16, ST.histA);
     for (let i = 0; i < N; i++) sdTmp[i] = clamp01(ST.F.SD[i] * 3);
@@ -1298,7 +1378,6 @@ const PRESETS = [
 ];
 const orb = { t: 0.55, p: 1.12, r: 4.6, tx: 0, ty: 0.75, tz: 0 };
 const orbGoal = Object.assign({ tx: 0, tz: 0 }, PRESETS[0]);
-let uMixGoal = 0;
 
 function applyView(){
     G.layers.visible  = ST.view === 0;
@@ -1309,14 +1388,12 @@ function applyView(){
     const p = PRESETS[ST.view];
     orbGoal.t = p.t; orbGoal.p = p.p; orbGoal.r = p.r;
     orbGoal.ty = p.ty; orbGoal.tx = 0; orbGoal.tz = 0;
-    if (ST.view === 4){ G.cloudMat.uniforms.uMix.value = 0; uMixGoal = 1; }
+    if (ST.view === 4) G.cloudMat.uniforms.uMix.value = 0;
     if (ST.view !== 0 && ST.sel) deselect();
+    modeBtn.textContent = MODE_GLYPHS[ST.view];
+    modeMenu.classList.remove('open');
+    buildPanel();
     updateHud();
-}
-function cycleView(){
-    ST.view = (ST.view + 1) % 5;
-    applyView();
-    toast('ВИД: ' + VIEWS[ST.view]);
 }
 function cycleMetric(){
     ST.metric = (ST.metric + 1) % 4;
@@ -1330,7 +1407,7 @@ function updateHud(){
     if (ST.view === 0){
         let live = 0;
         for (const s of slots) if (s.id !== null) live++;
-        line = 'ШАРИ · ОБ:' + String(live).padStart(2, '0') + ' · K' + CFG.K + (ST.frozen ? ' · ❄' : '');
+        line = 'ШАРИ · ОБ:' + String(live).padStart(2, '0') + ' · K' + ST.K + (ST.frozen ? ' · ❄' : '');
     } else {
         const s = fieldStats(selField());
         line = VIEWS[ST.view] + ' · <b>' + METRICS[ST.metric] + '</b> · μ' + fmt(s.mu) + ' σ' + fmt(s.sd);
@@ -1338,6 +1415,134 @@ function updateHud(){
     }
     hud.innerHTML = line;
 }
+
+/* ── Режими: перемикач праворуч + панель контролів свого режиму ліворуч ── */
+const MODE_GLYPHS = ['▤', '▲', '≋', '⏛', '∴'];
+function setView(i){
+    ST.view = i;
+    applyView();
+    toast('РЕЖИМ: ' + VIEWS[i]);
+}
+function setK(v){
+    ST.K = Math.min(CFG.KMAX, Math.max(4, v));
+    if (ST.focusLvl >= ST.K) ST.focusLvl = -1;
+    if (ST.sel) deselect();
+}
+const PANELS = [
+    { title: 'ШАРИ', hint: 'тап по обʼєкту — картка · крути одним пальцем', ctls: [
+        { type: 'range', label: 'РОЗЛІТ', min: 0, max: 1, step: 0.01, get: () => ST.spreadGoal, set: v => { ST.spreadGoal = v; } },
+        { type: 'step', label: 'ФОКУС', val: () => ST.focusLvl < 0 ? 'ВСІ' : 'L' + ST.focusLvl,
+          dec: () => { ST.focusLvl = ST.focusLvl <= 1 ? -1 : ST.focusLvl - 1; },
+          inc: () => { ST.focusLvl = ST.focusLvl < 0 ? 1 : Math.min(ST.K - 1, ST.focusLvl + 1); } },
+        { type: 'step', label: 'РІВНІ', val: () => 'K' + ST.K, dec: () => setK(ST.K - 1), inc: () => setK(ST.K + 1) },
+        { type: 'toggle', label: 'СТОП-КАДР', get: () => ST.frozen, set: v => setFrozen(v) }
+    ]},
+    { title: 'РЕЛЬЄФ', hint: 'площина ріже поле · профіль на зрізі', ctls: [
+        { type: 'cycle', label: 'МЕТРИКА', val: () => METRICS[ST.metric], act: () => cycleMetric() },
+        { type: 'toggle', label: 'ЗРІЗ АВТО', get: () => ST.sliceAuto, set: v => { ST.sliceAuto = v; } },
+        { type: 'range', label: 'ПОЗИЦІЯ', min: 0, max: 1, step: 0.01,
+          get: () => ST.sliceAuto ? ST.sliceLive : ST.sliceX,
+          set: v => { ST.sliceX = v; ST.sliceAuto = false; } },
+        { type: 'range', label: 'ВИСОТА', min: 0.4, max: 1.8, step: 0.05, get: () => ST.hScale, set: v => { ST.hScale = v; } }
+    ]},
+    { title: 'ХВИЛІ', hint: 'ряди поля як гребені · дивись збоку', ctls: [
+        { type: 'cycle', label: 'МЕТРИКА', val: () => METRICS[ST.metric], act: () => cycleMetric() },
+        { type: 'range', label: 'ВИСОТА', min: 0.4, max: 1.8, step: 0.05, get: () => ST.hScale, set: v => { ST.hScale = v; } },
+        { type: 'toggle', label: 'ЗГЛАДИТИ', get: () => ST.waveSmooth, set: v => { ST.waveSmooth = v; } }
+    ]},
+    { title: 'ЧАСОЛІФ', hint: 'історія їде в глибину · рух лишає хребти', ctls: [
+        { type: 'cycle', label: 'МЕТРИКА', val: () => METRICS[ST.metric], act: () => cycleMetric() },
+        { type: 'step', label: 'ТЕМП', val: () => '×' + ST.histStep,
+          dec: () => { ST.histStep = ST.histStep === 4 ? 2 : 1; },
+          inc: () => { ST.histStep = ST.histStep === 1 ? 2 : 4; } },
+        { type: 'toggle', label: 'ПАУЗА', get: () => ST.histPause, set: v => { ST.histPause = v; } }
+    ]},
+    { title: 'ХМАРА', hint: 'сектори летять з мапи у простір ознак', ctls: [
+        { type: 'range', label: 'МОРФ', min: 0, max: 1, step: 0.01, get: () => ST.mixGoal, set: v => { ST.mixGoal = v; } },
+        { type: 'range', label: 'РОЗМІР', min: 0.3, max: 2.4, step: 0.1, get: () => ST.cloudPt, set: v => { ST.cloudPt = v; } }
+    ]}
+];
+let panelRefs = [];
+function buildPanel(){
+    panel.innerHTML = '';
+    const P = PANELS[ST.view];
+    const t = document.createElement('div');
+    t.className = 'p-title';
+    t.textContent = MODE_GLYPHS[ST.view] + ' ' + P.title;
+    panel.appendChild(t);
+    const hn = document.createElement('div');
+    hn.className = 'p-hint';
+    hn.textContent = P.hint;
+    panel.appendChild(hn);
+    panelRefs = [];
+    for (const c of P.ctls){
+        const row = document.createElement('div');
+        row.className = 'p-row';
+        const lab = document.createElement('span');
+        lab.className = 'p-lab';
+        lab.textContent = c.label;
+        row.appendChild(lab);
+        let refresh = null;
+        if (c.type === 'range'){
+            const inp = document.createElement('input');
+            inp.type = 'range';
+            inp.min = c.min; inp.max = c.max; inp.step = c.step;
+            inp.value = c.get();
+            inp.addEventListener('input', () => { c.set(parseFloat(inp.value)); refreshPanel(inp); });
+            row.appendChild(inp);
+            refresh = skip => { if (skip !== inp && document.activeElement !== inp) inp.value = c.get(); };
+        } else if (c.type === 'toggle'){
+            const b = document.createElement('button');
+            b.className = 'ctl';
+            b.addEventListener('click', () => { c.set(!c.get()); refreshPanel(); });
+            row.appendChild(b);
+            refresh = () => {
+                b.classList.toggle('on', !!c.get());
+                b.textContent = c.get() ? 'ВВІМК' : 'ВИМК';
+            };
+        } else if (c.type === 'cycle'){
+            const b = document.createElement('button');
+            b.className = 'ctl';
+            b.addEventListener('click', () => { c.act(); refreshPanel(); });
+            row.appendChild(b);
+            refresh = () => { b.textContent = c.val(); };
+        } else if (c.type === 'step'){
+            const wrap = document.createElement('div');
+            wrap.className = 'p-step';
+            const bm = document.createElement('button');
+            bm.className = 'ctl'; bm.textContent = '−';
+            const vv = document.createElement('span');
+            vv.className = 'p-val';
+            const bp = document.createElement('button');
+            bp.className = 'ctl'; bp.textContent = '+';
+            bm.addEventListener('click', () => { c.dec(); refreshPanel(); });
+            bp.addEventListener('click', () => { c.inc(); refreshPanel(); });
+            wrap.append(bm, vv, bp);
+            row.appendChild(wrap);
+            refresh = () => { vv.textContent = c.val(); };
+        }
+        panel.appendChild(row);
+        if (refresh){ panelRefs.push(refresh); refresh(); }
+    }
+}
+function refreshPanel(skip){ for (const r of panelRefs) r(skip); }
+function buildModeMenu(){
+    modeMenu.innerHTML = '';
+    VIEWS.forEach((name, i) => {
+        const b = document.createElement('button');
+        b.className = 'mode-item' + (i === ST.view ? ' cur' : '');
+        b.textContent = MODE_GLYPHS[i] + '  ' + name;
+        b.addEventListener('click', () => { modeMenu.classList.remove('open'); setView(i); });
+        modeMenu.appendChild(b);
+    });
+}
+modeBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    buildModeMenu();
+    modeMenu.classList.toggle('open');
+});
+for (const el of [panel, modeMenu, modeBtn])
+    el.addEventListener('pointerdown', e => e.stopPropagation());
 
 const PTRS = new Map();
 let tapInfo = null, twoTap = 0, pressT = null, panY = null;
@@ -1351,7 +1556,6 @@ container.addEventListener('pointerdown', e => {
             pressT = null;
             tapInfo = null;
             setFrozen(!ST.frozen);
-            updateHud();
         }, 450);
     } else if (PTRS.size === 2){
         clearTimeout(pressT); pressT = null;
@@ -1398,17 +1602,16 @@ function endPtr(e){
         return;
     }
     if (PTRS.size === 0 && tapInfo && !tapInfo.moved && performance.now() - tapInfo.t < 250){
+        modeMenu.classList.remove('open');
         if (ST.view === 0){
             const nx = (tapInfo.x / innerWidth) * 2 - 1;
             const ny = -(tapInfo.y / innerHeight) * 2 + 1;
             const hit = pickBlob(nx, ny);
             if (hit){
                 if (ST.sel === hit.id) deselect();
-                else { ST.sel = hit.id; ST.focusLvl = hit.lvl; }
-            }
-            else if (ST.sel) deselect();
-            else cycleView();
-        } else cycleView();
+                else { ST.sel = hit.id; ST.focusLvl = hit.lvl; refreshPanel(); }
+            } else if (ST.sel) deselect();
+        }
     }
     if (PTRS.size === 0) tapInfo = null;
 }
@@ -1422,9 +1625,9 @@ hud.addEventListener('click', e => { e.stopPropagation(); cycleMetric(); });
 window.addEventListener('keydown', e => {
     if (!ST.running) return;
     const k = e.key;
-    if (k >= '1' && k <= '5'){ ST.view = +k - 1; applyView(); toast('ВИД: ' + VIEWS[ST.view]); }
+    if (k >= '1' && k <= '5') setView(+k - 1);
     if (k.toLowerCase() === 'm' || k === 'ь') cycleMetric();
-    if (k.toLowerCase() === 'f' || k === 'а'){ setFrozen(!ST.frozen); updateHud(); }
+    if (k.toLowerCase() === 'f' || k === 'а') setFrozen(!ST.frozen);
 });
 
 /* ── Головний цикл ── */
@@ -1450,7 +1653,7 @@ function loop(now){
     else if (fresh && ST.view === 4) updateCloud();
     if (G.cloudMat){
         const u = G.cloudMat.uniforms.uMix;
-        u.value += (uMixGoal - u.value) * 0.06;
+        u.value += (ST.mixGoal - u.value) * 0.08;
     }
     orb.t += (orbGoal.t - orb.t) * 0.12;
     orb.p += (orbGoal.p - orb.p) * 0.12;
@@ -1464,7 +1667,7 @@ function loop(now){
         orb.tz + Math.cos(orb.t) * Math.sin(orb.p) * orb.r
     );
     camera.lookAt(orb.tx, orb.ty, orb.tz);
-    if (now - ST.lastHud > 300){ ST.lastHud = now; updateHud(); }
+    if (now - ST.lastHud > 300){ ST.lastHud = now; updateHud(); refreshPanel(); }
     renderer.render(scene, camera);
 }
 
@@ -1497,9 +1700,12 @@ startBtn.addEventListener('click', async () => {
     }
     try { ST.wake = await navigator.wakeLock.request('screen'); } catch (e) {}
     hud.style.display = 'block';
+    panel.style.display = 'block';
+    modeBtn.style.display = 'block';
     ST.running = true;
+    buildPanel();
     requestAnimationFrame(loop);
-    toast('ШАРИ ЖИВІ. ТАП — ОБʼЄКТ, ДОВГИЙ ТАП — FREEZE');
+    toast('РЕЖИМИ — КНОПКА ПРАВОРУЧ ↘ · ОДИН ПАЛЕЦЬ — ОБЕРТАННЯ');
 });
 
 document.addEventListener('visibilitychange', async () => {
